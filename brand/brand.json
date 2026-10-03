@@ -1,0 +1,38 @@
+{
+  "name": "MultiSession Tabs",
+  "slug": "multisession-tabs",
+  "tagline": "One Chrome window, many logins.",
+  "description": "Give each Chrome tab its own login session. Save, open and reuse a whole set of signed-in sites as a persona — built for developers testing their own apps across many roles and tenants.",
+  "repo": "khanakia/multisession-tabs",
+  "homepage": "https://github.com/khanakia/multisession-tabs",
+  "language": "typescript",
+  "kind": "browser-extension",
+  "license": "Apache-2.0",
+  "author": { "name": "Aman Bansal", "handle": "khanakia" },
+  "topics": [
+    "chrome-extension",
+    "manifest-v3",
+    "multi-account",
+    "session-management",
+    "browser-isolation",
+    "cookies",
+    "developer-tools",
+    "testing",
+    "multi-tenant",
+    "typescript"
+  ],
+  "positioning": {
+    "audience": "Developers testing their own apps across many roles and tenants",
+    "problem": "Testing six roles means six browser profiles, six windows, or six browsers",
+    "alternatives": ["Chrome profiles", "Incognito windows", "SessionBox One", "Firefox Multi-Account Containers"],
+    "differentiator": "Sessions are saved and restorable, and the badge reports honestly when a site cannot be fully isolated"
+  },
+  "outOfScope": [
+    "Fingerprint spoofing",
+    "Proxy per session",
+    "Ban evasion",
+    "Cloud sync of credentials"
+  ],
+  "brand": { "skipped": true, "note": "Branding phase skipped by request; icons are generated from apps/extension/scripts/make-icons.mjs" },
+  "khanakia": { "addToApps": false }
+}

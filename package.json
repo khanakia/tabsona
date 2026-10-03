@@ -1,0 +1,12 @@
+{
+  "name": "multisession-tabs",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "build": "pnpm --filter extension build",
+    "dev": "pnpm --filter extension dev",
+    "test": "pnpm --filter extension test",
+    "typecheck": "pnpm --filter extension typecheck"
+  }
+}

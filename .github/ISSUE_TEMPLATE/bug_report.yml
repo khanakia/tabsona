@@ -1,0 +1,46 @@
+name: Bug report
+description: Something behaves differently from what the docs or the badge claim.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: the known holes are listed in [`docs/limits.md`](../../blob/main/docs/limits.md) — service-worker fetches, IndexedDB, cross-origin frames and CHIPS are documented limitations rather than bugs.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead.
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a persona "admin"
+        2. Add site https://…
+        3. Sign in
+        4. …
+    validations: { required: true }
+  - type: input
+    id: site
+    attributes:
+      label: Site
+      description: The site it happens on, if you can share it. A reproduction on a site anyone can reach is the single most useful thing in this box.
+  - type: dropdown
+    id: badge
+    attributes:
+      label: What did the tab's badge say?
+      description: The in-page chip reports which layers it could isolate. If it named a leaking layer, that is usually the answer.
+      options:
+        - It said "isolated"
+        - It named a leaking layer
+        - No badge appeared
+        - I did not look
+    validations: { required: true }
+  - type: input
+    id: chrome
+    attributes:
+      label: Chrome version
+      placeholder: "154.0.8037.93"
+    validations: { required: true }

@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "MultiSession Tabs",
+  "version": "0.1.0",
+  "description": "Personas: one Chrome window, many logins. Save, open and reuse a whole set of signed-in sites.",
+  "minimum_chrome_version": "120",
+  "permissions": [
+    "declarativeNetRequest",
+    "webRequest",
+    "storage",
+    "tabs",
+    "scripting",
+    "webNavigation",
+    "cookies",
+    "tabGroups"
+  ],
+  "host_permissions": [
+    "http://localhost:8787/*"
+  ],
+  "optional_host_permissions": [
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "MultiSession Tabs",
+    "default_popup": "src/surfaces/popup/index.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Open the session list"
+    }
+  },
+  "options_ui": {
+    "page": "src/surfaces/options/index.html",
+    "open_in_tab": true
+  }
+}

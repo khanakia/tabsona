@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+apps/*/dist/
+*.zip
+
+# lore — the database is machine-local; the knowledge is re-rendered from it
+.lore/lore.db
+.lore/lore.db-shm
+.lore/lore.db-wal
+.lore/state/
+.lore/backups/
+
+# credentials for the end-to-end drivers — never committed
+.env
+.env.local
+spike/.env.local
+
+# editor / OS
+.DS_Store
+.idea/
+*.swp
+
+# agent scratch
+.claude/settings.local.json
+.claude/.headroom_*
+
+# internal design notes — kept local, not published
+docsi/
