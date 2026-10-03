@@ -80,8 +80,62 @@ The dashboard asks for one line per permission. Vague answers are the most commo
 
 Screenshots are captured from the real built extension by `task screenshots`; the surrounding frame is staged, every pixel inside it is the product.
 
+## URLs for the listing
+
+| Dashboard field | Value |
+|---|---|
+| Homepage | `https://khanakia.github.io/tabsona/` |
+| Privacy policy | `https://khanakia.github.io/tabsona/privacy.html` |
+| Support | `https://github.com/khanakia/tabsona/issues` |
+
+The two `khanakia.github.io` pages are served by GitHub Pages from this repo's `docs/` folder, so the policy and the code that implements it can never drift onto different hosts. `docs/.nojekyll` keeps Pages serving the files verbatim rather than running them through Jekyll.
+
+## Privacy practices tab
+
+The dashboard asks these verbatim, and an answer inconsistent with the manifest is a rejection. Every answer below is checkable against the source.
+
+**Single purpose**
+
+```
+Isolate and manage multiple logins per tab for the sites the user chooses.
+```
+
+**Does this item collect or use user data?** — Yes. One category applies:
+
+| Category | Tick | Why |
+|---|---|---|
+| Authentication information | **yes** | Saving a session stores that site's cookies and its `localStorage` auth entries, locally, so the persona can reopen signed in. |
+| Personally identifiable information | no | Nothing is read from page content; the only text the user types is a persona name. |
+| Health, financial, payment information | no | Never read. |
+| Personal communications | no | Never read. |
+| Location | no | Never read. |
+| Web history | no | No history API is used, and no record of visited pages is kept. A persona stores only the site addresses the user added to it. |
+| User activity | no | No clicks, keystrokes, mouse or scroll data is recorded. |
+| Website content | no | The storage shim namespaces keys without reading values beyond the saved session, and no page text, image or document is collected. |
+
+**The three required certifications** — all three can be certified truthfully:
+
+- Not being sold to third parties, outside of approved use cases — *nothing is transmitted at all.*
+- Not being used or transferred for purposes unrelated to the item's single purpose — *the data exists only to restore a login.*
+- Not being used or transferred to determine creditworthiness or for lending purposes.
+
+## Packaging and submitting
+
+```bash
+task package          # build, preflight, then dist/tabsona-<version>.zip
+```
+
+`task preflight` runs inside `task package` and refuses to produce a zip on any of: a development host permission in the manifest (the exact regression that shipped `http://localhost:8787/*` for weeks), an over-length name, summary or short name, a bad version string, a `key` or `update_url` field, a manifest reference to a file the build did not emit, an icon whose real PNG dimensions disagree with the size it is declared as, remotely hosted code in any built HTML or JS, or an over-size package. The checklist that used to live in this file is that script, because a checklist nobody fails is not a check.
+
 ## Before submitting
 
-- The repo is public, so the "Open source" link in the description resolves.
-- A privacy policy URL is required because the extension handles user data. The Privacy section above states the position; it needs a hosted page.
-- Single purpose statement: "Isolate and manage multiple logins per tab for the sites the user chooses."
+- [x] Repo is public, so the "Open source" link in the description resolves.
+- [x] Privacy policy hosted, at the URL above.
+- [x] `task package` green, zip at `dist/tabsona-<version>.zip` with `manifest.json` at the archive root.
+- [x] `task check` green — typecheck, unit tests, build and nine end-to-end suites against the built extension.
+- [ ] Screenshots regenerated if the UI changed since the last run (`task screenshots`).
+- [ ] Bump `manifest.version` — the Store rejects a re-upload of a version it already has.
+
+## What review will most likely question
+
+The optional `*://*/*` host permission. It is genuinely needed, because the user decides which sites to isolate and that set cannot be known in advance — but it is *optional*, requested one site at a time through Chrome's own prompt, and nothing is accessed until the user presses "Allow this site". The justification row above says exactly that; if review pushes back, the answer is the runtime-grant flow, not a narrower pattern list.

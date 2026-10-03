@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Privacy Policy — Tabsona</title>
+<meta name="description" content="Tabsona stores everything on your own machine. No server, no account, no telemetry, nothing uploaded." />
+<link rel="icon" href="./icon128.png" />
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style>
+  /* Readable without the stylesheet too: if the CDN is blocked, a privacy policy still
+     has to be legible, so the document is semantic HTML first and styled second. */
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, system-ui, sans-serif; }
+</style>
+</head>
+<body class="bg-white text-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 text-[13px] leading-relaxed">
+<main class="mx-auto max-w-2xl px-4 py-10">
+
+  <header class="mb-8 flex items-center gap-3 border-b border-zinc-200 pb-5 dark:border-zinc-800">
+    <img src="./icon128.png" alt="" width="40" height="40" class="rounded-lg" />
+    <div>
+      <h1 class="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Tabsona — Privacy Policy</h1>
+      <p class="text-[12px] text-zinc-500 dark:text-zinc-400">Last updated 3 October 2026 · applies to the Tabsona Chrome extension</p>
+    </div>
+  </header>
+
+  <p class="mb-6 rounded-md border border-emerald-600/30 bg-emerald-500/10 px-3 py-2 text-[13px] text-emerald-900 dark:text-emerald-200">
+    <strong>In one line:</strong> everything Tabsona holds stays in your own browser profile. There is no server, no account, no analytics and no sync. Nothing is uploaded, sold or shared.
+  </p>
+
+  <h2 class="mb-2 mt-7 text-[13px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">What the extension stores</h2>
+  <p class="mb-3">Tabsona's job is to keep one browser tab's login separate from another's. To do that it saves, in <code class="rounded bg-zinc-100 px-1 dark:bg-zinc-800">chrome.storage.local</code> on this device:</p>
+  <ul class="mb-3 list-disc space-y-1 pl-5">
+    <li><strong>Personas you create</strong> — the name and description you type.</li>
+    <li><strong>Site addresses</strong> you add to a persona.</li>
+    <li><strong>Authentication data for those sites</strong> — cookies (name, value and attributes) and the <code class="rounded bg-zinc-100 px-1 dark:bg-zinc-800">localStorage</code> / <code class="rounded bg-zinc-100 px-1 dark:bg-zinc-800">sessionStorage</code> entries belonging to a saved session. This is what lets a persona reopen already signed in.</li>
+    <li><strong>Which tab belongs to which session</strong>, and your settings.</li>
+  </ul>
+  <p class="mb-3">It does not read, store or transmit page content, browsing history, form input, keystrokes, or any site you have not explicitly approved.</p>
+
+  <h2 class="mb-2 mt-7 text-[13px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Where it goes</h2>
+  <p class="mb-3">Nowhere. There is no backend service, no third-party SDK, no crash reporter and no usage analytics in the extension. No network request is made to any server operated by the developer, because there is none. The only network traffic is the browsing you do yourself, to the sites you opened.</p>
+  <p class="mb-3">Data is <strong>not</strong> synced across your devices: Tabsona deliberately uses local storage rather than <code class="rounded bg-zinc-100 px-1 dark:bg-zinc-800">chrome.storage.sync</code>, because saved sessions contain live credentials and those should not travel.</p>
+
+  <h2 class="mb-2 mt-7 text-[13px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Site access</h2>
+  <p class="mb-3">Tabsona requests access to a website only when you press <em>Allow this site</em> for it, and Chrome then shows you its own confirmation dialog. Until you do that, the extension has no access to the site and cannot isolate it. You can revoke access for any site at any time from <code class="rounded bg-zinc-100 px-1 dark:bg-zinc-800">chrome://extensions</code>.</p>
+
+  <h2 class="mb-2 mt-7 text-[13px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Please treat saved sessions as credentials</h2>
+  <p class="mb-3">A saved session <em>is</em> a login. Two consequences worth knowing:</p>
+  <ul class="mb-3 list-disc space-y-1 pl-5">
+    <li>Extension storage is not encrypted by the browser. Anyone with access to your user account on this machine can read it, exactly as they could read your browser's own cookie jar.</li>
+    <li>An <strong>export file contains live credentials in plain text.</strong> Treat the file like a password file: do not commit it, mail it, or leave it in a shared folder.</li>
+  </ul>
+
+  <h2 class="mb-2 mt-7 text-[13px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Deleting your data</h2>
+  <p class="mb-3">Deleting a session or a persona in the extension removes its stored data immediately. Uninstalling the extension makes Chrome delete all of its storage. Because nothing was ever sent anywhere, there is no copy for anyone to delete on your behalf.</p>
+
+  <h2 class="mb-2 mt-7 text-[13px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Chrome Web Store limited use</h2>
+  <p class="mb-3">Tabsona's use of information received from Google APIs adheres to the <a class="underline decoration-zinc-400 underline-offset-2 hover:text-zinc-950 dark:hover:text-white" href="https://developer.chrome.com/docs/webstore/program-policies/limited-use/">Chrome Web Store User Data Policy</a>, including the Limited Use requirements. Specifically: the data described above is used only to provide the single feature of isolating and restoring logins per tab; it is never sold or transferred to third parties; it is never used for advertising, personalisation or creditworthiness; and no human reads it, because it never leaves the device.</p>
+
+  <h2 class="mb-2 mt-7 text-[13px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">What this extension is not for</h2>
+  <p class="mb-3">Tabsona is a developer tool for testing applications you control. It does not spoof your browser fingerprint and does not route traffic through proxies — every persona shares your real browser identity. It is not built for evading bans or platform rules.</p>
+
+  <h2 class="mb-2 mt-7 text-[13px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Changes and contact</h2>
+  <p class="mb-3">If this policy changes, the date at the top changes with it and the previous wording stays visible in the repository's history. Questions, or a privacy concern: open an issue at <a class="underline decoration-zinc-400 underline-offset-2 hover:text-zinc-950 dark:hover:text-white" href="https://github.com/khanakia/tabsona/issues">github.com/khanakia/tabsona/issues</a>, or email <a class="underline decoration-zinc-400 underline-offset-2 hover:text-zinc-950 dark:hover:text-white" href="mailto:khanakia@gmail.com">khanakia@gmail.com</a>.</p>
+
+  <footer class="mt-10 border-t border-zinc-200 pt-5 text-[12px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+    Tabsona is open source — the claims on this page can be checked against the code at
+    <a class="underline decoration-zinc-400 underline-offset-2" href="https://github.com/khanakia/tabsona">github.com/khanakia/tabsona</a>.
+    See also <a class="underline decoration-zinc-400 underline-offset-2" href="https://github.com/khanakia/tabsona/blob/main/docs/limits.md">the full list of known limits</a>.
+  </footer>
+
+</main>
+</body>
+</html>

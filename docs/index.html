@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tabsona — one Chrome window, many logins</title>
+<meta name="description" content="Give each Chrome tab its own login. Save a set of signed-in sites as a persona and reopen the whole set in one click." />
+<meta property="og:title" content="Tabsona — one Chrome window, many logins" />
+<meta property="og:description" content="Give each Chrome tab its own login. Save a set of signed-in sites as a persona and reopen the whole set in one click." />
+<link rel="icon" href="./icon128.png" />
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, system-ui, sans-serif; }
+</style>
+</head>
+<body class="bg-white text-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 text-[13px] leading-relaxed">
+<main class="mx-auto max-w-2xl px-4 py-14">
+
+  <img src="./icon128.png" alt="" width="56" height="56" class="mb-4 rounded-xl" />
+  <h1 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Tabsona</h1>
+  <p class="mb-6 text-[14px] text-zinc-600 dark:text-zinc-300">One Chrome window, many logins. Give each tab its own login session, and save a whole set of signed-in sites as a <em>persona</em> — admin, tenant-A, staging — instead of juggling browser profiles.</p>
+
+  <pre class="mb-7 overflow-x-auto rounded-md border border-zinc-200 bg-zinc-50 p-3 text-[12px] leading-5 dark:border-zinc-800 dark:bg-zinc-900">Acme admin                      3 sites  ▶ Open all
+  app.example.com      ● Signed in   4 cookies · 3 keys · 2h
+  admin.example.com    ● Signed in   1 cookie · 4h
+  billing.example.com  ○ Empty       nothing saved yet — sign in once</pre>
+
+  <nav class="mb-8 grid gap-2 sm:grid-cols-2">
+    <a class="rounded-md border border-zinc-200 px-3 py-2 transition-colors hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:border-zinc-600 dark:hover:bg-zinc-900" href="https://github.com/khanakia/tabsona">
+      <span class="block font-medium text-zinc-900 dark:text-zinc-100">Source &amp; install →</span>
+      <span class="text-[12px] text-zinc-500 dark:text-zinc-400">github.com/khanakia/tabsona</span>
+    </a>
+    <a class="rounded-md border border-zinc-200 px-3 py-2 transition-colors hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:border-zinc-600 dark:hover:bg-zinc-900" href="https://github.com/khanakia/tabsona/blob/main/docs/how-it-works.md">
+      <span class="block font-medium text-zinc-900 dark:text-zinc-100">How it works →</span>
+      <span class="text-[12px] text-zinc-500 dark:text-zinc-400">the engine, with diagrams</span>
+    </a>
+    <a class="rounded-md border border-zinc-200 px-3 py-2 transition-colors hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:border-zinc-600 dark:hover:bg-zinc-900" href="https://github.com/khanakia/tabsona/blob/main/docs/limits.md">
+      <span class="block font-medium text-zinc-900 dark:text-zinc-100">Known limits →</span>
+      <span class="text-[12px] text-zinc-500 dark:text-zinc-400">every hole, marked verified or assumed</span>
+    </a>
+    <a class="rounded-md border border-zinc-200 px-3 py-2 transition-colors hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:border-zinc-600 dark:hover:bg-zinc-900" href="./privacy.html">
+      <span class="block font-medium text-zinc-900 dark:text-zinc-100">Privacy policy →</span>
+      <span class="text-[12px] text-zinc-500 dark:text-zinc-400">nothing leaves your machine</span>
+    </a>
+  </nav>
+
+  <p class="text-[12px] text-zinc-500 dark:text-zinc-400">A developer tool for testing your own applications. It does not spoof fingerprints or route traffic through proxies. Apache-2.0 © Aman Bansal.</p>
+
+</main>
+</body>
+</html>

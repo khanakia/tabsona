@@ -28,6 +28,7 @@ Do not re-derive these, and do not build a design that ignores one.
 - **Scope `webRequest` listeners to granted hosts, never `<all_urls>`.** With optional host permissions the broad form logs one warning and then never fires — a silent failure.
 - **The MV3 service worker is torn down at will, and several events boot it at once.** Reloading at `chrome://extensions` runs the module body *and* fires `onInstalled`. Every read-then-write chrome API (`registerContentScripts`, `updateSessionRules`) must be serialized, and `registerContentScripts` additionally needs catch-and-retry, because a previous worker generation can write between your read and your write.
 - **Never use a dynamic `await import()` in the worker.** Vite wraps it in a preload helper that calls `window.dispatchEvent`, and a service worker has no `window`. Keep `build.modulePreload: false`.
+- **The shipped manifest declares no host permissions at all.** Every origin is granted at runtime through Chrome's own prompt. The fixture origin that the end-to-end suites need is injected into the *built* manifest by `task grant`, never into the source — a development origin in a published manifest is both a review finding and a permission the user never agreed to. `task preflight` fails if one reappears.
 - **Chrome 154 silently ignores `--load-extension`.** Load unpacked via the CDP `Extensions.loadUnpacked` command instead; `task probe:load` re-checks this if a future Chrome changes it.
 
 ## Project rules
@@ -52,7 +53,7 @@ Enforced, not aspirational — see `CONTRIBUTING.md` and `src/core/__tests__/bou
 
 ## Commands
 
-`task --list` is the index. The ones that matter: `task build`, `task test`, `task check` (the gate), `task e2e:app` (against a real app, credentials from the environment), `task probe:app` (find where an app keeps its login).
+`task --list` is the index. The ones that matter: `task build`, `task test`, `task check` (the gate), `task package` (a Chrome Web Store upload — runs `task preflight`, which fails the pack on any Store hard requirement), `task e2e:app` (against a real app, credentials from the environment), `task probe:app` (find where an app keeps its login).
 
 ## Where things live
 

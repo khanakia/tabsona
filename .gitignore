@@ -34,3 +34,6 @@ docsi/
 # The generator and the listing copy ARE tracked; the rasters are not, so a binary diff
 # never lands in review.
 brand/store/*.png
+
+# store upload packages
+/dist/

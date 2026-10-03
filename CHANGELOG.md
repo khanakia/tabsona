@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Save, restore and duplicate** sessions, with cookie identity preserved (`name`, `domain`, `path`, `partitionKey`).
 - **Options page** — full library, allowed sites, per-origin coverage report, export and import.
 - End-to-end suites driving the built extension in a real Chrome, each with a control run proving the scenario collides without the extension.
+- **Chrome Web Store packaging** — `task package` builds, validates and zips an upload, and `task preflight` fails the pack on any Store hard requirement: a development host permission in the manifest, an over-length field, a bad version, a `key`/`update_url`, a manifest reference to a missing file, an icon whose real PNG size disagrees with its declared size, remotely hosted code, or an over-size package.
+- **Privacy policy and project site** at `docs/`, served by GitHub Pages, so the policy lives with the code that implements it.
 
 ### Fixed
 
@@ -23,4 +25,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Signing into a session tab no longer signs the whole browser in — `Set-Cookie` is stripped from responses on bound tabs.
 - A blank new tab no longer joins a persona. Session inheritance now listens to `webNavigation.onCreatedNavigationTarget`, which fires only for a tab opened from a link.
 - Concurrent service-worker boots no longer produce `Duplicate script ID`, and concurrent rule syncs no longer collide.
+- The published manifest no longer requests `http://localhost:8787/*`. The fixture origin had been baked in for the end-to-end suites; each suite now grants it into the *built* manifest instead, and the preflight gate fails if a development origin ever reappears.
 - The storage shim's `length` descriptor is configurable, so `Object.keys(localStorage)` no longer throws inside an isolated page.

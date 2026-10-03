@@ -7,6 +7,11 @@ version: '3'
 
 vars:
   FIXTURE_PORT: '8787'
+  # The origins the end-to-end suites pre-grant into the BUILT manifest. Named here
+  # because they appear at every suite and the shipped manifest deliberately holds none —
+  # a literal repeated per suite is how a dev origin finds its way back into the source.
+  FIXTURE_ORIGIN: 'http://localhost:8787'
+  FIXTURE_ORIGIN_2: 'http://localhost:8788'
   EXT_DIST: apps/extension/dist
 
 tasks:
@@ -42,6 +47,8 @@ tasks:
     env: {APP: fixture}
     cmds:
       - task: strays
+      - task: grant
+        vars: {ORIGINS: '{{.FIXTURE_ORIGIN}}'}
       - node spike/e2e-isolation.mjs
 
   e2e:persona:
@@ -50,7 +57,7 @@ tasks:
     cmds:
       - task: strays
       - task: grant
-        vars: {ORIGINS: 'http://localhost:8787 http://localhost:8788'}
+        vars: {ORIGINS: '{{.FIXTURE_ORIGIN}} {{.FIXTURE_ORIGIN_2}}'}
       - node spike/e2e-persona.mjs
 
   e2e:capture:
@@ -59,6 +66,8 @@ tasks:
     env: {APP: fixture}
     cmds:
       - task: strays
+      - task: grant
+        vars: {ORIGINS: '{{.FIXTURE_ORIGIN}}'}
       - node spike/e2e-capture.mjs
 
   e2e:tabs:
@@ -66,6 +75,8 @@ tasks:
     deps: [build, fixture:up]
     cmds:
       - task: strays
+      - task: grant
+        vars: {ORIGINS: '{{.FIXTURE_ORIGIN}}'}
       - node spike/e2e-tabs.mjs
 
   e2e:flows:
@@ -74,6 +85,8 @@ tasks:
     env: {APP: fixture}
     cmds:
       - task: strays
+      - task: grant
+        vars: {ORIGINS: '{{.FIXTURE_ORIGIN}}'}
       - node spike/e2e-flows.mjs
 
   e2e:move:
@@ -82,6 +95,8 @@ tasks:
     env: {APP: fixture}
     cmds:
       - task: strays
+      - task: grant
+        vars: {ORIGINS: '{{.FIXTURE_ORIGIN}}'}
       - node spike/e2e-move.mjs
 
   e2e:twologins:
@@ -90,6 +105,8 @@ tasks:
     env: {APP: fixture}
     cmds:
       - task: strays
+      - task: grant
+        vars: {ORIGINS: '{{.FIXTURE_ORIGIN}}'}
       - node spike/e2e-twologins.mjs
 
   e2e:migrate:
@@ -104,6 +121,8 @@ tasks:
     deps: [build]
     cmds:
       - task: strays
+      - task: grant
+        vars: {ORIGINS: '{{.FIXTURE_ORIGIN}}'}
       - node spike/e2e-boot.mjs
 
   e2e:app:
@@ -131,6 +150,8 @@ tasks:
     cmds:
       - task: typecheck
       - task: test
+      - task: test:scripts
+      - task: preflight
       - task: e2e:isolation
       - task: e2e:persona
       - task: e2e:capture
@@ -164,6 +185,9 @@ tasks:
           const fs = require("node:fs");
           const p = "{{.EXT_DIST}}/manifest.json";
           const m = JSON.parse(fs.readFileSync(p, "utf8"));
+          // The shipped manifest declares NO host permissions — every origin is granted at
+          // runtime by the user. So the key is absent until this test-only step creates it.
+          m.host_permissions ??= [];
           for (const origin of process.argv.slice(1)) {
             const want = origin.replace(/\/$/, "") + "/*";
             if (!m.host_permissions.includes(want)) m.host_permissions.push(want);
@@ -171,6 +195,33 @@ tasks:
           fs.writeFileSync(p, JSON.stringify(m, null, 2));
           console.log("[grant] " + m.host_permissions.join(" "));
         ' {{.ORIGINS}}
+
+  test:scripts:
+    desc: 'Tests for the build/packaging scripts (node:test — they live outside the extension bundle, so vitest does not see them)'
+    cmds: [node --test apps/extension/scripts/*.test.mjs]
+
+  preflight:
+    desc: 'Check the BUILT extension against every Chrome Web Store hard requirement (fails the pack)'
+    deps: [build]
+    cmds: [node apps/extension/scripts/preflight-store.mjs]
+
+  package:
+    desc: 'Produce the zip to upload to the Chrome Web Store (build, preflight, then zip)'
+    deps: [preflight]
+    cmds:
+      - mkdir -p dist
+      - |
+        # The Store requires manifest.json at the ARCHIVE ROOT, so the zip is made from
+        # inside dist/ rather than from the repo root — a zip containing a `dist/` folder
+        # is rejected on upload with a message that does not say why.
+        # -X drops macOS resource forks, which otherwise appear as stray files in review.
+        VERSION=$(node -p 'require("./apps/extension/manifest.json").version')
+        OUT="$PWD/dist/tabsona-$VERSION.zip"
+        rm -f "$OUT"
+        cd {{.EXT_DIST}} && zip -rqX "$OUT" . -x '.*' -x '*/.*'
+        cd - >/dev/null
+        echo "→ dist/tabsona-$VERSION.zip  ($(du -h "$OUT" | cut -f1))"
+        unzip -l "$OUT" | head -8
 
   brand:
     desc: Regenerate the icon set and Chrome Web Store artwork from one description of the mark
