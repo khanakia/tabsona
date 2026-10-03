@@ -148,6 +148,7 @@ tasks:
   check:
     desc: The real gate — typecheck, all tests, build, and every end-to-end proof on the fixture
     cmds:
+      - task: secrets:scan
       - task: typecheck
       - task: test
       - task: test:scripts
@@ -223,15 +224,65 @@ tasks:
         echo "→ dist/tabsona-$VERSION.zip  ($(du -h "$OUT" | cut -f1))"
         unzip -l "$OUT" | head -8
 
+  # --- secrets ---------------------------------------------------------------
+  # The repo is PUBLIC and .env holds live Store credentials. Config: .gitleaks.toml.
+
+  hooks:install:
+    desc: 'Activate the pre-commit secret + binary guard for this clone (installs gitleaks via brew if missing)'
+    cmds:
+      - git config --local core.hooksPath .githooks
+      - echo "✓ git hooksPath = .githooks (pre-commit guard active)"
+      - |
+        if ! command -v gitleaks >/dev/null 2>&1; then
+          if command -v brew >/dev/null 2>&1; then brew install gitleaks
+          else echo "install gitleaks: https://github.com/gitleaks/gitleaks#installing"; exit 1; fi
+        fi
+        echo "✓ gitleaks $(gitleaks version)"
+
+  secrets:scan:
+    desc: 'Scan the FULL git history for secrets (part of task check)'
+    cmds: [gitleaks git --redact --no-banner .]
+
+  secrets:scan:staged:
+    desc: 'Scan only the staged diff (what the pre-commit hook runs)'
+    cmds: [gitleaks git --staged --redact --no-banner --verbose .]
+
+  # --- Chrome Web Store ------------------------------------------------------
+  # Credentials in .env (git-ignored); see apps/extension/scripts/cws.mjs for each key.
+
+  cws:auth:
+    desc: 'Authorise the Store API once (opens Google consent; needs a human click). Writes CWS_REFRESH_TOKEN'
+    cmds: [node apps/extension/scripts/cws.mjs auth]
+
+  cws:create:
+    desc: 'Create the Store item as a private DRAFT from the current package. Run once; writes CWS_EXTENSION_ID'
+    deps: [package]
+    cmds: [node apps/extension/scripts/cws.mjs create]
+
+  cws:upload:
+    desc: 'Upload the current package to the existing draft (bump manifest.version first)'
+    deps: [package]
+    cmds: [node apps/extension/scripts/cws.mjs upload]
+
+  cws:publish:
+    desc: 'Submit the draft for review — makes it PUBLIC once approved. Ask before running'
+    cmds: [node apps/extension/scripts/cws.mjs publish]
+
+  cws:status:
+    desc: 'Show the draft item upload state'
+    cmds: [node apps/extension/scripts/cws.mjs status]
+
   brand:
     desc: Regenerate the icon set and Chrome Web Store artwork from one description of the mark
     cmds: [node apps/extension/scripts/make-brand.mjs]
 
   screenshots:
-    desc: Capture Chrome Web Store screenshots (1280x800) from the REAL built extension
-    deps: [build]
+    desc: 'Capture every Store and README image (1280x800 + 640x400) from the REAL built extension'
+    deps: [build, fixture:up]
     cmds:
       - task: strays
+      - task: grant
+        vars: {ORIGINS: '{{.FIXTURE_ORIGIN}}'}
       - node spike/make-screenshots.mjs
 
   probe:app:

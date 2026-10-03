@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Pre-commit guard: refuse secrets and compiled binaries before they enter history.
+#
+# Why it exists: this repository is PUBLIC, and the Chrome Web Store flow keeps
+# live Google OAuth credentials in `.env`. A pushed secret must be treated as
+# compromised even if the commit is reverted, because history and forks keep it.
+#
+# Activate once per clone:   task hooks:install
+#   (sets core.hooksPath=.githooks and installs gitleaks via brew if missing)
+#
+# Scanner config: .gitleaks.toml at the repo root.
+# Full-history audit:       task secrets:scan
+#
+# Bypass (USE WITH CARE): git commit --no-verify. If a false positive forces a
+# bypass, add its placeholder SHAPE to .gitleaks.toml instead, so nobody else
+# has to bypass.
+
+set -euo pipefail
+
+# gitleaks is REQUIRED, not optional. sync_go keeps a hand-written regex fallback
+# for clones without it; here a missing scanner fails closed instead, because a
+# silently weaker check on a public repo is worse than one install step.
+if ! command -v gitleaks >/dev/null 2>&1; then
+	echo "✘ pre-commit: gitleaks is not installed — refusing to commit unscanned." >&2
+	echo "  Install it:  brew install gitleaks   (or run: task hooks:install)" >&2
+	exit 1
+fi
+
+# Staged files only; deletions are fine (removing a secret is the goal).
+files=$(git diff --cached --name-only --diff-filter=ACMRT || true)
+[[ -z "$files" ]] && exit 0
+
+# ─── Refuse compiled binaries (Mach-O / ELF / PE), by magic bytes ────────────
+# Names are unpredictable; magic bytes are not. The extension ships JS only, so
+# an executable in a commit is always a mistake.
+binary_violations=0
+while IFS= read -r f; do
+	[[ -f "$f" ]] || continue
+	magic=$(xxd -l 4 -p "$f" 2>/dev/null || true)
+	case "$magic" in
+		feedface|cefaedfe|feedfacf|cffaedfe|cafebabe|7f454c46*|4d5a*)
+			echo "✘ pre-commit: refusing compiled binary — $f" >&2
+			binary_violations=$((binary_violations + 1)) ;;
+	esac
+done <<< "$files"
+if (( binary_violations > 0 )); then
+	echo "  Keep build output in a git-ignored path." >&2
+	exit 1
+fi
+
+# ─── Refuse the env file itself, even if .gitignore is ever loosened ─────────
+if grep -qE '(^|/)\.env(\.local)?$' <<< "$files"; then
+	echo "✘ pre-commit: refusing to commit an .env file — it holds live credentials." >&2
+	exit 1
+fi
+
+# ─── Secret scan of the staged diff ──────────────────────────────────────────
+# --redact masks the value so the leak never lands in terminal history.
+if ! gitleaks git --staged --redact --no-banner .; then
+	echo "" >&2
+	echo "✘ pre-commit: gitleaks found a secret in the staged diff." >&2
+	echo "  Move the value to .env (git-ignored) and read it from the environment." >&2
+	echo "  Known false positive? Add its placeholder shape to .gitleaks.toml." >&2
+	exit 1
+fi

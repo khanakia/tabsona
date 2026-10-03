@@ -14,8 +14,11 @@ Read [`docs/how-it-works.md`](docs/how-it-works.md) before changing anything in 
 
 ```bash
 task install
+task hooks:install  # pre-commit guard: gitleaks secret scan + binary/.env refusal
 task build          # -> apps/extension/dist
 ```
+
+`task hooks:install` is not optional. The repository is public, and a pushed secret has to be treated as compromised even after a revert, because history and forks keep it. The hook fails closed if gitleaks is missing. `task secrets:scan` audits the full history and runs as part of `task check`.
 
 Load `apps/extension/dist` at `chrome://extensions` with Developer mode on.
 
@@ -25,7 +28,7 @@ Load `apps/extension/dist` at `chrome://extensions` with Developer mode on.
 task check
 ```
 
-Type-check, unit tests, a build, and every end-to-end suite. **It must pass before a pull request.** The end-to-end suites drive the real built extension in a real Chrome, so they need a working Chrome install; they run headless and will not steal your focus.
+A full-history secret scan, type-check, unit tests, script tests, the Store preflight, a build, and every end-to-end suite. **It must pass before a pull request.** The end-to-end suites drive the real built extension in a real Chrome, so they need a working Chrome install; they run headless and will not steal your focus.
 
 Against one of your own apps:
 

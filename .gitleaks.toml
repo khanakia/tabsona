@@ -1,0 +1,85 @@
+# gitleaks configuration for tabsona.
+#
+# Picked up automatically by every gitleaks command run from the repo root:
+# the pre-commit hook (.githooks/pre-commit), `task secrets:scan` and
+# `task secrets:scan:staged`. Extends the default ruleset (200+ maintained
+# detectors: AWS, GitHub, Google, OpenAI, Slack, Stripe, …).
+#
+# Why it matters here: this repo is PUBLIC, and the Chrome Web Store
+# publishing flow keeps live Google OAuth credentials in `.env`. The default
+# rules already catch most shapes; the extra rules below cover what this
+# project actually handles.
+#
+# Derived from sync_go's config, minus its Go/Shopify-specific allowlists.
+
+[extend]
+useDefault = true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Project-specific extra rules
+# ─────────────────────────────────────────────────────────────────────────────
+
+[[rules]]
+id = "gcp-oauth-client-secret"
+description = "Google OAuth client secret (GOCSPX-…) — the Chrome Web Store API client"
+regex = '''GOCSPX-[A-Za-z0-9_-]{28}'''
+keywords = ["GOCSPX-"]
+
+[[rules]]
+id = "google-oauth-refresh-token"
+description = "Google OAuth refresh token (1//…) — CWS_REFRESH_TOKEN"
+regex = '''1//0[A-Za-z0-9_-]{40,}'''
+keywords = ["1//0"]
+
+[[rules]]
+id = "chrome-web-store-env-assignment"
+description = "A CWS_* credential assigned a literal value outside .env"
+regex = '''CWS_(CLIENT_SECRET|REFRESH_TOKEN)\s*=\s*["']?[A-Za-z0-9_./-]{20,}'''
+keywords = ["CWS_CLIENT_SECRET", "CWS_REFRESH_TOKEN"]
+
+[[rules]]
+id = "anthropic-prefixed-key"
+description = "Anthropic API key with explicit prefix"
+regex = '''sk-ant-api03-[A-Za-z0-9_-]{20,}'''
+keywords = ["sk-ant-"]
+
+[[rules]]
+id = "gcp-service-account-json"
+description = "GCP service account JSON file marker"
+regex = '''"type":\s*"service_account"'''
+keywords = ["service_account"]
+
+[[rules]]
+id = "generic-credential-assignment"
+description = "Generic api_key/secret/token/password = '…' with ≥16-char value"
+# The keyword group is NON-capturing on purpose. gitleaks reports the FIRST
+# capture group as "the secret", and allowlist regexes are tested against it.
+# With a capturing keyword group (as in sync_go's config) the secret is the
+# word "token", so no placeholder allowlist can ever match the value.
+regex = '''(?i)(?:api[_-]?key|secret|token|password|passwd|credential)\s*[=:]\s*["']([^"'\s]{16,})["']'''
+keywords = ["api_key", "apikey", "secret", "token", "password", "passwd", "credential"]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Allowlist — placeholder SHAPES only. No stopwords: gitleaks stopwords match
+# anywhere on a line and would silently exempt a real leak sharing the line
+# with a word like "example".
+# ─────────────────────────────────────────────────────────────────────────────
+
+[[allowlists]]
+description = "The scanner config files contain the patterns they detect"
+paths = [
+	'''\.gitleaks\.toml$''',
+	'''\.githooks/pre-commit$''',
+	# pnpm lockfile integrity hashes are base64 by design, never credentials.
+	'''pnpm-lock\.yaml$''',
+]
+
+[[allowlists]]
+description = "Explicit placeholders and redaction markers in docs and fixtures"
+regexes = [
+	'''\[REDACTED[^\]]*\]''',
+	'''<TOKEN>''',
+	'''<API_KEY>''',
+	'''\$\{[A-Z_]+_(TOKEN|KEY|SECRET)\}''',
+	'''FAKE_TOKEN_FOR_TESTS''',
+]
