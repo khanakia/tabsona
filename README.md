@@ -11,9 +11,11 @@ Give each tab its own login session. Save, open and reuse a whole set of signed-
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-180%20unit%20%2B%209%20e2e-success.svg)](#verify-it-yourself)
+[![Tests](https://img.shields.io/badge/tests-180%20unit%20%2B%2028%20script%20%2B%209%20e2e-success.svg)](#verify-it-yourself)
 
 [How it works](docs/how-it-works.md) · [Limits](docs/limits.md) · [Privacy](https://khanakia.github.io/tabsona/privacy.html) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+
+<img src="docs/shots/1-popup.png" alt="The Tabsona popup: two personas, each listing its saved logins with their state — signed in, empty — and an Open all button" width="860" />
 
 </div>
 
@@ -38,6 +40,17 @@ Client X                    1 site   ▶ Open all
 ```
 
 One click on **Open all** and the whole scenario opens: three tabs, three apps, the right identity in each, grouped in a native Chrome tab group.
+
+### Screenshots
+
+Every image is captured from the real built extension by `task screenshots`, so they cannot drift from the product.
+
+| | |
+|---|---|
+| <img src="docs/shots/2-save-menu.png" alt="The Use this tab menu, offering to sign in fresh, move the current login, or copy it" /> | <img src="docs/shots/3-library.png" alt="The options page listing every persona and its sessions" /> |
+| **Move or copy — your choice.** File the login you are already using into a persona, or start a fresh one and leave your browser alone. | **The full library.** Every persona, every saved login, and what each one holds. |
+| <img src="docs/shots/4-coverage.png" alt="The coverage report, listing each storage layer as covered, unknown or not applicable for a site" /> | <img src="docs/shots/5-sites.png" alt="The sites tab, listing the origins you have granted and the settings" /> |
+| **Measured, not assumed.** Which layers are actually isolated on each site, from what the engine observed. | **You grant every site.** Nothing is touched until you allow it through Chrome's own prompt. |
 
 ## Install
 
@@ -121,7 +134,7 @@ No `chrome.debugger`, so no "being debugged" bar and DevTools keeps working.
 task check
 ```
 
-Type-check, 180 unit tests, a build, and nine end-to-end suites driving the **built extension** in a real Chrome.
+A full-history secret scan, type-check, 180 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and nine end-to-end suites driving the **built extension** in a real Chrome.
 
 | Task | Proves |
 |---|---|

@@ -53,7 +53,7 @@ Enforced, not aspirational — see `CONTRIBUTING.md` and `src/core/__tests__/bou
 
 ## Commands
 
-`task --list` is the index. The ones that matter: `task build`, `task test`, `task check` (the gate), `task package` (a Chrome Web Store upload — runs `task preflight`, which fails the pack on any Store hard requirement), `task e2e:app` (against a real app, credentials from the environment), `task probe:app` (find where an app keeps its login).
+`task --list` is the index. The ones that matter: `task build`, `task test`, `task check` (the gate), `task package` (a Chrome Web Store upload — runs `task preflight`, which fails the pack on any Store hard requirement), `task cws:*` (Store API: auth, create, upload, status, publish — credentials in the git-ignored `.env`), `task hooks:install` (activate the gitleaks pre-commit guard — do this in every clone; the repo is public), `task e2e:app` (against a real app, credentials from the environment), `task probe:app` (find where an app keeps its login).
 
 ## Where things live
 

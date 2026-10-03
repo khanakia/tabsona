@@ -18,6 +18,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - End-to-end suites driving the built extension in a real Chrome, each with a control run proving the scenario collides without the extension.
 - **Chrome Web Store packaging** — `task package` builds, validates and zips an upload, and `task preflight` fails the pack on any Store hard requirement: a development host permission in the manifest, an over-length field, a bad version, a `key`/`update_url`, a manifest reference to a missing file, an icon whose real PNG size disagrees with its declared size, remotely hosted code, or an over-size package.
 - **Privacy policy and project site** at `docs/`, served by GitHub Pages, so the policy lives with the code that implements it.
+- **Secret scanning.** A `.githooks/pre-commit` guard runs gitleaks on the staged diff and refuses compiled binaries and `.env` files; it fails closed when gitleaks is missing. `task secrets:scan` audits the full history and is the first step of `task check`. Activate per clone with `task hooks:install`.
+- **Chrome Web Store client** — `task cws:auth`, `cws:create`, `cws:upload`, `cws:status`, `cws:publish`, on plain `fetch` with no third-party CLI. Its `.env` handling and upload polling are unit-tested.
+- **Screenshots** — five frames captured from the real built extension, at both sizes the Store accepts (1280×800 and 640×400), shown in the README.
 
 ### Fixed
 
