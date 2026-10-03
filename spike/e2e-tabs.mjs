@@ -17,7 +17,7 @@ const HOST = new URL(URL_A).host;
 const whoami = `fetch('/whoami',{cache:'no-store'}).then(r=>r.json()).then(j=>j.user)`;
 const loggedIn = `fetch('/whoami',{cache:'no-store'}).then(r=>r.json()).then(j=>!!j.user)`;
 const formReady = `!!document.querySelector('form[action="/login"]')`;
-const namespace = `window.__mstabsSession ? window.__mstabsSession.id : null`;
+const namespace = `window.__tabsonaSession ? window.__tabsonaSession.id : null`;
 const login = (user) => `(() => {
   const f = [...document.querySelectorAll('form[action="/login"]')]
     .find(f => f.querySelector('input[name=user]').value === ${JSON.stringify(user)});

@@ -5,7 +5,7 @@
 import type { RuleResourceType } from '@/domain/types';
 
 /** Carrier key AND url-hash marker telling a page which session its tab is. */
-export const SESSION_MARKER = '__mstabs';
+export const SESSION_MARKER = '__tabsona';
 
 /** Separates the session id from the app's key inside a namespaced storage key. */
 export const NAMESPACE_SEPARATOR = '::';

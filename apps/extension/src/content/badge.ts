@@ -6,7 +6,7 @@
 
 import type { ShimReadyNotice } from '@/domain/messages';
 
-const CHIP_ID = '__mstabs_chip__';
+const CHIP_ID = '__tabsona_chip__';
 
 /** Severity drives the colour, because "isolated" and "leaking" must not look alike. */
 const SEVERITY_BACKGROUND = {
@@ -48,8 +48,8 @@ function render(msg: BadgeMessage): void {
       ? `${msg.name} · ${msg.summary}`
       : String(msg.name ?? '');
   el.title = msg.isEmpty
-    ? `MultiSession Tabs — "${msg.name}" has no login saved yet. Sign in once and it will be remembered.`
-    : `MultiSession Tabs — ${msg.summary ?? ''}`;
+    ? `Tabsona — "${msg.name}" has no login saved yet. Sign in once and it will be remembered.`
+    : `Tabsona — ${msg.summary ?? ''}`;
   Object.assign(el.style, {
     position: 'fixed', top: '8px', right: '8px', zIndex: '2147483647',
     background: msg.color ?? SEVERITY_BACKGROUND[msg.severity ?? 'unknown'],
@@ -72,8 +72,8 @@ chrome.runtime.onMessage.addListener((raw: unknown) => {
 // postMessage is the only channel between them.
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
-  const data = event.data as { __mstabsReady?: { origin: string; usesIndexedDb: boolean; hasServiceWorker: boolean } };
-  const ready = data?.__mstabsReady;
+  const data = event.data as { __tabsonaReady?: { origin: string; usesIndexedDb: boolean; hasServiceWorker: boolean } };
+  const ready = data?.__tabsonaReady;
   if (!ready) return;
   // A one-way notification, NOT part of the request/response surface: the worker
   // handles it in a separate listener and sends nothing back. Typed on its own so it

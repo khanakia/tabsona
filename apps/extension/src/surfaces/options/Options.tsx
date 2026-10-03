@@ -50,7 +50,7 @@ export function Options() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-6">
       <header className="mb-4 flex items-baseline gap-3">
-        <h1 className="text-base font-semibold tracking-tight">MultiSession Tabs</h1>
+        <h1 className="text-base font-semibold tracking-tight">Tabsona</h1>
         <p className="text-xs text-muted-foreground">
           {state.personas.length} persona{state.personas.length === 1 ? '' : 's'} ·
           {' '}{sessionCount} saved login{sessionCount === 1 ? '' : 's'} ·
@@ -201,7 +201,7 @@ export function Options() {
           <div className="flex gap-2">
             <Button
               onClick={() => void client.exportData().then((json) => {
-                if (json) client.downloadText(`multisession-${new Date().toISOString().slice(0, 10)}.json`, json);
+                if (json) client.downloadText(`tabsona-${new Date().toISOString().slice(0, 10)}.json`, json);
               })}
             >
               <Download />

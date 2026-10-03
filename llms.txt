@@ -1,8 +1,8 @@
-# MultiSession Tabs
+# Tabsona
 
 > Give each Chrome tab its own login session. Save, open and reuse a whole set of signed-in sites as a persona. A Manifest V3 extension for developers testing their own apps across many roles and tenants.
 
-MultiSession Tabs isolates logins per tab inside one Chrome window. A **persona** is an identity across a set of apps and holds at most one saved login per site; opening a persona opens every site as a tab, each already signed in.
+Tabsona isolates logins per tab inside one Chrome window. A **persona** is an identity across a set of apps and holds at most one saved login per site; opening a persona opens every site as a tab, each already signed in.
 
 It works by combining two Chrome APIs that cannot do each other's job: `declarativeNetRequest` session rules replace the `Cookie` header per tab (and strip `Set-Cookie` from responses so the browser's own jar never learns the login), while observational `webRequest` reads the raw `Set-Cookie` — HttpOnly included — to capture it into the session. Page storage is isolated by a MAIN-world shim that namespaces `localStorage` keys by **session id**, which is what makes saving and restoring a session possible at all.
 
@@ -10,11 +10,11 @@ It is not an anti-detect browser. Fingerprint spoofing, proxy-per-session, ban e
 
 ## Docs
 
-- [How it works](https://github.com/khanakia/multisession-tabs/blob/main/docs/how-it-works.md): the model, the exact Chrome APIs, the four ways to build a session, and the architecture
-- [README](https://github.com/khanakia/multisession-tabs/blob/main/README.md): install, usage, keyboard shortcuts, verification
-- [Limits](https://github.com/khanakia/multisession-tabs/blob/main/docs/limits.md): every known hole, each marked verified-in-code or assumed
-- [Contributing](https://github.com/khanakia/multisession-tabs/blob/main/CONTRIBUTING.md): the two rules the project is built around, and the gate
-- [Security](https://github.com/khanakia/multisession-tabs/blob/main/SECURITY.md): what it stores, where, and how to report a vulnerability
+- [How it works](https://github.com/khanakia/tabsona/blob/main/docs/how-it-works.md): the model, the exact Chrome APIs, the four ways to build a session, and the architecture
+- [README](https://github.com/khanakia/tabsona/blob/main/README.md): install, usage, keyboard shortcuts, verification
+- [Limits](https://github.com/khanakia/tabsona/blob/main/docs/limits.md): every known hole, each marked verified-in-code or assumed
+- [Contributing](https://github.com/khanakia/tabsona/blob/main/CONTRIBUTING.md): the two rules the project is built around, and the gate
+- [Security](https://github.com/khanakia/tabsona/blob/main/SECURITY.md): what it stores, where, and how to report a vulnerability
 
 ## Known limitations
 

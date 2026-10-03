@@ -392,7 +392,7 @@ async function clearSharedLogin(tabId: TabId, login: ImportedLogin): Promise<voi
 
   const stubborn = results.filter((name): name is string => name !== null);
   if (stubborn.length > 0) {
-    console.warn('[mstabs] could not clear from the shared jar:', stubborn.join(', '));
+    console.warn('[tabsona] could not clear from the shared jar:', stubborn.join(', '));
   }
 
   // The page's real, un-namespaced storage. Safe to wipe: this tab has no shim yet, so
@@ -492,7 +492,7 @@ export async function importData(json: string): Promise<Response> {
   try { parsed = JSON.parse(json) as typeof parsed; }
   catch { return { ok: false, error: 'that file is not valid JSON' }; }
   if (!Array.isArray(parsed.personas) || !Array.isArray(parsed.sessions)) {
-    return { ok: false, error: 'that file is not a MultiSession export' };
+    return { ok: false, error: 'that file is not a Tabsona export' };
   }
   // Merged, not replaced: an import must never silently delete what is already there.
   await mutateLibrary((lib) => {

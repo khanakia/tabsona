@@ -1,6 +1,6 @@
 // Reproduces the failure a real install hit and a headless run never did:
 //
-//   Uncaught (in promise) Error: Duplicate script ID 'mstabs-shim'
+//   Uncaught (in promise) Error: Duplicate script ID 'tabsona-shim'
 //
 // On an extension reload at chrome://extensions, the service-worker module body runs
 // AND chrome.runtime.onInstalled fires — two boots at once. Both unregister (finding
@@ -28,8 +28,8 @@ console.log('after first boot        :', JSON.stringify(atBoot));
 // Five boots at once — far harsher than the two a reload produces.
 const concurrent = await sw.eval(`
   Promise.allSettled([
-    globalThis.__mstabs.boot(), globalThis.__mstabs.boot(), globalThis.__mstabs.boot(),
-    globalThis.__mstabs.boot(), globalThis.__mstabs.boot(),
+    globalThis.__tabsona.boot(), globalThis.__tabsona.boot(), globalThis.__tabsona.boot(),
+    globalThis.__tabsona.boot(), globalThis.__tabsona.boot(),
   ]).then(rs => JSON.stringify(rs.map(r => r.status === 'rejected' ? String(r.reason) : 'ok')))
 `);
 console.log('5 concurrent boots      :', concurrent);
@@ -37,9 +37,9 @@ console.log('5 concurrent boots      :', concurrent);
 // And registration called directly in parallel, which is the exact racing step.
 const parallelRegister = await sw.eval(`
   Promise.allSettled([
-    globalThis.__mstabs.registerContentScripts(),
-    globalThis.__mstabs.registerContentScripts(),
-    globalThis.__mstabs.registerContentScripts(),
+    globalThis.__tabsona.registerContentScripts(),
+    globalThis.__tabsona.registerContentScripts(),
+    globalThis.__tabsona.registerContentScripts(),
   ]).then(rs => JSON.stringify(rs.map(r => r.status === 'rejected' ? String(r.reason) : 'ok')))
 `);
 console.log('3 parallel registrations:', parallelRegister);
@@ -56,7 +56,7 @@ await chrome.kill();
 const noDuplicateError = !JSON.stringify([concurrent, parallelRegister]).includes('Duplicate script ID');
 const noWorkerError = errorLogs.length === 0;
 const exactlyOneEach = after.length === 2
-  && after.includes('mstabs-shim') && after.includes('mstabs-badge');
+  && after.includes('tabsona-shim') && after.includes('tabsona-badge');
 
 console.log('\n   concurrent boots threw nothing? ', noDuplicateError);
 console.log('   worker logged no boot failure?  ', noWorkerError);

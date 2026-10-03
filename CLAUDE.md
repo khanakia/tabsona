@@ -1,4 +1,4 @@
-# multisession-tabs
+# tabsona
 
 A Chrome extension that gives **each tab its own login session**, grouped into **personas** — a named identity across a set of apps. Open a persona and every site in it opens as a tab, already signed in.
 
