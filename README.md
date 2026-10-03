@@ -13,7 +13,7 @@ Give each tab its own login session. Save, open and reuse a whole set of signed-
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6.svg)](https://www.typescriptlang.org/)
 [![Tests](https://img.shields.io/badge/tests-180%20unit%20%2B%209%20e2e-success.svg)](#verify-it-yourself)
 
-[How it works](docs/how-it-works.md) · [Limits](docs/limits.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+[How it works](docs/how-it-works.md) · [Limits](docs/limits.md) · [Privacy](https://khanakia.github.io/tabsona/privacy.html) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 </div>
 
@@ -49,6 +49,12 @@ task build            # -> apps/extension/dist
 In Chrome: `chrome://extensions` → **Developer mode** → **Load unpacked** → pick `apps/extension/dist`.
 
 > Not on the Chrome Web Store yet. Load unpacked for now.
+
+To build an upload for the Store instead:
+```bash
+task package          # build, validate, then dist/tabsona-<version>.zip
+```
+`task preflight` runs inside it and refuses to produce a zip if anything would fail Store review — a development host permission in the manifest, an over-length field, an icon whose real size disagrees with its declared size, remotely hosted code, and so on.
 
 ## Getting started
 

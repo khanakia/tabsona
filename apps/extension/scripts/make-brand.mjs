@@ -15,6 +15,10 @@ import { resolve } from 'node:path';
 const ROOT = resolve(import.meta.dirname, '..');
 const ICON_DIR = resolve(ROOT, 'icons');
 const STORE_DIR = resolve(ROOT, '../../brand/store');
+/** The project site (GitHub Pages, served from `docs/`) shows the same mark. Written here
+ *  rather than hot-linked, so the pages render before the repo is public and stay correct
+ *  if the raster ever changes — one generator, no hand-copied duplicate to drift. */
+const SITE_DIR = resolve(ROOT, '../../docs');
 
 /** Icon sizes Chrome asks for. 128 is the one the Web Store shows. */
 const ICON_SIZES = [16, 32, 48, 128];
@@ -203,6 +207,7 @@ function renderPromo(width, height) {
 
 mkdirSync(ICON_DIR, { recursive: true });
 mkdirSync(STORE_DIR, { recursive: true });
+mkdirSync(SITE_DIR, { recursive: true });
 
 for (const size of ICON_SIZES) {
   writeFileSync(resolve(ICON_DIR, `icon${size}.png`), renderIcon(size));
@@ -219,3 +224,7 @@ for (const [file, w, h] of PROMOS) {
   writeFileSync(resolve(STORE_DIR, file), renderPromo(w, h));
   console.log(`store/${file}`);
 }
+
+const SITE_ICON_SIZE = 128;
+writeFileSync(resolve(SITE_DIR, 'icon128.png'), renderIcon(SITE_ICON_SIZE));
+console.log('docs/icon128.png');
