@@ -228,7 +228,7 @@ const LENGTH_PROP = 'length';
   };
 
   try {
-    Object.defineProperty(window, '__mstabsSession', {
+    Object.defineProperty(window, '__tabsonaSession', {
       configurable: true,
       get: () => ({
         id: sessionId,
@@ -247,6 +247,6 @@ const LENGTH_PROP = 'length';
   // evidence the badge accepts for claiming localStorage coverage, which is why it
   // reports facts rather than intentions.
   try {
-    window.postMessage({ __mstabsReady: { origin: location.origin, shimmedLocal, usesIndexedDb, hasServiceWorker } }, location.origin);
+    window.postMessage({ __tabsonaReady: { origin: location.origin, shimmedLocal, usesIndexedDb, hasServiceWorker } }, location.origin);
   } catch { /* ignore */ }
 })();

@@ -79,7 +79,7 @@ export async function startChrome(port) {
   process.once('SIGTERM', () => { cleanup(); process.exit(143); });
 
   chrome.op = async (expr) => {
-    const r = await chrome.swSession.eval(`globalThis.__mstabs.${expr}`);
+    const r = await chrome.swSession.eval(`globalThis.__tabsona.${expr}`);
     if (r && r.__err) throw new Error(`${expr} -> ${r.__err}`);
     return r;
   };

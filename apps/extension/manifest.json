@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "MultiSession Tabs",
+  "name": "Tabsona \u2014 multi-account tabs & saved logins",
+  "short_name": "Tabsona",
   "version": "0.1.0",
-  "description": "Personas: one Chrome window, many logins. Save, open and reuse a whole set of signed-in sites.",
+  "description": "Give each tab its own login. Save a set of signed-in sites as a persona and reopen the whole set in one click.",
   "minimum_chrome_version": "120",
   "permissions": [
     "declarativeNetRequest",
@@ -25,7 +26,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "MultiSession Tabs",
+    "default_title": "Tabsona",
     "default_popup": "src/surfaces/popup/index.html",
     "default_icon": {
       "16": "icons/icon16.png",

@@ -11,7 +11,7 @@ interface PageSlice {
 }
 
 /**
- * MUST go through `window.__mstabsSession`, never `window.localStorage`.
+ * MUST go through `window.__tabsonaSession`, never `window.localStorage`.
  *
  * Once the shim is installed, `window.localStorage` IS the proxy: its `key(i)` already
  * returns the un-prefixed key, so a prefix scan over it finds nothing and capture
@@ -30,12 +30,12 @@ async function readSlice(tabId: TabId, sessionId: SessionId): Promise<PageSlice 
     args: [sessionId],
     func: (wanted: string) => {
       const handle = (window as {
-        __mstabsSession?: {
+        __tabsonaSession?: {
           id: string;
           dumpLocal: () => Record<string, string>;
           dumpSession: () => Record<string, string>;
         };
-      }).__mstabsSession;
+      }).__tabsonaSession;
       if (!handle || handle.id !== wanted) return null;
       try {
         return { origin: location.origin, local: handle.dumpLocal(), session: handle.dumpSession() };
@@ -84,12 +84,12 @@ export async function restoreTabStorage(
       sessionSlice: Record<string, string>,
     ) => {
       const handle = (window as {
-        __mstabsSession?: {
+        __tabsonaSession?: {
           id: string;
           loadLocal: (s: Record<string, string>) => void;
           loadSession: (s: Record<string, string>) => void;
         };
-      }).__mstabsSession;
+      }).__tabsonaSession;
       if (!handle || handle.id !== wanted) return false;
       try {
         handle.loadLocal(localSlice);
@@ -108,7 +108,7 @@ export async function awaitShim(tabId: TabId): Promise<boolean> {
   while (Date.now() < deadline) {
     const present = await chrome.scripting.executeScript({
       target: { tabId }, world: 'MAIN',
-      func: () => '__mstabsSession' in window,
+      func: () => '__tabsonaSession' in window,
     }).then((r) => r[0]?.result === true).catch(() => false);
     if (present) return true;
     await new Promise((r) => setTimeout(r, SHIM_WAIT_POLL_MS));

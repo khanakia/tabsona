@@ -172,6 +172,17 @@ tasks:
           console.log("[grant] " + m.host_permissions.join(" "));
         ' {{.ORIGINS}}
 
+  brand:
+    desc: Regenerate the icon set and Chrome Web Store artwork from one description of the mark
+    cmds: [node apps/extension/scripts/make-brand.mjs]
+
+  screenshots:
+    desc: Capture Chrome Web Store screenshots (1280x800) from the REAL built extension
+    deps: [build]
+    cmds:
+      - task: strays
+      - node spike/make-screenshots.mjs
+
   probe:app:
     desc: 'Find which storage layer an app keeps its login in. APP_URL required; APP_USER/APP_PASS to probe a signed-in state; --inspect to only dump the form'
     cmds:
@@ -195,7 +206,7 @@ tasks:
         if curl -sf "http://localhost:{{.FIXTURE_PORT}}/whoami" >/dev/null 2>&1; then
           echo "fixture already listening on {{.FIXTURE_PORT}}"
         else
-          node spike/fixture/server.js > /tmp/multisession-fixture.log 2>&1 &
+          node spike/fixture/server.js > /tmp/tabsona-fixture.log 2>&1 &
           for i in $(seq 1 40); do
             curl -sf "http://localhost:{{.FIXTURE_PORT}}/whoami" >/dev/null 2>&1 && break
             sleep 0.25
@@ -211,7 +222,7 @@ tasks:
         if curl -sf "http://localhost:8788/whoami" >/dev/null 2>&1; then
           echo "second fixture already listening on 8788"
         else
-          PORT=8788 node spike/fixture/server.js > /tmp/multisession-fixture-2.log 2>&1 &
+          PORT=8788 node spike/fixture/server.js > /tmp/tabsona-fixture-2.log 2>&1 &
           for i in $(seq 1 40); do
             curl -sf "http://localhost:8788/whoami" >/dev/null 2>&1 && break
             sleep 0.25

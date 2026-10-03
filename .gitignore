@@ -29,3 +29,8 @@ spike/.env.local
 
 # internal design notes — kept local, not published
 docsi/
+
+# generated Chrome Web Store artwork — rebuild with `task brand` and `task screenshots`.
+# The generator and the listing copy ARE tracked; the rasters are not, so a binary diff
+# never lands in review.
+brand/store/*.png

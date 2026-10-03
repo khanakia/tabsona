@@ -27,8 +27,8 @@ async function pullShimReport(tabId: TabId): Promise<void> {
     world: 'MAIN',
     func: () => {
       const h = (window as {
-        __mstabsSession?: { shimmedLocal: boolean; usesIndexedDb: boolean; hasServiceWorker: boolean };
-      }).__mstabsSession;
+        __tabsonaSession?: { shimmedLocal: boolean; usesIndexedDb: boolean; hasServiceWorker: boolean };
+      }).__tabsonaSession;
       return h
         ? { origin: location.origin, shimmedLocal: h.shimmedLocal, usesIndexedDb: h.usesIndexedDb, hasServiceWorker: h.hasServiceWorker }
         : null;
@@ -102,7 +102,7 @@ export async function renderBadge(tabId: TabId): Promise<void> {
       tabId,
       title: status.sessionId
         ? `${status.personaName} — ${status.site} — ${status.summary}`
-        : 'MultiSession Tabs — this tab is not isolated',
+        : 'Tabsona — this tab is not isolated',
     });
   } catch { /* tab closed mid-flight */ }
 

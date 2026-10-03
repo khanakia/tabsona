@@ -17,8 +17,8 @@ import {
 } from './service';
 import type { Request, Response } from '@/domain/messages';
 
-const SHIM_SCRIPT_ID = 'mstabs-shim';
-const BADGE_SCRIPT_ID = 'mstabs-badge';
+const SHIM_SCRIPT_ID = 'tabsona-shim';
+const BADGE_SCRIPT_ID = 'tabsona-badge';
 
 /**
  * Register the content scripts for exactly the origins currently granted.
@@ -96,7 +96,7 @@ function boot(): Promise<void> {
     } catch (e) {
       // Log rather than throw: an unhandled rejection here leaves the worker
       // half-started with no sign of why.
-      console.error('[mstabs] boot failed', e);
+      console.error('[tabsona] boot failed', e);
     } finally {
       booting = null;
     }
@@ -260,7 +260,7 @@ chrome.runtime.onMessage.addListener((raw, sender) => {
 // Exposed for the end-to-end drivers, which talk to this worker over CDP and cannot use
 // sendMessage (Chrome does not deliver a message to its own sender).
 Object.assign(globalThis, {
-  __mstabs: {
+  __tabsona: {
     getState, newPersona, updatePersona, deletePersona, duplicatePersona,
     openPersona, saveCurrentTab, addSite, openSession, renameSession, deleteSession,
     moveSession, unbindTab, statusForTab, captureTabStorage, syncRules, anotherLoginForSite, useTabIn,

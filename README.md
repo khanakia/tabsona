@@ -1,6 +1,8 @@
 <div align="center">
 
-# MultiSession Tabs
+<img src="apps/extension/icons/icon128.png" width="88" alt="" />
+
+# Tabsona
 
 **One Chrome window, many logins.**
 
@@ -87,7 +89,7 @@ The full library: every persona and session, allowed sites, a per-origin coverag
 
 | | Isolates `localStorage` | Saves & restores sessions | Says when it cannot isolate | Stays in one window |
 |---|---|---|---|---|
-| **MultiSession Tabs** | ✅ | ✅ | ✅ | ✅ |
+| **Tabsona** | ✅ | ✅ | ✅ | ✅ |
 | Chrome profiles | ✅ | ✅ | n/a | ❌ separate windows |
 | Incognito | ✅ | ❌ gone on close | n/a | ❌ one extra identity |
 | Cookie-swapping extensions | ❌ | ❌ | ❌ | ✅ |

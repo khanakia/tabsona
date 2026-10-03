@@ -2,13 +2,13 @@
 
 ## What this extension holds
 
-MultiSession Tabs stores **live credentials** — session cookies (including HttpOnly ones) and page-storage tokens — in `chrome.storage.local`, on your machine. Nothing is sent anywhere. There is no server, no telemetry, and no sync.
+Tabsona stores **live credentials** — session cookies (including HttpOnly ones) and page-storage tokens — in `chrome.storage.local`, on your machine. Nothing is sent anywhere. There is no server, no telemetry, and no sync.
 
 An **export file contains those credentials in plain text**. Treat it like a password file.
 
 ## Reporting a vulnerability
 
-Open a [private security advisory](https://github.com/khanakia/multisession-tabs/security/advisories/new) on this repository. Please do not open a public issue for a vulnerability.
+Open a [private security advisory](https://github.com/khanakia/tabsona/security/advisories/new) on this repository. Please do not open a public issue for a vulnerability.
 
 Include the class of problem, the conditions needed to reach it, and what an attacker gains. A clear description of the weakness is more useful than a working exploit, and safer to transmit.
 

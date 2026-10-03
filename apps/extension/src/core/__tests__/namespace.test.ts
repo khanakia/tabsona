@@ -36,12 +36,12 @@ describe('qualify / unqualify', () => {
 describe('withSessionMarker', () => {
   it('adds the marker to a url with no hash', () => {
     expect(withSessionMarker('https://a.test/x?y=1', 's_1'))
-      .toBe('https://a.test/x?y=1#__mstabs=s_1');
+      .toBe('https://a.test/x?y=1#__tabsona=s_1');
   });
 
   it('preserves an existing hash', () => {
     expect(withSessionMarker('https://a.test/#/route', 's_1'))
-      .toBe('https://a.test/#/route&__mstabs=s_1');
+      .toBe('https://a.test/#/route&__tabsona=s_1');
   });
 
   it('round-trips through sessionFromHash', () => {
@@ -57,22 +57,22 @@ describe('sessionFromHash', () => {
   });
 
   it('finds the marker after another fragment', () => {
-    expect(sessionFromHash('#/route&__mstabs=s_1')).toBe('s_1');
+    expect(sessionFromHash('#/route&__tabsona=s_1')).toBe('s_1');
   });
 
   it('decodes an encoded id', () => {
-    expect(sessionFromHash('#__mstabs=s%5F1')).toBe('s_1');
+    expect(sessionFromHash('#__tabsona=s%5F1')).toBe('s_1');
   });
 });
 
 describe('stripSessionMarker', () => {
   it('removes a lone marker entirely', () => {
-    expect(stripSessionMarker('#__mstabs=s_1')).toBe('');
+    expect(stripSessionMarker('#__tabsona=s_1')).toBe('');
   });
 
   it('leaves the app fragment intact', () => {
     // An app router must never see a fragment it does not understand.
-    expect(stripSessionMarker('#/route&__mstabs=s_1')).toBe('#/route');
+    expect(stripSessionMarker('#/route&__tabsona=s_1')).toBe('#/route');
   });
 
   it('is a no-op when there is no marker', () => {

@@ -1,6 +1,6 @@
 # How it works
 
-Everything MultiSession Tabs does, end to end: the model, the mechanism, the exact Chrome APIs, and the limits. Written so you can decide whether to trust it with a login before you install it.
+Everything Tabsona does, end to end: the model, the mechanism, the exact Chrome APIs, and the limits. Written so you can decide whether to trust it with a login before you install it.
 
 ## Contents
 
