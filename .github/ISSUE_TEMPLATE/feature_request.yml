@@ -1,0 +1,19 @@
+name: Feature request
+description: Suggest something this should do.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Deliberately out of scope, and not planned: fingerprint spoofing, proxy-per-session, ban evasion, and cloud sync of credentials. This is a developer tool for testing your own applications.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that is awkward or impossible today? Describe the situation, not the solution.
+    validations: { required: true }
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+      description: Optional. A rough shape is fine.

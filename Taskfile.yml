@@ -1,0 +1,225 @@
+version: '3'
+
+# Every repeated command lives here, not in chat. `task --list` is the index.
+#
+# Chrome runs HEADLESS by default so repeated runs never steal focus.
+# SPIKE_HEADLESS=0 to watch a run happen on screen.
+
+vars:
+  FIXTURE_PORT: '8787'
+  EXT_DIST: apps/extension/dist
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds: [task --list]
+
+  install:
+    desc: Install workspace dependencies
+    cmds: [pnpm install]
+
+  build:
+    desc: Build the extension into apps/extension/dist (typecheck, popup, options, worker, content scripts, icons, manifest)
+    cmds: [pnpm --filter extension build]
+
+  dev:
+    desc: Rebuild on change (reload the extension at chrome://extensions after each build)
+    cmds: [pnpm --filter extension dev]
+
+  test:
+    desc: Unit + presenter + boundary tests
+    cmds: [pnpm --filter extension test]
+
+  typecheck:
+    desc: Type-check the extension
+    cmds: [pnpm --filter extension typecheck]
+
+  # --- end-to-end, against the REAL built extension in a real Chrome --------
+
+  e2e:isolation:
+    desc: 'Two personas signed in at once, storage isolated per session, save -> wipe origin -> restore, badge honest (fixture)'
+    deps: [build, fixture:up]
+    env: {APP: fixture}
+    cmds:
+      - task: strays
+      - node spike/e2e-isolation.mjs
+
+  e2e:persona:
+    desc: 'Opening a PERSONA opens every one of its sites as a tab, each signed in as the right identity'
+    deps: [build, fixture:up, fixture:up2]
+    cmds:
+      - task: strays
+      - task: grant
+        vars: {ORIGINS: 'http://localhost:8787 http://localhost:8788'}
+      - node spike/e2e-persona.mjs
+
+  e2e:capture:
+    desc: "Save an ORDINARY tab's login into a persona, leave the browser's own jar untouched, and reopen it signed in"
+    deps: [build, fixture:up]
+    env: {APP: fixture}
+    cmds:
+      - task: strays
+      - node spike/e2e-capture.mjs
+
+  e2e:tabs:
+    desc: 'Open-in-this-tab moves every layer; a blank new tab never joins a persona; a link from a session tab does'
+    deps: [build, fixture:up]
+    cmds:
+      - task: strays
+      - node spike/e2e-tabs.mjs
+
+  e2e:flows:
+    desc: 'The four ways to build a session: Add site · Use this tab · Move the login · Copy the login — and what each does to the plain tab'
+    deps: [build, fixture:up]
+    env: {APP: fixture}
+    cmds:
+      - task: strays
+      - node spike/e2e-flows.mjs
+
+  e2e:move:
+    desc: 'Saving a login MOVES it out of the shared browser jar, so signing out in a normal tab cannot kill the persona'
+    deps: [build, fixture:up]
+    env: {APP: fixture}
+    cmds:
+      - task: strays
+      - node spike/e2e-move.mjs
+
+  e2e:twologins:
+    desc: 'Two logins for ONE site: an existing second persona gets a fresh signed-out session, then both are signed in at once'
+    deps: [build, fixture:up]
+    env: {APP: fixture}
+    cmds:
+      - task: strays
+      - node spike/e2e-twologins.mjs
+
+  e2e:migrate:
+    desc: 'Upgrading from v1 data: the worker boots clean and every old session arrives as a persona with its logins intact'
+    deps: [build]
+    cmds:
+      - task: strays
+      - node spike/e2e-migrate.mjs
+
+  e2e:boot:
+    desc: 'Concurrent service-worker boots never produce "Duplicate script ID", and exactly one copy of each content script stays registered'
+    deps: [build]
+    cmds:
+      - task: strays
+      - node spike/e2e-boot.mjs
+
+  e2e:app:
+    desc: 'Isolation + capture against a REAL app. Needs SYNC_USER1/SYNC_PASS1/SYNC_USER2/SYNC_PASS2 (APP_ORIGIN to target another app)'
+    deps: [build]
+    env: {APP: sync}
+    vars:
+      ORIGIN: '{{.APP_ORIGIN | default "https://sync.localhost"}}'
+    cmds:
+      - |
+        : "${SYNC_USER1:?set SYNC_USER1/SYNC_PASS1/SYNC_USER2/SYNC_PASS2 in your shell or .env.local}"
+      - task: strays
+      - task: grant
+        vars: {ORIGINS: '{{.ORIGIN}}'}
+      - node spike/e2e-isolation.mjs
+      - task: strays
+      - node spike/e2e-capture.mjs
+      - task: strays
+      - node spike/e2e-twologins.mjs
+      - task: strays
+      - node spike/e2e-move.mjs
+
+  check:
+    desc: The real gate — typecheck, all tests, build, and every end-to-end proof on the fixture
+    cmds:
+      - task: typecheck
+      - task: test
+      - task: e2e:isolation
+      - task: e2e:persona
+      - task: e2e:capture
+      - task: e2e:tabs
+      - task: e2e:boot
+      - task: e2e:migrate
+      - task: e2e:twologins
+      - task: e2e:move
+      - task: e2e:flows
+
+  # --- helpers --------------------------------------------------------------
+
+  strays:
+    desc: 'Kill any leftover spike Chrome instances, so a run never attaches to a stale build'
+    internal: true
+    cmds:
+      - pkill -f 'spike-chrome-' 2>/dev/null || true
+      - sleep 1
+
+  grant:
+    desc: 'Pre-grant origins in the BUILT manifest (test-only; the real grant needs a human click in Chrome)'
+    internal: true
+    cmds:
+      - |
+        # In normal use the popup's "allow this site" button calls
+        # chrome.permissions.request, which opens Chrome's own confirmation dialog —
+        # and that dialog requires a human click by design, so a headless run cannot
+        # pass through it (an early attempt hung indefinitely). The SOURCE manifest is
+        # never touched; dist is rebuilt from it every time anyway.
+        node -e '
+          const fs = require("node:fs");
+          const p = "{{.EXT_DIST}}/manifest.json";
+          const m = JSON.parse(fs.readFileSync(p, "utf8"));
+          for (const origin of process.argv.slice(1)) {
+            const want = origin.replace(/\/$/, "") + "/*";
+            if (!m.host_permissions.includes(want)) m.host_permissions.push(want);
+          }
+          fs.writeFileSync(p, JSON.stringify(m, null, 2));
+          console.log("[grant] " + m.host_permissions.join(" "));
+        ' {{.ORIGINS}}
+
+  probe:app:
+    desc: 'Find which storage layer an app keeps its login in. APP_URL required; APP_USER/APP_PASS to probe a signed-in state; --inspect to only dump the form'
+    cmds:
+      - |
+        : "${APP_URL:?set APP_URL=https://your.app}"
+        node spike/probe-app.mjs {{.CLI_ARGS}}
+
+  probe:load:
+    desc: 'Re-check which extension-loading path Chrome supports (Chrome 154 silently ignores --load-extension)'
+    cmds: [node spike/probe-load.mjs]
+
+  fixture:
+    desc: Run the two-role fixture app in the foreground
+    cmds: [node spike/fixture/server.js]
+
+  fixture:up:
+    desc: Start the fixture in the background if it is not already listening
+    internal: true
+    cmds:
+      - |
+        if curl -sf "http://localhost:{{.FIXTURE_PORT}}/whoami" >/dev/null 2>&1; then
+          echo "fixture already listening on {{.FIXTURE_PORT}}"
+        else
+          node spike/fixture/server.js > /tmp/multisession-fixture.log 2>&1 &
+          for i in $(seq 1 40); do
+            curl -sf "http://localhost:{{.FIXTURE_PORT}}/whoami" >/dev/null 2>&1 && break
+            sleep 0.25
+          done
+          echo "fixture started on {{.FIXTURE_PORT}}"
+        fi
+
+  fixture:up2:
+    desc: Start a SECOND fixture on another port, so a persona can span two real sites
+    internal: true
+    cmds:
+      - |
+        if curl -sf "http://localhost:8788/whoami" >/dev/null 2>&1; then
+          echo "second fixture already listening on 8788"
+        else
+          PORT=8788 node spike/fixture/server.js > /tmp/multisession-fixture-2.log 2>&1 &
+          for i in $(seq 1 40); do
+            curl -sf "http://localhost:8788/whoami" >/dev/null 2>&1 && break
+            sleep 0.25
+          done
+          echo "second fixture started on 8788"
+        fi
+
+  fixture:down:
+    desc: Stop the background fixture
+    cmds:
+      - pkill -f 'spike/fixture/server.js' || echo "not running"

@@ -1,0 +1,131 @@
+// The typed wire between the surfaces and the service worker.
+//
+// A discriminated union rather than loose strings: an unhandled op is a compile error
+// in the worker's switch, and a surface cannot invent an op that does not exist.
+// Contracts enforced by convention fail silently; this one does not.
+
+import type {
+  LayerCoverage, PersonaId, PersonaView, SessionId, Site, TabId,
+} from './types';
+
+export type Request =
+  | { readonly op: 'getState' }
+  | { readonly op: 'createPersona'; readonly name: string }
+  /** Patch a persona. One op rather than a rename op plus a describe op, so adding a
+   *  third editable field later does not add a third message. */
+  | {
+    readonly op: 'updatePersona';
+    readonly personaId: PersonaId;
+    readonly name?: string;
+    readonly description?: string;
+  }
+  | { readonly op: 'deletePersona'; readonly personaId: PersonaId }
+  | { readonly op: 'duplicatePersona'; readonly personaId: PersonaId; readonly name?: string }
+  | { readonly op: 'openPersona'; readonly personaId: PersonaId }
+  /** Capture the CURRENT tab's real login into a persona. `replace` confirms an
+   *  overwrite when that persona already holds a session for the site. */
+  /**
+   * Import the current tab's login into a persona.
+   *
+   * `mode` is the user's call, not ours:
+   *  - `move` takes the login OUT of the browser's jar, so the identity has one home.
+   *  - `copy` leaves the browser signed in too. Both then share ONE server-side session,
+   *    so signing out in either kills both — real, and sometimes exactly what is wanted.
+   */
+  | {
+    readonly op: 'saveCurrentTab';
+    readonly personaId: PersonaId;
+    readonly mode: 'move' | 'copy';
+    readonly replace?: boolean;
+  }
+  /** Put the CURRENT tab into a persona with a BLANK session — no import. The browser's
+   *  own login is left alone, so a plain tab elsewhere stays signed in. */
+  | { readonly op: 'useTabIn'; readonly personaId: PersonaId }
+  /** Open a signed-out tab for a new site inside a persona, so the user can log in. */
+  | { readonly op: 'addSite'; readonly personaId: PersonaId; readonly url: string }
+  /** Another login for a site that already has one: a new persona, named after the
+   *  site, holding one empty session, opened signed out. */
+  | { readonly op: 'anotherLogin'; readonly url: string; readonly name?: string }
+  | { readonly op: 'openSession'; readonly sessionId: SessionId; readonly where: 'new-tab' | 'this-tab' }
+  | { readonly op: 'renameSession'; readonly sessionId: SessionId; readonly label: string }
+  | { readonly op: 'deleteSession'; readonly sessionId: SessionId }
+  | { readonly op: 'moveSession'; readonly sessionId: SessionId; readonly toPersonaId: PersonaId }
+  | { readonly op: 'saveNow'; readonly tabId: TabId }
+  | { readonly op: 'unbindTab'; readonly tabId: TabId }
+  | { readonly op: 'tabStatus'; readonly tabId: TabId }
+  | { readonly op: 'coverageReport' }
+  | { readonly op: 'exportData' }
+  | { readonly op: 'importData'; readonly json: string }
+  | { readonly op: 'setSetting'; readonly key: SettingKey; readonly value: boolean };
+
+/** Settings a user can flip. Closed set so a typo cannot create a phantom setting. */
+export type SettingKey = 'useTabGroups' | 'openPersonaInNewWindow';
+export type Settings = Readonly<Record<SettingKey, boolean>>;
+
+export const DEFAULT_SETTINGS: Settings = {
+  // On by default: a native Chrome tab group makes "which tabs are which persona"
+  // visible in Chrome's own tab strip, which no badge of ours can do.
+  useTabGroups: true,
+  openPersonaInNewWindow: false,
+};
+
+/**
+ * The shim's self-report, relayed by the ISOLATED-world badge script.
+ *
+ * Deliberately NOT a member of `Request`: it is one-way, expects no response, and is
+ * handled by its own listener. Folding it into the request union would force every
+ * exhaustive switch to carry a case that never returns anything.
+ */
+export interface ShimReadyNotice {
+  readonly op: 'shimReady';
+  readonly origin: string;
+  readonly usesIndexedDb: boolean;
+  readonly hasServiceWorker: boolean;
+}
+
+/** What the current tab is, as the popup footer needs it. */
+export interface TabStatus {
+  readonly tabId: TabId | null;
+  readonly url: string | null;
+  readonly site: Site | null;
+  /** False for chrome:// and about: pages, where nothing can be offered. */
+  readonly isWebPage: boolean;
+  /** Whether the extension may isolate this site yet. */
+  readonly siteAllowed: boolean;
+  readonly sessionId: SessionId | null;
+  readonly personaId: PersonaId | null;
+  readonly personaName: string | null;
+  readonly color: string | null;
+  readonly isEmpty: boolean;
+  readonly coverage: readonly LayerCoverage[];
+  readonly summary: string;
+}
+
+export interface AppState {
+  readonly personas: readonly PersonaView[];
+  readonly tab: TabStatus;
+  readonly allowedOrigins: readonly string[];
+  readonly settings: Settings;
+}
+
+export interface OriginCoverage {
+  readonly origin: Origin2;
+  readonly coverage: readonly LayerCoverage[];
+}
+type Origin2 = string;
+
+export type Response =
+  | { readonly ok: true; readonly state: AppState }
+  | { readonly ok: true; readonly personaId: PersonaId }
+  | { readonly ok: true; readonly sessionId: SessionId }
+  | { readonly ok: true; readonly tabId: TabId }
+  | { readonly ok: true; readonly status: TabStatus }
+  | { readonly ok: true; readonly report: readonly OriginCoverage[] }
+  | { readonly ok: true; readonly json: string }
+  | { readonly ok: true; readonly opened: number }
+  | { readonly ok: true }
+  /** `needsConfirm` is not an error: the caller must ask the user, then retry with
+   *  `replace: true`. Modelling it separately stops a destructive overwrite being
+   *  one indistinguishable failure among many. */
+  | { readonly ok: false; readonly needsConfirm: 'replace-session'; readonly site: Site }
+  | { readonly ok: false; readonly error: string };

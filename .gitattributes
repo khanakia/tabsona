@@ -1,0 +1,9 @@
+* text=auto eol=lf
+
+# Generated — collapsed in diffs and excluded from language stats.
+pnpm-lock.yaml   linguist-generated=true -diff
+apps/extension/icons/*.png binary linguist-generated=true
+
+# The design-system components are copied from an upstream project; they are not
+# hand-maintained here, so they should not skew language stats or review diffs.
+apps/extension/src/ui/volt/** linguist-vendored=true
