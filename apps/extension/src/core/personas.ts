@@ -1,7 +1,7 @@
 // Pure persona + session logic. Imports the domain model and constants only — no
 // chrome.*, no storage — so every rule here is unit-tested in Node with zero mocks.
 
-import { PERSONA_COLORS, PERSONA_ID_PREFIX, SESSION_ID_PREFIX, TAB_GROUP_COLORS } from './constants';
+import { PERSONA_COLORS, PERSONA_ID_PREFIX, PERSONA_PALETTE, SESSION_ID_PREFIX, type PaletteEntry } from './constants';
 import { sessionStateOf, storageKeyNames } from './sessionState';
 import type {
   Persona, PersonaId, PersonaView, Session, SessionId, SessionView, Site, TabBindings,
@@ -18,14 +18,27 @@ export const makeSessionId = (r?: () => number) => makeId(SESSION_ID_PREFIX, r);
 
 /** Cycle accents so two personas created in a row never look alike. */
 export function pickColor(existingCount: number): string {
-  return PERSONA_COLORS[existingCount % PERSONA_COLORS.length] ?? PERSONA_COLORS[0];
+  return PERSONA_COLORS[existingCount % PERSONA_COLORS.length] ?? PERSONA_PALETTE[0].hex;
 }
 
-/** Chrome's tab-group palette is a fixed set of names, so the persona's hex accent is
- *  mapped by position rather than matched by hue — same index, same slot, always. */
-export function tabGroupColorFor(color: string): (typeof TAB_GROUP_COLORS)[number] {
-  const index = PERSONA_COLORS.indexOf(color as (typeof PERSONA_COLORS)[number]);
-  return TAB_GROUP_COLORS[index === -1 ? 0 : index] ?? 'blue';
+/** True when a colour is one of the palette's — the only colours a persona may be set to. */
+export function isPaletteColor(color: string): boolean {
+  return PERSONA_PALETTE.some((c) => c.hex === color.toLowerCase());
+}
+
+/**
+ * The palette entry for a stored persona colour.
+ *
+ * Falls back to the first entry for a colour from outside the palette (hand-edited or
+ * imported data), so every persona still gets a tab-group colour and a title marker.
+ */
+export function paletteEntryFor(color: string): PaletteEntry {
+  return PERSONA_PALETTE.find((c) => c.hex === color.toLowerCase()) ?? PERSONA_PALETTE[0];
+}
+
+/** Chrome's tab-group colour name for a persona colour. */
+export function tabGroupColorFor(color: string): PaletteEntry['id'] {
+  return paletteEntryFor(color).id;
 }
 
 export function createPersona(params: {

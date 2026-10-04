@@ -36,3 +36,21 @@ export async function groupTabsForPersona(
     return null; // never block opening a persona on cosmetics
   }
 }
+
+/**
+ * Bring the tab groups holding a persona's open tabs in line with its current name and
+ * colour. Only groups the tabs are already in are touched; a tab outside any group is
+ * left alone, because grouping is the user's choice (Settings) and their arrangement.
+ */
+export async function restyleGroupsForPersona(persona: Persona, tabIds: readonly TabId[]): Promise<void> {
+  if (!tabGroupsAvailable()) return;
+  const groupIds = new Set<number>();
+  for (const id of tabIds) {
+    const tab = await chrome.tabs.get(id).catch(() => null);
+    if (tab && tab.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) groupIds.add(tab.groupId);
+  }
+  for (const groupId of groupIds) {
+    await chrome.tabGroups.update(groupId, { title: persona.name, color: tabGroupColorFor(persona.color) })
+      .catch(() => undefined); // cosmetic: never fail the edit over a group
+  }
+}

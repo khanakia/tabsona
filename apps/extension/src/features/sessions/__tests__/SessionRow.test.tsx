@@ -107,4 +107,15 @@ describe('SessionRow', () => {
     expect(screen.getByText(ACTION_HELP.deleteSession.what)).toBeTruthy();
     expect(screen.getByText(ACTION_HELP.deleteSession.gotcha ?? '')).toBeTruthy();
   });
+
+  it('shows the whole address on its own line, with the page title moved below it', () => {
+    // With the address, the state pill and the title on one line, the address was the
+    // part that got cut off ("localho…") — and it is the part that tells sessions apart.
+    render(<SessionRow session={view({ site: 'http://ifpghub.localhost:3000', label: 'Workspace · Super admin' })} {...noop} />);
+    const address = screen.getByText('ifpghub.localhost:3000');
+    expect(address.getAttribute('title')).toBe('http://ifpghub.localhost:3000');
+    expect(address.parentElement?.textContent).not.toContain('Workspace');
+    expect(screen.getByText(/Workspace · Super admin · /)).toBeTruthy();
+  });
 });
+

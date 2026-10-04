@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, ChevronRight, Copy, MoreHorizontal, Pencil, Play, Plus, Trash2, X } from 'lucide-react';
+import { Check, ChevronRight, Copy, MoreHorizontal, Palette, Pencil, Play, Plus, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/ui/volt/button';
 import { Input } from '@/ui/volt/input';
@@ -9,6 +9,8 @@ import {
 import { IconAction, REVEAL_ON_ROW_HOVER } from '@/ui/IconAction';
 import { ActionMenuItem, WithHelp } from '@/ui/HelpCard';
 import { ACTION_HELP } from '@/ui/help';
+import { ColorSwatches } from '@/ui/ColorSwatches';
+import { FullText } from '@/ui/FullText';
 import { SessionRow } from '@/features/sessions/SessionRow';
 import type { PersonaId, PersonaView, SessionId } from '@/domain/types';
 
@@ -26,7 +28,7 @@ export interface PersonaRowProps {
   readonly onOpenAll: (id: PersonaId) => void;
   /** One patch callback rather than a rename callback plus a describe callback, so a
    *  third editable field later does not add a third prop. */
-  readonly onUpdate: (id: PersonaId, patch: { name?: string; description?: string }) => void;
+  readonly onUpdate: (id: PersonaId, patch: { name?: string; description?: string; color?: string }) => void;
   readonly onDuplicate: (id: PersonaId) => void;
   readonly onDelete: (id: PersonaId) => void;
   /** Build a session from scratch: a URL you type, opened signed out inside the
@@ -80,6 +82,9 @@ export function PersonaRow(props: PersonaRowProps) {
     setDescription(p.description);
   };
 
+  const counts = `${p.sessions.length} website${p.sessions.length === 1 ? '' : 's'}`
+    + (p.openTabCount > 0 ? ` · ${p.openTabCount} tab${p.openTabCount === 1 ? '' : 's'} open` : '');
+
   return (
     <li className="border-b border-border last:border-b-0">
       <div
@@ -118,15 +123,23 @@ export function PersonaRow(props: PersonaRowProps) {
           >
             {p.name}
           </button>
-          {p.description && (
-            <p className="truncate px-0.5 text-xs text-muted-foreground">{p.description}</p>
-          )}
+          {/* Counts share the second line with the description, so the NAME gets the
+              whole first line — beside it, the counts squeezed "IFPG super admin" down to
+              "IFPG super …". */}
+          <FullText
+            line={<p className="truncate px-0.5 text-xs text-muted-foreground tabular-nums" />}
+            full={(
+              <>
+                <span className="block font-semibold">{p.name}</span>
+                {p.description && <span className="block">{p.description}</span>}
+                <span className="block text-muted-foreground">{counts}</span>
+              </>
+            )}
+          >
+            {p.description && `${p.description} · `}
+            {counts}
+          </FullText>
         </div>
-
-        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-          {p.sessions.length} website{p.sessions.length === 1 ? '' : 's'}
-          {p.openTabCount > 0 && ` · ${p.openTabCount} tab${p.openTabCount === 1 ? '' : 's'} open`}
-        </span>
 
         <div className="flex shrink-0 items-center gap-0.5">
           {/* The one action a persona exists for gets the only solid button in the row. */}
@@ -151,6 +164,7 @@ export function PersonaRow(props: PersonaRowProps) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-72">
                 <ActionMenuItem help={ACTION_HELP.renamePersona} icon={<Pencil />} onClick={beginEdit} />
+                <ActionMenuItem help={ACTION_HELP.changeColor} icon={<Palette />} onClick={beginEdit} />
                 <ActionMenuItem help={ACTION_HELP.duplicatePersona} icon={<Copy />} onClick={() => props.onDuplicate(p.id)} />
                 <DropdownMenuSeparator />
                 <ActionMenuItem
@@ -221,6 +235,14 @@ export function PersonaRow(props: PersonaRowProps) {
               }}
               className="max-w-xs"
             />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-20 shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              Colour
+            </span>
+            {/* Applied on click, not on Save: a colour is easiest to judge by seeing it on
+                the open tabs, and it can simply be clicked again. */}
+            <ColorSwatches value={p.color} onPick={(color) => props.onUpdate(p.id, { color })} />
           </div>
           <div className="flex items-center gap-1.5 pl-[5.5rem]">
             <Button size="xs" onClick={commit}><Check />Save</Button>

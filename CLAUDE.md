@@ -7,7 +7,7 @@
 
 A Chrome extension that gives **each tab its own login session**, grouped into **personas** — a named identity across a set of apps. Open a persona and every site in it opens as a tab, already signed in.
 
-Status: **shipped and gated.** `task check` is the real gate — type-check, unit tests, a build, and eleven end-to-end suites driving the built extension in a real Chrome. Read [`docs/how-it-works.md`](docs/how-it-works.md) before changing anything in `src/engine/` or `src/content/`.
+Status: **shipped and gated.** `task check` is the real gate — type-check, unit tests, a build, and twelve end-to-end suites driving the built extension in a real Chrome. Read [`docs/how-it-works.md`](docs/how-it-works.md) before changing anything in `src/engine/` or `src/content/`.
 
 ## Who this is for
 

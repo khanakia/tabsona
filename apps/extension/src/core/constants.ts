@@ -98,22 +98,43 @@ export const STORAGE_KEY_SETTINGS = 'settings';
 export const STORAGE_KEY_BINDINGS = 'bindings';
 /** Set once the v1 → v2 migration has run, so it never runs twice. */
 export const STORAGE_KEY_SCHEMA = 'schemaVersion';
+/** Dragged badge positions by site. Its own key, not part of settings: it grows with
+ *  every site a badge is dragged on, and settings stay a small fixed shape. */
+export const STORAGE_KEY_BADGE_PLACEMENTS = 'badgePlacements';
 /** Bumped only when stored data needs converting. `migrateFromV1` reads it to decide
  *  whether it has already run, so it must never be lowered. */
 export const SCHEMA_VERSION = 2;
 
-/** Accent colours offered to new personas. The badge is the primary safety signal,
- *  so consecutive personas must never look alike. */
-export const PERSONA_COLORS = [
-  '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
-  '#8b5cf6', '#ec4899', '#14b8a6', '#f97316',
+/**
+ * Every colour a persona can have — one entry per Chrome tab-group colour.
+ *
+ * Why a fixed palette rather than any colour: the persona's colour shows in four places
+ * (popup dot, in-page badge, Chrome tab group, page-title marker) and the tab group
+ * accepts only these nine names. A free colour picker would make the tab group a guess.
+ *
+ * Invariants: `hex` values are what is stored on a persona, so existing entries must
+ * never change their hex (stored personas would stop matching); `emoji` is the title
+ * marker — hearts, because they are the only emoji set with all nine colours (there is
+ * no cyan, pink or grey square).
+ */
+export const PERSONA_PALETTE = [
+  { id: 'blue', hex: '#3b82f6', emoji: '💙', label: 'Blue' },
+  { id: 'green', hex: '#10b981', emoji: '💚', label: 'Green' },
+  { id: 'yellow', hex: '#f59e0b', emoji: '💛', label: 'Yellow' },
+  { id: 'red', hex: '#ef4444', emoji: '❤️', label: 'Red' },
+  { id: 'purple', hex: '#8b5cf6', emoji: '💜', label: 'Purple' },
+  { id: 'pink', hex: '#ec4899', emoji: '🩷', label: 'Pink' },
+  { id: 'cyan', hex: '#14b8a6', emoji: '🩵', label: 'Cyan' },
+  { id: 'orange', hex: '#f97316', emoji: '🧡', label: 'Orange' },
+  { id: 'grey', hex: '#6b7280', emoji: '🩶', label: 'Grey' },
 ] as const;
 
-/** Chrome's tab-group palette. Mapped from the persona colour so the group in the tab
- *  strip matches the dot in the popup. */
-export const TAB_GROUP_COLORS = [
-  'blue', 'green', 'yellow', 'red', 'purple', 'pink', 'cyan', 'orange',
-] as const;
+/** One palette entry. */
+export type PaletteEntry = (typeof PERSONA_PALETTE)[number];
+
+/** Colours new personas cycle through, in order. Grey is left out: it reads as
+ *  "disabled", so it is only ever a deliberate choice. */
+export const PERSONA_COLORS = PERSONA_PALETTE.filter((c) => c.id !== 'grey').map((c) => c.hex);
 
 /** How long to wait for a provoked request to reveal a tab's Cookie header when
  *  enumerating cookies is unavailable. See engine/import.ts for why that happens. */

@@ -1,0 +1,11 @@
+{
+  "_table": "comments",
+  "_v": 1,
+  "body": "2026-10-04: user cancelled the first 0.2.0 review, replaced the 5 screenshots in the dashboard (verified by a fresh load: 5 new images, 0 old), then task cws:publish resubmitted package + listing together.",
+  "created_at": "2026-10-04T12:24:33.469266000Z",
+  "created_by_actor_id": null,
+  "entity_id": "tsk_01a106d20f117bfe9d99cdc30c83725e",
+  "entity_table": "tasks",
+  "id": "cmt_01a106df81bd745187694740d763302f",
+  "updated_at": "2026-10-04T12:24:33.469267000Z"
+}

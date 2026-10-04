@@ -2,13 +2,15 @@
 // under. Isolating both here means the pure core never learns about persistence, and
 // there is exactly one place a lost update could be introduced.
 
+import { normalizeSettings } from '@/core/settings';
 import {
-  DEFAULT_SETTINGS, type Settings, type SettingKey,
+  type Settings, type SettingKey,
 } from '@/domain/messages';
 import {
   SCHEMA_VERSION, STORAGE_KEY_BINDINGS, STORAGE_KEY_PERSONAS,
-  STORAGE_KEY_SCHEMA, STORAGE_KEY_SESSIONS, STORAGE_KEY_SETTINGS,
+  STORAGE_KEY_SCHEMA, STORAGE_KEY_SESSIONS, STORAGE_KEY_SETTINGS, STORAGE_KEY_BADGE_PLACEMENTS,
 } from '@/core/constants';
+import { normalizePlacements, type BadgePlacement, type BadgePlacements } from '@/core/placement';
 import { createPersona, createSession, siteOf } from '@/core/personas';
 import type { Persona, Session, SessionId, TabBindings } from '@/domain/types';
 
@@ -98,16 +100,43 @@ export async function saveBindings(bindings: TabBindings): Promise<void> {
   await chrome.storage.session.set({ [STORAGE_KEY_BINDINGS]: bindings });
 }
 
+/** Settings with every field validated — see core/settings.ts for why per field. */
 export async function loadSettings(): Promise<Settings> {
   const got = await chrome.storage.local.get(STORAGE_KEY_SETTINGS);
-  return { ...DEFAULT_SETTINGS, ...(got[STORAGE_KEY_SETTINGS] as Partial<Settings> | undefined) };
+  return normalizeSettings(got[STORAGE_KEY_SETTINGS]);
 }
 
-export async function setSetting(key: SettingKey, value: boolean): Promise<void> {
+/** Change one setting under the lock, so two quick toggles cannot lose one write. */
+export async function updateSettings(patch: Partial<Settings>): Promise<void> {
   await withLock(async () => {
-    const next = { ...(await loadSettings()), [key]: value };
+    const next: Settings = { ...(await loadSettings()), ...patch };
     await chrome.storage.local.set({ [STORAGE_KEY_SETTINGS]: next });
   });
+}
+
+/** Flip one on/off setting. Goes through updateSettings, so it shares its lock. */
+export async function setSetting(key: SettingKey, value: boolean): Promise<void> {
+  await updateSettings({ [key]: value });
+}
+
+/** Dragged badge positions by site, validated entry by entry. */
+export async function loadBadgePlacements(): Promise<BadgePlacements> {
+  const got = await chrome.storage.local.get(STORAGE_KEY_BADGE_PLACEMENTS);
+  return normalizePlacements(got[STORAGE_KEY_BADGE_PLACEMENTS]);
+}
+
+/** Remember (placement) or forget (null) where the badge sits on one site. */
+export async function setBadgePlacement(origin: string, placement: BadgePlacement | null): Promise<void> {
+  await withLock(async () => {
+    const next: Record<string, BadgePlacement> = { ...(await loadBadgePlacements()) };
+    if (placement) next[origin] = placement; else delete next[origin];
+    await chrome.storage.local.set({ [STORAGE_KEY_BADGE_PLACEMENTS]: next });
+  });
+}
+
+/** Forget every dragged position, so every site falls back to the Settings corner. */
+export async function clearBadgePlacements(): Promise<void> {
+  await withLock(async () => { await chrome.storage.local.remove(STORAGE_KEY_BADGE_PLACEMENTS); });
 }
 
 /**

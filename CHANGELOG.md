@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **The in-page persona badge can be moved, shrunk and switched off.** It now sits bottom-left by default (top-right covered apps' header buttons), a click shrinks it to a dot and back, and Options → Settings has "Show the persona badge on pages" and a corner picker. Changes apply to open tabs immediately.
+- **Drag the badge anywhere.** The spot is remembered per site (apps put their buttons in different places) and survives reloads; double-click puts it back in the corner, and Options can reset every site at once.
+- **Pick each persona's colour** from nine swatches — one per Chrome tab-group colour, so the badge, the popup dot and the tab group always match. Open tabs and their tab group recolour immediately.
+- **Page titles carry the persona's colour** as a heart in front of the title (`💙 Dashboard`), kept in place when the app changes its title; switchable in Options.
+
+### Fixed
+
+- A persona's description, and a saved login's page title, are cut off to fit the popup; hovering (or tabbing to) a cut-off line now opens a card with the whole text. Lines that fit stay quiet.
+- Session rows show the full site address (`ifpghub.localhost:3000`) on its own line; the page title moved to the line below, where it is the part that gets cut off. Persona names likewise get the whole first line, with the site and tab counts underneath.
+
 ## [0.2.0] - 2026-10-04
 
 ### Added

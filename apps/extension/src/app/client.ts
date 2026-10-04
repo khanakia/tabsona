@@ -5,7 +5,7 @@
 // `vi.mock` of a module path. A boundary test enforces this; it is not a convention.
 
 import type {
-  AppState, OriginCoverage, Request, Response, SettingKey, TabStatus,
+  AppState, OriginCoverage, Request, Response, BadgeCorner, SettingKey, TabStatus,
 } from '@/domain/messages';
 import type { PersonaId, SessionId, TabId } from '@/domain/types';
 
@@ -61,7 +61,7 @@ export const client = {
 
   createPersona: (name: string) => send({ op: 'createPersona', name }).then(errorOf),
   /** Patch a persona. Omit a field to leave it alone; pass '' to clear a description. */
-  updatePersona: (personaId: PersonaId, patch: { name?: string; description?: string }) =>
+  updatePersona: (personaId: PersonaId, patch: { name?: string; description?: string; color?: string }) =>
     send({ op: 'updatePersona', personaId, ...patch }).then(errorOf),
   deletePersona: (personaId: PersonaId) => send({ op: 'deletePersona', personaId }).then(errorOf),
   duplicatePersona: (personaId: PersonaId) => send({ op: 'duplicatePersona', personaId }).then(errorOf),
@@ -93,6 +93,8 @@ export const client = {
   saveNow: (tabId: TabId) => send({ op: 'saveNow', tabId }).then(errorOf),
   unbindTab: (tabId: TabId) => send({ op: 'unbindTab', tabId }).then(errorOf),
   setSetting: (key: SettingKey, value: boolean) => send({ op: 'setSetting', key, value }).then(errorOf),
+  setBadgePosition: (position: BadgeCorner) => send({ op: 'setBadgePosition', position }).then(errorOf),
+  resetBadgePlacements: () => send({ op: 'resetBadgePlacements' }).then(errorOf),
   exportData: async (): Promise<string | null> => {
     const res = await send({ op: 'exportData' });
     return res.ok && 'json' in res ? res.json : null;

@@ -3,7 +3,8 @@
 
 import { computeCoverage, coverageSummary, shimFactsFrom, worstStatus } from '@/core/coverage';
 import { isEmpty } from '@/core/sessionState';
-import { loadBindings, loadLibrary } from './repo';
+import { loadBadgePlacements, loadBindings, loadLibrary, loadSettings } from './repo';
+import { paletteEntryFor } from '@/core/personas';
 import { noteShimReady, observationsFor } from './observations';
 import type { TabStatus } from '@/domain/messages';
 import type { TabId } from '@/domain/types';
@@ -111,12 +112,27 @@ export async function renderBadge(tabId: TabId): Promise<void> {
     return;
   }
 
+  const [settings, placements] = await Promise.all([loadSettings(), loadBadgePlacements()]);
+  // The toolbar badge above stays either way: it is the one indicator that cannot sit
+  // on top of the page. The in-page badge and the title marker are each the user's to
+  // switch off, independently — one can be wanted without the other.
   await chrome.tabs.sendMessage(tabId, {
     kind: 'badge:render',
+    showBadge: settings.showPageBadge,
     name: status.personaName,
     color: status.color,
     severity: worstStatus(status.coverage),
     summary: status.summary,
     isEmpty: status.isEmpty,
+    position: settings.badgePosition,
+    placement: status.site ? placements[status.site] ?? null : null,
+    titleMark: settings.markPageTitles && status.color ? paletteEntryFor(status.color).emoji : null,
   }).catch(() => undefined); // no content script here: nothing to draw on
+}
+
+/** Redraw the badge in every tab bound to a persona — after a badge setting changes,
+ *  so the user sees the new corner or the badge disappear without reloading tabs. */
+export async function renderAllBadges(): Promise<void> {
+  const bindings = await loadBindings();
+  await Promise.all(Object.keys(bindings).map((id) => renderBadge(Number(id))));
 }

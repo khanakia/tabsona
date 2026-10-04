@@ -13,6 +13,7 @@ import { StateBadge } from '@/ui/session-state';
 import { IconAction, REVEAL_ON_ROW_HOVER } from '@/ui/IconAction';
 import { ActionMenuItem, WithHelp } from '@/ui/HelpCard';
 import { ACTION_HELP } from '@/ui/help';
+import { FullText } from '@/ui/FullText';
 import { shortAgo, shortSite } from '@/ui/format';
 import type { SessionId, SessionView } from '@/domain/types';
 
@@ -49,6 +50,8 @@ export function SessionRow(props: SessionRowProps) {
     s.expiresAt !== null ? { key: 'Earliest expiry', value: new Date(s.expiresAt).toLocaleString() } : null,
   ].filter((row): row is DetailRow => row !== null);
 
+  const meta = describeState(s) + (s.state !== 'empty' ? ` · ${shortAgo(s.savedAt)}` : '');
+
   return (
     <li
       className={cn(
@@ -72,23 +75,31 @@ export function SessionRow(props: SessionRowProps) {
           <ChevronRight className={cn('size-3 transition-transform duration-150', expanded && 'rotate-90')} />
         </button>
 
-        {/* Two lines, not one.
-            At the popup's 420px the single-line version collided: the site name, the
-            state badge and the meta text all refused to shrink and overlapped. Stacking
-            the meta underneath keeps the row dense AND readable at both widths. */}
+        {/* Two lines, and the ADDRESS owns the first.
+            The address is what tells two sessions apart (localhost:2165 vs :3000), so it
+            gets line 1 with only the state pill beside it, and shrinks last. The page
+            title — useful, but long and replaceable — moved to line 2, where it is the
+            first thing to be cut. With all three on one line the address was the one
+            that disappeared ("localho…"). */}
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate font-medium">{shortSite(s.site)}</span>
+            <span className="min-w-0 truncate font-medium" title={s.site}>{shortSite(s.site)}</span>
             <StateBadge state={s.state} />
-            {s.label !== shortSite(s.site) && (
-              <span className="truncate text-xs text-muted-foreground">{s.label}</span>
-            )}
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="truncate tabular-nums">
-              {describeState(s)}
-              {s.state !== 'empty' && ` · ${shortAgo(s.savedAt)}`}
-            </span>
+          <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+            <FullText
+              line={<span className="min-w-0 truncate tabular-nums" />}
+              full={(
+                <>
+                  <span className="block font-semibold">{s.site}</span>
+                  {s.label !== shortSite(s.site) && <span className="block">{s.label}</span>}
+                  <span className="block text-muted-foreground">{meta}</span>
+                </>
+              )}
+            >
+              {s.label !== shortSite(s.site) && `${s.label} · `}
+              {meta}
+            </FullText>
             {s.openTabCount > 0 && (
               <span className="shrink-0 rounded bg-primary/10 px-1 text-[10px] font-semibold text-primary">
                 {s.openTabCount} tab{s.openTabCount === 1 ? '' : 's'} open

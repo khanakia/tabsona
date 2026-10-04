@@ -18,6 +18,8 @@ export type Request =
     readonly personaId: PersonaId;
     readonly name?: string;
     readonly description?: string;
+    /** A palette hex (see PERSONA_PALETTE); anything else is ignored by the worker. */
+    readonly color?: string;
   }
   | { readonly op: 'deletePersona'; readonly personaId: PersonaId }
   | { readonly op: 'duplicatePersona'; readonly personaId: PersonaId; readonly name?: string }
@@ -56,18 +58,64 @@ export type Request =
   | { readonly op: 'coverageReport' }
   | { readonly op: 'exportData' }
   | { readonly op: 'importData'; readonly json: string }
-  | { readonly op: 'setSetting'; readonly key: SettingKey; readonly value: boolean };
+  | { readonly op: 'setSetting'; readonly key: SettingKey; readonly value: boolean }
+  | { readonly op: 'setBadgePosition'; readonly position: BadgeCorner }
+  | { readonly op: 'resetBadgePlacements' };
 
-/** Settings a user can flip. Closed set so a typo cannot create a phantom setting. */
-export type SettingKey = 'useTabGroups' | 'openPersonaInNewWindow';
-export type Settings = Readonly<Record<SettingKey, boolean>>;
+/** On/off settings a user can flip. Closed set so a typo cannot create a phantom setting. */
+export type SettingKey = 'useTabGroups' | 'openPersonaInNewWindow' | 'showPageBadge' | 'markPageTitles';
 
+/**
+ * Where the in-page persona badge sits.
+ *
+ * A setting because no single corner is safe: apps put header buttons top-right, chat
+ * widgets bottom-right, and the badge must never be the thing hiding a control.
+ */
+export type BadgeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+/** Every corner, in the order the settings control offers them. */
+export const BADGE_CORNERS: readonly BadgeCorner[] = ['bottom-left', 'bottom-right', 'top-left', 'top-right'];
+
+/** Everything a user can configure. On/off switches plus the badge corner. */
+export interface Settings extends Readonly<Record<SettingKey, boolean>> {
+  readonly badgePosition: BadgeCorner;
+}
+
+/** What every setting is before the user changes it, and the fallback for any stored
+ *  value that is missing or invalid (see core/settings.ts). */
 export const DEFAULT_SETTINGS: Settings = {
   // On by default: a native Chrome tab group makes "which tabs are which persona"
   // visible in Chrome's own tab strip, which no badge of ours can do.
   useTabGroups: true,
   openPersonaInNewWindow: false,
+  // On by default: the in-page badge is where a tab says which persona it is and
+  // whether it is fully separate. Off is for people who rely on tab groups instead.
+  showPageBadge: true,
+  // Bottom-left: the corner apps least often fill with controls. Top-right, the old
+  // fixed spot, covered real header buttons.
+  badgePosition: 'bottom-left',
+  // On by default: the tab strip and window title are where people look when they have
+  // six tabs on one app open, and a coloured marker there says whose each one is.
+  markPageTitles: true,
 };
+
+/**
+ * The in-page badge was dragged to a new spot on `origin`. One-way, like ShimReadyNotice:
+ * the worker stores it and redraws every tab on that site; nothing is sent back.
+ * `x` and `y` are fractions of the free space — see core/placement.ts.
+ */
+export interface BadgeMovedNotice {
+  readonly op: 'badgeMoved';
+  readonly origin: string;
+  readonly x: number;
+  readonly y: number;
+}
+
+/** The badge was double-clicked on `origin`: forget its dragged spot. One-way. */
+export interface BadgeResetNotice {
+  readonly op: 'badgeReset';
+  readonly origin: string;
+}
 
 /**
  * The shim's self-report, relayed by the ISOLATED-world badge script.

@@ -6,6 +6,7 @@ import { applyCookies } from '@/core/cookies';
 import {
   createPersona, createSession, duplicatePersona as clonePersona,
   nameForAnotherLogin, sessionForSite, siteOf, toPersonaViews,
+  isPaletteColor,
 } from '@/core/personas';
 import { computeCoverage } from '@/core/coverage';
 import {
@@ -15,8 +16,8 @@ import {
 import { awaitRuleForTab, syncRules } from './rules-sync';
 import { awaitShim, captureTabStorage, restoreTabStorage } from './storage';
 import { hasCredentials, importLoginFromTab, type ImportedLogin } from './import';
-import { groupTabsForPersona } from './tabgroups';
-import { renderBadge, statusForTab } from './badge';
+import { groupTabsForPersona, restyleGroupsForPersona } from './tabgroups';
+import { renderAllBadges, renderBadge, statusForTab } from './badge';
 import { grantedOriginPatterns } from './permissions';
 import { observationsFor, observedOrigins } from './observations';
 import type { AppState, OriginCoverage, Response } from '@/domain/messages';
@@ -74,16 +75,36 @@ export async function newPersona(name: string): Promise<PersonaId> {
  * Distinguishing "not supplied" from "supplied as empty" is the whole reason both
  * fields are optional rather than nullable.
  */
-export async function updatePersona(
-  personaId: PersonaId,
-  patch: { name?: string; description?: string },
-): Promise<void> {
-  await mutateLibrary((lib) => {
+/** The editable fields of a persona. Every field optional: a patch changes only what it names. */
+export interface PersonaPatch {
+  name?: string;
+  description?: string;
+  /** Must be a palette hex; anything else is ignored rather than stored. */
+  color?: string;
+}
+
+/**
+ * Edit a persona, then make every open tab of it reflect the change at once — the tab
+ * group's name and colour, and each page's badge and title marker — so a recolour is
+ * not something that shows up only after the next reload.
+ */
+export async function updatePersona(personaId: PersonaId, patch: PersonaPatch): Promise<void> {
+  const updated = await mutateLibrary((lib) => {
     const p = lib.personas.find((x) => x.id === personaId);
-    if (!p) return;
+    if (!p) return null;
     if (patch.name !== undefined) p.name = patch.name.trim() || p.name;
     if (patch.description !== undefined) p.description = patch.description.trim();
+    if (patch.color !== undefined && isPaletteColor(patch.color)) p.color = patch.color.toLowerCase();
+    const sessionIds = new Set(lib.sessions.filter((s) => s.personaId === personaId).map((s) => s.id));
+    return { persona: { ...p }, sessionIds };
   });
+  if (!updated) return;
+  const bindings = await loadBindings();
+  const tabIds = Object.entries(bindings)
+    .filter(([, sessionId]) => updated.sessionIds.has(sessionId))
+    .map(([tabId]) => Number(tabId));
+  await restyleGroupsForPersona(updated.persona, tabIds);
+  await renderAllBadges();
 }
 
 /** Deleting a persona takes its sessions and their tab bindings with it, or orphaned
