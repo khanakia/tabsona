@@ -17,7 +17,7 @@ import { Input } from '@/ui/volt/input';
 import { Separator } from '@/ui/volt/separator';
 import { Switch } from '@/ui/volt/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/volt/tabs';
-import type { OriginCoverage } from '@/domain/messages';
+import { BADGE_CORNERS, type BadgeCorner, type OriginCoverage } from '@/domain/messages';
 import type { PersonaId } from '@/domain/types';
 
 export function Options() {
@@ -181,6 +181,25 @@ export function Options() {
               checked={state.settings.openPersonaInNewWindow}
               onChange={(v) => void run(() => client.setSetting('openPersonaInNewWindow', v))}
             />
+            <Toggle
+              label="Show the persona badge on pages"
+              hint="A small badge on every persona tab says which persona it is and whether it is fully separate. Click it on a page to shrink it to a dot."
+              checked={state.settings.showPageBadge}
+              onChange={(v) => void run(() => client.setSetting('showPageBadge', v))}
+            />
+            {state.settings.showPageBadge && (
+              <BadgeCornerPicker
+                value={state.settings.badgePosition}
+                onChange={(corner) => void run(() => client.setBadgePosition(corner))}
+                onForgetDragged={() => void run(() => client.resetBadgePlacements(), 'Every badge is back in its corner.')}
+              />
+            )}
+            <Toggle
+              label="Mark page titles with the persona colour"
+              hint="Puts the persona's coloured heart in front of each tab's title (💙 Dashboard), so the tab strip shows whose tab is whose."
+              checked={state.settings.markPageTitles}
+              onChange={(v) => void run(() => client.setSetting('markPageTitles', v))}
+            />
           </div>
         </TabsContent>
 
@@ -254,6 +273,51 @@ function Toggle(props: {
         <p className="text-xs font-medium">{props.label}</p>
         <p className="text-xs text-muted-foreground">{props.hint}</p>
       </div>
+    </div>
+  );
+}
+
+/** Human names for each corner, in the order offered. */
+const CORNER_LABEL: Record<BadgeCorner, string> = {
+  'bottom-left': 'Bottom left',
+  'bottom-right': 'Bottom right',
+  'top-left': 'Top left',
+  'top-right': 'Top right',
+};
+
+/**
+ * Where the in-page badge sits, as four buttons rather than a dropdown: four choices fit
+ * on one line, and the current one is visible without opening anything.
+ */
+function BadgeCornerPicker(props: {
+  readonly value: BadgeCorner;
+  readonly onChange: (corner: BadgeCorner) => void;
+  /** Drop every per-site dragged position, so all sites use this corner again. */
+  readonly onForgetDragged: () => void;
+}) {
+  return (
+    <div className="pl-12">
+      <p className="mb-1 text-xs font-medium">Badge position</p>
+      <div role="radiogroup" aria-label="Badge position" className="flex flex-wrap gap-1">
+        {BADGE_CORNERS.map((corner) => (
+          <Button
+            key={corner}
+            size="xs"
+            role="radio"
+            aria-checked={props.value === corner}
+            variant={props.value === corner ? 'default' : 'outline'}
+            onClick={() => props.onChange(corner)}
+          >
+            {CORNER_LABEL[corner]}
+          </Button>
+        ))}
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Pick a corner your apps do not use for buttons. Dragging the badge on a page moves it for that site only; double-click it there to put it back.
+      </p>
+      <Button size="xs" variant="outline" className="mt-1.5" onClick={props.onForgetDragged}>
+        Put every dragged badge back in this corner
+      </Button>
     </div>
   );
 }

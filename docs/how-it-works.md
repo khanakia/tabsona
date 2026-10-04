@@ -340,7 +340,7 @@ The boundary test verifies its own matcher (it asserts that it finds files, that
 
 ## How it is verified
 
-`task check` is the gate: type-check, 235 unit tests, a build, and eleven end-to-end suites that drive the **built extension** in a real Chrome.
+`task check` is the gate: type-check, 262 unit tests, a build, and twelve end-to-end suites that drive the **built extension** in a real Chrome.
 
 | Suite | Asserts |
 |---|---|
@@ -352,6 +352,7 @@ The boundary test verifies its own matcher (it asserts that it finds files, that
 | `e2e:twologins` | an existing second persona takes a fresh signed-out session for a site another already holds |
 | `e2e:tabs` | open-in-this-tab moves every layer · a blank new tab never joins a persona · a link from a session tab does |
 | `e2e:cookieonly` | a cookie-only app that redirects signed-out users opens **signed in** from a persona · its cookie reaches no other host |
+| `e2e:badge` | the in-page badge: bottom-left by default, click shrinks, drag moves it per site and survives reload, double-click resets · the title carries the persona colour and follows a recolour · the tab group recolours · a plain tab gets neither |
 | `e2e:storage` | storage lab: two personas on one origin stay apart on a cookie login, a localStorage login and an IndexedDB offline-first app — with a plain-tab control per layer proving the collision is real |
 | `e2e:boot` | concurrent service-worker boots never duplicate a content script |
 | `e2e:migrate` | upgrading from older data keeps every login and boots clean |

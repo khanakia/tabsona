@@ -30,6 +30,9 @@ describe('PersonaRow', () => {
     expect(screen.getByText('1 website')).toBeTruthy();
     rerender(<PersonaRow persona={persona({ openTabCount: 2 })} expanded={false} {...noop} />);
     expect(screen.getByText('1 website · 2 tabs open')).toBeTruthy();
+    // Under the name, after the description — never beside the name, where it squeezed it.
+    rerender(<PersonaRow persona={persona({ description: 'Hub brand workspace' })} expanded={false} {...noop} />);
+    expect(screen.getByText('Hub brand workspace · 1 website')).toBeTruthy();
   });
 
   it('hides its sessions until expanded', () => {
@@ -86,7 +89,7 @@ describe('PersonaRow', () => {
 
   it('shows a description when the persona has one', () => {
     render(<PersonaRow persona={persona({ description: 'Staging stack, admin role' })} expanded {...noop} />);
-    expect(screen.getByText('Staging stack, admin role')).toBeTruthy();
+    expect(screen.getByText('Staging stack, admin role · 1 website')).toBeTruthy();
   });
 
   it('edits name and description together, and only sends what changed', () => {
@@ -155,4 +158,24 @@ describe('PersonaRow', () => {
     fireEvent.click(screen.getByText('Save'));
     expect(onUpdate).not.toHaveBeenCalled();
   });
+
+  it('changes the colour from the edit panel, applying it straight away', () => {
+    // Applied on click rather than on Save: the colour is judged by seeing it on the tabs.
+    const onUpdate = vi.fn();
+    render(<PersonaRow persona={persona()} expanded {...noop} onUpdate={onUpdate} />);
+    fireEvent.click(screen.getByLabelText('Edit Acme admin'));
+    expect(screen.getByRole('radio', { name: 'Blue' }).getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('radio', { name: 'Grey' }));
+    expect(onUpdate).toHaveBeenCalledWith('p_1', { color: '#6b7280' });
+  });
+
+  it('offers Change colour in the menu, explained in place', () => {
+    render(<PersonaRow persona={persona()} expanded {...noop} />);
+    const [personaMenu] = screen.getAllByLabelText('More actions');
+    if (!personaMenu) throw new Error('persona menu not rendered');
+    fireEvent.click(personaMenu);
+    expect(screen.getByText(ACTION_HELP.changeColor.label)).toBeTruthy();
+    expect(screen.getByText(ACTION_HELP.changeColor.what)).toBeTruthy();
+  });
 });
+

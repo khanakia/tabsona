@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   createPersona, createSession, duplicatePersona, filterPersonas, nameForAnotherLogin,
   flattenForKeyboard, makePersonaId, pickColor, sessionForSite, siteOf,
-  tabGroupColorFor, toPersonaViews, toSessionView,
+  isPaletteColor, paletteEntryFor, tabGroupColorFor, toPersonaViews, toSessionView,
 } from '../personas';
-import { PERSONA_COLORS, PERSONA_ID_PREFIX } from '../constants';
+import { PERSONA_COLORS, PERSONA_ID_PREFIX, PERSONA_PALETTE } from '../constants';
 import type { CookieRecord, Session } from '@/domain/types';
 
 const cookie = (over: Partial<CookieRecord> = {}): CookieRecord => ({
@@ -55,13 +55,37 @@ describe('pickColor', () => {
 });
 
 describe('tabGroupColorFor', () => {
-  it('maps a persona accent to a Chrome tab-group colour by position', () => {
-    expect(tabGroupColorFor(PERSONA_COLORS[0])).toBe('blue');
-    expect(tabGroupColorFor(PERSONA_COLORS[1])).toBe('green');
+  it('maps every palette colour to its own Chrome tab-group colour', () => {
+    for (const c of PERSONA_PALETTE) expect(tabGroupColorFor(c.hex)).toBe(c.id);
+  });
+
+  it('keeps colours stored by earlier versions on the same tab-group colour', () => {
+    // Personas created before the palette stored these hex values; they must not move.
+    expect(tabGroupColorFor('#3b82f6')).toBe('blue');
+    expect(tabGroupColorFor('#10b981')).toBe('green');
+    expect(tabGroupColorFor('#F97316')).toBe('orange');
   });
 
   it('falls back for a colour it does not know', () => {
     expect(tabGroupColorFor('#123456')).toBe('blue');
+  });
+});
+
+describe('the persona palette', () => {
+  it('has one entry per Chrome tab-group colour, each with its own hex and marker', () => {
+    expect(PERSONA_PALETTE).toHaveLength(9);
+    for (const key of ['id', 'hex', 'emoji'] as const) {
+      expect(new Set(PERSONA_PALETTE.map((c) => c[key])).size).toBe(PERSONA_PALETTE.length);
+    }
+  });
+
+  it('accepts only palette colours, ignoring case', () => {
+    expect(isPaletteColor('#6B7280')).toBe(true);
+    expect(isPaletteColor('#123456')).toBe(false);
+  });
+
+  it('never cycles new personas onto grey, which reads as disabled', () => {
+    expect(PERSONA_COLORS).not.toContain(paletteEntryFor('#6b7280').hex);
   });
 });
 

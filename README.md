@@ -11,7 +11,7 @@ Give each tab its own login session. Save, open and reuse a whole set of signed-
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-235%20unit%20%2B%2028%20script%20%2B%2011%20e2e-success.svg)](#verify-it-yourself)
+[![Tests](https://img.shields.io/badge/tests-262%20unit%20%2B%2028%20script%20%2B%2012%20e2e-success.svg)](#verify-it-yourself)
 
 [How it works](docs/how-it-works.md) · [Limits](docs/limits.md) · [Privacy](https://khanakia.github.io/tabsona/privacy.html) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
@@ -136,7 +136,7 @@ No `chrome.debugger`, so no "being debugged" bar and DevTools keeps working.
 task check
 ```
 
-A full-history secret scan, type-check, 235 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and eleven end-to-end suites driving the **built extension** in a real Chrome.
+A full-history secret scan, type-check, 262 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and twelve end-to-end suites driving the **built extension** in a real Chrome.
 
 | Task | Proves |
 |---|---|
@@ -151,6 +151,7 @@ A full-history secret scan, type-check, 235 unit tests, 28 script tests, the Chr
 | `e2e:migrate` | upgrading from older data keeps every login and boots clean |
 | `e2e:cookieonly` | a cookie-only app that redirects signed-out users opens signed in · its cookie reaches no other host |
 | `e2e:storage` | two personas on one origin stay apart on a cookie, a localStorage and an IndexedDB login, each against a plain-tab control |
+| `e2e:badge` | the in-page badge: bottom-left by default, click shrinks, drag moves it per site and survives reload, double-click resets · the title carries the persona colour and follows a recolour · the tab group recolours · a plain tab gets neither |
 
 Every suite that claims isolation also runs a **control** with no extension, and asserts the tabs *do* collide — without it, a pass could just mean the fixture never shared state.
 
@@ -225,7 +226,7 @@ Not yet. Firefox has a first-class containers API and deserves a different engin
 <details>
 <summary><strong>How do I know it is really isolating?</strong></summary>
 
-Don't take it on trust — the badge on each tab reports which layers it actually achieved on that origin, and the Coverage tab in Options explains each one. Then run `task check`, which proves it end to end against a real Chrome, including control runs that demonstrate collision without the extension.
+Don't take it on trust — the badge on each tab reports which layers it actually achieved on that origin, and the Coverage tab in Options explains each one. The badge sits bottom-left by default: click it to shrink it to a dot, drag it anywhere (remembered per site), double-click to put it back, or change the corner or switch it off in Options → Settings. Each tab's title also starts with the persona's colour (`💙 Dashboard`), and every persona's colour can be changed from its Rename & describe panel. Then run `task check`, which proves it end to end against a real Chrome, including control runs that demonstrate collision without the extension.
 
 </details>
 

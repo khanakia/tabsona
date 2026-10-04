@@ -136,6 +136,15 @@ tasks:
         vars: {ORIGINS: '{{.FIXTURE_ORIGIN}}'}
       - node spike/e2e-storage.mjs
 
+  e2e:badge:
+    desc: 'The in-page badge and title marker: default bottom-left, click shrinks it, drag moves it per site (survives reload), double-click resets, title carries the persona colour and follows a recolour, settings move/hide both, a plain tab gets neither'
+    deps: [build, fixture:up]
+    cmds:
+      - task: strays
+      - task: grant
+        vars: {ORIGINS: '{{.FIXTURE_ORIGIN}}'}
+      - node spike/e2e-badge.mjs
+
   e2e:migrate:
     desc: 'Upgrading from v1 data: the worker boots clean and every old session arrives as a persona with its logins intact'
     deps: [build]
@@ -191,6 +200,7 @@ tasks:
       - task: e2e:flows
       - task: e2e:cookieonly
       - task: e2e:storage
+      - task: e2e:badge
 
   # --- helpers --------------------------------------------------------------
 

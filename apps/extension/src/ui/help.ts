@@ -30,7 +30,7 @@ export const LAYER_PLAIN: Readonly<Record<StateLayer, string>> = {
  */
 export type ActionId =
   | 'newPersona' | 'openLibrary' | 'howItWorks'
-  | 'openAll' | 'addSite' | 'renamePersona' | 'duplicatePersona' | 'deletePersona'
+  | 'openAll' | 'addSite' | 'renamePersona' | 'changeColor' | 'duplicatePersona' | 'deletePersona'
   | 'openSession' | 'openSessionHere' | 'anotherAccountForSite' | 'renameSession' | 'deleteSession'
   | 'allowSite' | 'addToPersona' | 'useTabSignedOut' | 'newPersonaFromLogin' | 'moveLogin' | 'copyLogin'
   | 'anotherAccountHere' | 'addSiteToPersona' | 'anotherAccountNewPersona'
@@ -54,6 +54,8 @@ export interface ActionHelp {
   readonly gotcha?: string;
 }
 
+/** The explanation of every action, keyed by ActionId. A `Record` over the closed set, so
+ *  an action declared without its explanation fails to compile. */
 export const ACTION_HELP: Readonly<Record<ActionId, ActionHelp>> = {
   newPersona: {
     label: 'New persona',
@@ -84,6 +86,11 @@ export const ACTION_HELP: Readonly<Record<ActionId, ActionHelp>> = {
     label: 'Rename & describe',
     what: 'Changes the persona’s name and the note saying what it is for.',
     touches: 'Logins and open tabs are not affected.',
+  },
+  changeColor: {
+    label: 'Change colour',
+    what: 'Picks the colour that marks this persona everywhere: its badge on pages, the heart in front of its tab titles, and its Chrome tab group.',
+    touches: 'Open tabs update straight away. Logins are not affected.',
   },
   duplicatePersona: {
     label: 'Duplicate',

@@ -5,16 +5,20 @@
 import { registerCapture } from './capture';
 import { grantedOriginPatterns } from './permissions';
 import { syncRules } from './rules-sync';
-import { renderBadge, statusForTab } from './badge';
+import { renderAllBadges, renderBadge, statusForTab } from './badge';
 import { captureTabStorage } from './storage';
 import { shimFactsFrom } from '@/core/coverage';
 import { noteShimReady } from './observations';
-import { loadBindings, loadLibrary, migrateFromV1, saveBindings, setSetting, withLock } from './repo';
+import {
+  clearBadgePlacements, loadBindings, loadLibrary, migrateFromV1, saveBindings, setBadgePlacement, setSetting,
+  updateSettings, withLock,
+} from './repo';
+import { placementFrom } from '@/core/placement';
 import { siteOf } from '@/core/personas';
 import {
   addSite, anotherLoginForSite, coverageReport, deletePersona, deleteSession, duplicatePersona, exportData,
   getState, importData, moveSession, newPersona, openPersona, openSession,
-  renameSession, saveCurrentTab, startPeriodicCapture, unbindTab, updatePersona, useTabIn,
+  renameSession, saveCurrentTab, startPeriodicCapture, unbindTab, updatePersona, useTabIn, type PersonaPatch,
 } from './service';
 import type { Request, Response } from '@/domain/messages';
 
@@ -196,7 +200,13 @@ chrome.tabs.onUpdated.addListener((tabId, info) => {
 
 chrome.tabs.onActivated.addListener(({ tabId }) => void renderBadge(tabId));
 
+/** One-way notices from content scripts. Handled by their own listener below, so the
+ *  request/response listener must not answer them with an "unknown op" error. */
+const NOTICE_OPS: ReadonlySet<string> = new Set(['shimReady', 'badgeMoved', 'badgeReset']);
+
 chrome.runtime.onMessage.addListener((raw, sender, respond: (r: Response) => void) => {
+  const op = typeof raw === 'object' && raw !== null ? (raw as { op?: unknown }).op : undefined;
+  if (typeof op === 'string' && NOTICE_OPS.has(op)) return false;
   void (async () => {
     const msg = raw as Request;
     try {
@@ -204,9 +214,10 @@ chrome.runtime.onMessage.addListener((raw, sender, respond: (r: Response) => voi
         case 'getState': respond({ ok: true, state: await getState() }); break;
         case 'createPersona': respond({ ok: true, personaId: await newPersona(msg.name) }); break;
         case 'updatePersona': {
-          const patch: { name?: string; description?: string } = {};
+          const patch: PersonaPatch = {};
           if (msg.name !== undefined) patch.name = msg.name;
           if (msg.description !== undefined) patch.description = msg.description;
+          if (msg.color !== undefined) patch.color = msg.color;
           await updatePersona(msg.personaId, patch);
           respond({ ok: true });
           break;
@@ -234,7 +245,9 @@ chrome.runtime.onMessage.addListener((raw, sender, respond: (r: Response) => voi
         case 'coverageReport': respond({ ok: true, report: coverageReport() }); break;
         case 'exportData': respond({ ok: true, json: await exportData() }); break;
         case 'importData': respond(await importData(msg.json)); break;
-        case 'setSetting': await setSetting(msg.key, msg.value); respond({ ok: true }); break;
+        case 'setSetting': await setSetting(msg.key, msg.value); await renderAllBadges(); respond({ ok: true }); break;
+        case 'setBadgePosition': await updateSettings({ badgePosition: msg.position }); await renderAllBadges(); respond({ ok: true }); break;
+        case 'resetBadgePlacements': await clearBadgePlacements(); await renderAllBadges(); respond({ ok: true }); break;
         default: {
           // Exhaustiveness: an op added without a handler fails to compile.
           const never: never = msg;
@@ -248,12 +261,22 @@ chrome.runtime.onMessage.addListener((raw, sender, respond: (r: Response) => voi
   return true; // keep the channel open for the async respond
 });
 
-// Relayed by the ISOLATED-world badge script: the shim's self-report.
+// One-way notices from the ISOLATED-world badge script: the shim's self-report, and the
+// user dragging or resetting the in-page badge.
 chrome.runtime.onMessage.addListener((raw, sender) => {
   const msg = typeof raw === 'object' && raw !== null ? (raw as { op?: unknown; origin?: unknown }) : null;
-  if (msg?.op !== 'shimReady' || typeof msg.origin !== 'string' || !msg.origin) return;
-  noteShimReady(msg.origin, shimFactsFrom(raw));
-  if (sender.tab?.id !== undefined) void renderBadge(sender.tab.id);
+  if (typeof msg?.origin !== 'string' || !msg.origin) return;
+  const origin = msg.origin;
+  if (msg.op === 'shimReady') {
+    noteShimReady(origin, shimFactsFrom(raw));
+    if (sender.tab?.id !== undefined) void renderBadge(sender.tab.id);
+  } else if (msg.op === 'badgeMoved') {
+    // Validated, not trusted: a page could post anything through the badge script.
+    const placement = placementFrom(raw);
+    if (placement) void setBadgePlacement(origin, placement).then(renderAllBadges);
+  } else if (msg.op === 'badgeReset') {
+    void setBadgePlacement(origin, null).then(renderAllBadges);
+  }
 });
 
 // Exposed for the end-to-end drivers, which talk to this worker over CDP and cannot use
@@ -264,6 +287,6 @@ Object.assign(globalThis, {
     openPersona, saveCurrentTab, addSite, openSession, renameSession, deleteSession,
     moveSession, unbindTab, statusForTab, captureTabStorage, syncRules, anotherLoginForSite, useTabIn,
     coverageReport, exportData, importData,
-    boot, registerContentScripts,
+    boot, registerContentScripts, updateSettings, renderAllBadges,
   },
 });
