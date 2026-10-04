@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "multisession-tabs: the product's sharpest UX edge is that a NEW session starts signed out.\n\nIt must — an empty session strips the browser's cookies, otherwise the tab inherits whoever you already were and nothing is isolated. But a user who creates 'admin' and clicks 'use here' sees a login page and concludes the button is broken. Aman hit exactly this and asked 'is use here a different feature or what'.\n\nThe behaviour is correct and is pinned by spike/run-firstlogin.mjs (plain tab -> use here on an empty session -> sign in -> close -> reopen already signed in, 4/4 on the real app). What was missing was saying so, in all three places the user looks: an 'empty' chip on the session row, an explanation banner when acting on one, and an in-page badge reading '<name> · sign in to save'.\n\nGeneral lesson: when a correct behaviour looks like a failure, the fix is never only in the code — every surface that shows the thing has to narrate it.",
+  "confidence": null,
+  "created_at": "2026-10-02T15:44:53.470074000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "mem_01a0fd4a32de7138bd9299bd84cd7149",
+  "kind": "core",
+  "last_validated_at": null,
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": "spike/run-firstlogin.mjs",
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "tx_at": "2026-10-02T15:44:53.470075000Z",
+  "updated_at": "2026-10-02T15:44:53.470074000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

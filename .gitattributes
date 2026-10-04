@@ -7,3 +7,8 @@ apps/extension/icons/*.png binary linguist-generated=true
 # The design-system components are copied from an upstream project; they are not
 # hand-maintained here, so they should not skew language stats or review diffs.
 apps/extension/src/ui/volt/** linguist-vendored=true
+# >>> lore-sync >>>
+.lore/data/**/*.json text eol=lf merge=lore linguist-generated=true
+.lore/data/*.json text eol=lf merge=lore linguist-generated=true
+.lore/LORE.md text eol=lf merge=lore-keep-ours linguist-generated=true
+# <<< lore-sync <<<

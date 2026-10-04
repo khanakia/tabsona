@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "Prior art pins a DNR rule to a single requestDomain, which breaks any app with an auth subdomain plus an API domain — i.e. most real SSO. Model a session's scope as a set of domains from the start.",
+  "commitment": "accepted",
+  "completed_at": "2026-10-02T13:51:38.846827000Z",
+  "created_at": "2026-10-02T12:15:20.111909000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a0fc8a582f7de2a6353c8001535da9",
+  "mission_id": "msn_01a0fc850b017395bf1f6c484bfb542a",
+  "plan_id": null,
+  "priority": "high",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "started_at": null,
+  "status": "done",
+  "tasklist_id": "tlt_01a0fc850b62740f891c787b629a6ba8",
+  "title": "A session spans a domain SET, not one host",
+  "updated_at": "2026-10-02T13:51:38.846828000Z"
+}

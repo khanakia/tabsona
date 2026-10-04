@@ -1,6 +1,8 @@
 import { CheckCircle2, CircleDashed, CircleHelp, TriangleAlert } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipPositioner, TooltipTrigger } from '@/ui/volt/tooltip';
+import { HELP_CARD_DELAY_MS } from './help';
 import type { SessionState } from '@/domain/types';
 
 /**
@@ -23,7 +25,7 @@ export const SESSION_STATE: Record<SessionState, StatePresentation> = {
     label: 'Signed in',
     Icon: CheckCircle2,
     color: 'var(--state-signed-in)',
-    help: 'Live cookies are stored for this site.',
+    help: 'You are signed in. Opening this website uses this login.',
   },
   unknown: {
     label: 'Saved',
@@ -31,7 +33,7 @@ export const SESSION_STATE: Record<SessionState, StatePresentation> = {
     color: 'var(--state-unknown)',
     // Honest on purpose: a token in page storage carries no expiry we can read, so
     // claiming "signed in" would be a guess.
-    help: 'Stored, but its token carries no expiry we can read.',
+    help: 'A login is saved, but Tabsona cannot tell when it ends. Open it to check.',
   },
   empty: {
     label: 'Empty',
@@ -43,11 +45,13 @@ export const SESSION_STATE: Record<SessionState, StatePresentation> = {
     label: 'Expired',
     Icon: TriangleAlert,
     color: 'var(--state-expired)',
-    help: 'Its cookies have aged out. Open it and sign in again.',
+    help: 'This login has ended. Open it and sign in again.',
   },
 };
 
-/** A state pill: dot + word, sized to sit inside a dense row. */
+/** A state pill: dot + word, sized to sit inside a dense row. Resting on it, or tabbing
+ *  to it, explains the state in a sentence — a native `title` took a second to appear and
+ *  never showed for keyboard users. */
 export function StateBadge({
   state,
   className,
@@ -57,16 +61,29 @@ export function StateBadge({
 }) {
   const { label, color, help } = SESSION_STATE[state];
   return (
-    <span
-      title={help}
-      className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-px text-[10px] font-medium',
-        className,
-      )}
-      style={{ color, borderColor: `color-mix(in oklch, ${color} 35%, transparent)`, background: `color-mix(in oklch, ${color} 10%, transparent)` }}
-    >
-      <span className="size-1.5 rounded-full" style={{ background: color }} />
-      {label}
-    </span>
+    <Tooltip>
+      <TooltipTrigger
+        delay={HELP_CARD_DELAY_MS}
+        render={(
+          <span
+            // Focusable so the explanation is reachable without a mouse.
+            tabIndex={0}
+            className={cn(
+              'inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-px text-[10px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              className,
+            )}
+            style={{ color, borderColor: `color-mix(in oklch, ${color} 35%, transparent)`, background: `color-mix(in oklch, ${color} 10%, transparent)` }}
+          />
+        )}
+      >
+        <span className="size-1.5 rounded-full" style={{ background: color }} />
+        {label}
+      </TooltipTrigger>
+      <TooltipPositioner>
+        <TooltipContent className="max-w-56 border border-border bg-popover px-2.5 py-1.5 text-[11px] leading-snug text-popover-foreground shadow-md [&>[data-slot=tooltip-arrow]]:hidden">
+          {help}
+        </TooltipContent>
+      </TooltipPositioner>
+    </Tooltip>
   );
 }

@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "Once a MAIN-world shim replaces window.localStorage with a namespacing Proxy, the extension must NOT read or write storage through window.localStorage any more — the proxy already strips the prefix on read and adds it on write.\n\nSymptoms when you get this wrong, both SILENT:\n- capture iterates window.localStorage looking for the namespace prefix, finds nothing (key(i) already returns the un-prefixed key), and saves an empty slice;\n- restore writes prefix+key through the proxy, producing prefix+prefix+key, so the app never finds its own tokens.\n\nBoth bugs were invisible for days because localStorage PERSISTS PER ORIGIN: a reopened tab kept finding its old namespaced keys sitting there, so save/restore appeared to work. The test only became honest once it wiped the origin's storage between capture and restore.\n\nFix: the shim closes over the REAL Storage objects before wrapping and exposes dumpLocal/dumpSession/loadLocal/loadSession on its handle; the background goes through those and checks handle.id matches the session it intends.\n\nRelated trap in the same area: changing only a URL's #fragment is a SAME-DOCUMENT navigation, so the shim never re-runs. To move a tab into a different session you must bounce through about:blank first.",
+  "confidence": null,
+  "created_at": "2026-10-02T15:30:28.866422000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "mem_01a0fd3d01827680a3ae5bd141a68616",
+  "kind": "procedural",
+  "last_validated_at": null,
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": "spike/run-usehere.mjs",
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "tx_at": "2026-10-02T15:30:28.866423000Z",
+  "updated_at": "2026-10-02T15:30:28.866423000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

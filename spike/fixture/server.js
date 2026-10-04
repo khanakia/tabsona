@@ -10,8 +10,24 @@
 
 const http = require('node:http');
 const crypto = require('node:crypto');
+const { handleLab } = require('./lab');
 
 const PORT = Number(process.env.PORT || 8787);
+
+/**
+ * COOKIE_ONLY=1 makes `/` behave like a real app behind an auth provider (AuthKit,
+ * OAuth): the login lives ONLY in an HttpOnly cookie — nothing in localStorage or
+ * sessionStorage — and a signed-out request is 302'd to a separate sign-in page
+ * instead of rendering a login form.
+ *
+ * WHY: the default mode mirrors the identity into storage on every load, so a restored
+ * session always has storage, and restoring storage triggers a reload that quietly
+ * re-sent the request with the right cookie. That masked a bug for every cookie-only
+ * app: the persona's FIRST request left with no cookie and the redirect bounced the tab
+ * to the sign-in page before any reload could save it.
+ */
+const COOKIE_ONLY = process.env.COOKIE_ONLY === '1';
+const SIGNIN_PATH = '/signin';
 
 /**
  * The fixture's two roles. Password is the username — this is a test fixture on
@@ -43,7 +59,7 @@ function userFor(req) {
   return sid ? sessions.get(sid) : undefined;
 }
 
-function html(body) {
+function html(body, { mirrorStorage = true } = {}) {
   return `<!doctype html><html><head><meta charset="utf-8">
 <title>fixture</title>
 <style>
@@ -57,7 +73,10 @@ function html(body) {
   td{padding:2px 14px 2px 0;vertical-align:top}
   td:first-child{color:#9a9aa3}
 </style></head><body>${body}
-<script>
+${mirrorStorage ? MIRROR_SCRIPT : ''}</body></html>`;
+}
+
+const MIRROR_SCRIPT = `<script>
 // Mirror the cookie identity into the other storage layers, so a spike can see
 // per-layer leakage in one glance. Written on every load.
 (function(){
@@ -68,8 +87,7 @@ function html(body) {
   try { put('ls', localStorage.getItem('fixture_token')); } catch(e){ put('ls','(blocked)'); }
   try { put('ss', sessionStorage.getItem('fixture_token')); } catch(e){ put('ss','(blocked)'); }
 })();
-</script></body></html>`;
-}
+</script>`;
 
 function page(user) {
   if (!user) {
@@ -89,6 +107,29 @@ function page(user) {
     <p style="margin-top:16px">
       <form method="POST" action="/logout" style="display:inline"><button type="submit">log out</button></form>
     </p>`);
+}
+
+/** COOKIE_ONLY pages: identical, minus every storage write. */
+function cookieOnlyPage(user) {
+  if (!user) {
+    const buttons = USERS.map((u) => `<form method="POST" action="/login" style="display:inline">
+      <input type="hidden" name="user" value="${u}">
+      <button type="submit">log in as ${u}</button></form>`).join(' ');
+    return html(`<p class="who" id="who">sign in</p><p>${buttons}</p>`, { mirrorStorage: false });
+  }
+  return html(`<p class="who" id="who">${user}</p>
+    <p class="muted">cookie-only: nothing in localStorage or sessionStorage</p>`, { mirrorStorage: false });
+}
+
+/** Which cookie NAMES reached this host, for a cross-host leak check. CORS with
+ *  credentials, so a page on another origin can make the request and read the answer. */
+function echoCookies(req, res) {
+  const origin = req.headers.origin;
+  res.writeHead(200, {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-store',
+    ...(origin ? { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Credentials': 'true' } : {}),
+  }).end(JSON.stringify({ cookies: Object.keys(parseCookies(req.headers.cookie)) }));
 }
 
 const server = http.createServer((req, res) => {
@@ -131,6 +172,28 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (url.pathname === '/echo-cookies') {
+    echoCookies(req, res);
+    return;
+  }
+
+  if (COOKIE_ONLY && url.pathname === SIGNIN_PATH) {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
+      .end(cookieOnlyPage(null).replace('<body>', '<body data-user="">'));
+    return;
+  }
+
+  if (COOKIE_ONLY && url.pathname === '/') {
+    const user = userFor(req);
+    if (!user) {
+      res.writeHead(302, { Location: SIGNIN_PATH, 'Cache-Control': 'no-store' }).end();
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
+      .end(cookieOnlyPage(user).replace('<body>', `<body data-user="${user}">`));
+    return;
+  }
+
   if (url.pathname === '/') {
     const user = userFor(req);
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
@@ -138,9 +201,12 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // The storage lab: one mini app per storage layer. See lab.js.
+  if (handleLab(req, res, url)) return;
+
   res.writeHead(404).end('not found');
 });
 
 server.listen(PORT, () => {
-  console.log(`fixture listening on http://localhost:${PORT}`);
+  console.log(`fixture listening on http://localhost:${PORT}${COOKIE_ONLY ? ' (cookie-only)' : ''}`);
 });

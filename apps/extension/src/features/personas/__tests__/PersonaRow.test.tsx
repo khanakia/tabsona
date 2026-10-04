@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { PersonaRow } from '../PersonaRow';
+import { ACTION_HELP } from '@/ui/help';
 import type { PersonaView, SessionView } from '@/domain/types';
 
 /** Again: no module mocks. The row composes SessionRow directly and still renders. */
@@ -24,9 +25,11 @@ const noop = {
 };
 
 describe('PersonaRow', () => {
-  it('shows how many sites the persona holds', () => {
-    render(<PersonaRow persona={persona()} expanded={false} {...noop} />);
-    expect(screen.getByText('1 site')).toBeTruthy();
+  it('shows how many websites the persona holds, and how many tabs are open', () => {
+    const { rerender } = render(<PersonaRow persona={persona()} expanded={false} {...noop} />);
+    expect(screen.getByText('1 website')).toBeTruthy();
+    rerender(<PersonaRow persona={persona({ openTabCount: 2 })} expanded={false} {...noop} />);
+    expect(screen.getByText('1 website · 2 tabs open')).toBeTruthy();
   });
 
   it('hides its sessions until expanded', () => {
@@ -39,24 +42,45 @@ describe('PersonaRow', () => {
   it('opens the whole persona — the feature that justifies personas existing', () => {
     const onOpenAll = vi.fn();
     render(<PersonaRow persona={persona()} expanded {...noop} onOpenAll={onOpenAll} />);
-    fireEvent.click(screen.getByText('Open all'));
+    fireEvent.click(screen.getByText(ACTION_HELP.openAll.label));
     expect(onOpenAll).toHaveBeenCalledWith('p_1');
   });
 
   it('disables open-all for a persona with no sites, rather than opening nothing', () => {
     render(<PersonaRow persona={persona({ sessions: [] })} expanded {...noop} />);
-    expect(screen.getByText('Open all').closest('button')?.hasAttribute('disabled')).toBe(true);
+    expect(screen.getByText(ACTION_HELP.openAll.label).closest('button')?.hasAttribute('disabled')).toBe(true);
   });
 
   it('tells an empty persona what to do instead of showing a blank list', () => {
     render(<PersonaRow persona={persona({ sessions: [] })} expanded {...noop} />);
-    expect(screen.getByText(/No sites yet/)).toBeTruthy();
+    expect(screen.getByText(/No websites yet/)).toBeTruthy();
+  });
+
+  it('explains duplicate and delete in the menu, including what cannot be undone', () => {
+    render(<PersonaRow persona={persona()} expanded {...noop} />);
+    // The persona's own menu comes first; each session row below has one too.
+    const [personaMenu] = screen.getAllByLabelText('More actions');
+    if (!personaMenu) throw new Error('persona menu not rendered');
+    fireEvent.click(personaMenu);
+    expect(screen.getByText(ACTION_HELP.duplicatePersona.gotcha ?? '')).toBeTruthy();
+    expect(screen.getByText(ACTION_HELP.deletePersona.gotcha ?? '')).toBeTruthy();
+  });
+
+  it('adds the website that was typed, accepting a bare domain', () => {
+    // The popup used to ignore the typed address and add the current tab's site instead.
+    const onAddSite = vi.fn();
+    render(<PersonaRow persona={persona()} expanded {...noop} onAddSite={onAddSite} currentSite="https://elsewhere.test" />);
+    fireEvent.click(screen.getByLabelText(ACTION_HELP.addSite.label));
+    const input = screen.getByLabelText('Add a site to Acme admin');
+    fireEvent.change(input, { target: { value: 'example.com' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onAddSite).toHaveBeenCalledWith('p_1', 'https://example.com');
   });
 
   it('forwards a session open, including which target was chosen', () => {
     const onOpenSession = vi.fn();
     render(<PersonaRow persona={persona()} expanded {...noop} onOpenSession={onOpenSession} />);
-    fireEvent.click(screen.getByLabelText('Open in the tab you are on'));
+    fireEvent.click(screen.getByLabelText(ACTION_HELP.openSessionHere.label));
     expect(onOpenSession).toHaveBeenCalledWith('s_1', 'this-tab');
   });
 

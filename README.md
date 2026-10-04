@@ -11,7 +11,7 @@ Give each tab its own login session. Save, open and reuse a whole set of signed-
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-180%20unit%20%2B%2028%20script%20%2B%209%20e2e-success.svg)](#verify-it-yourself)
+[![Tests](https://img.shields.io/badge/tests-235%20unit%20%2B%2028%20script%20%2B%2011%20e2e-success.svg)](#verify-it-yourself)
 
 [How it works](docs/how-it-works.md) · [Limits](docs/limits.md) · [Privacy](https://khanakia.github.io/tabsona/privacy.html) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
@@ -47,7 +47,7 @@ Every image is captured from the real built extension by `task screenshots`, so 
 
 | | |
 |---|---|
-| <img src="docs/shots/2-save-menu.png" alt="The Use this tab menu, offering to sign in fresh, move the current login, or copy it" /> | <img src="docs/shots/3-library.png" alt="The options page listing every persona and its sessions" /> |
+| <img src="docs/shots/2-save-menu.png" alt="The Add to persona panel, asking whether to use the tab signed out, move the current login, or copy it, with what each does to your normal login" /> | <img src="docs/shots/3-library.png" alt="The options page listing every persona and its sessions" /> |
 | **Move or copy — your choice.** File the login you are already using into a persona, or start a fresh one and leave your browser alone. | **The full library.** Every persona, every saved login, and what each one holds. |
 | <img src="docs/shots/4-coverage.png" alt="The coverage report, listing each storage layer as covered, unknown or not applicable for a site" /> | <img src="docs/shots/5-sites.png" alt="The sites tab, listing the origins you have granted and the settings" /> |
 | **Measured, not assumed.** Which layers are actually isolated on each site, from what the engine observed. | **You grant every site.** Nothing is touched until you allow it through Chrome's own prompt. |
@@ -72,9 +72,9 @@ task package          # build, validate, then dist/tabsona-<version>.zip
 ## Getting started
 
 1. Open your app and sign in normally.
-2. Open the popup (<kbd>⌘⇧S</kbd> / <kbd>Ctrl+Shift+S</kbd>) → **Allow this site** → confirm in Chrome's dialog. Nothing can be isolated until you do; that is Chrome's security model, not a step that can be skipped for you.
-3. Type a persona name → **+**.
-4. **Use this tab** → **Move the login I am using into…** → your persona.
+2. Open the popup (<kbd>⌘⇧S</kbd> / <kbd>Ctrl+Shift+S</kbd>) → **Allow this website** → confirm in Chrome's dialog. Nothing can be isolated until you do; that is Chrome's security model, not a step that can be skipped for you.
+3. **+** → type a persona name → <kbd>Enter</kbd>.
+4. **Add to persona** → **Move my login** → your persona.
 5. Sign in as the next role and file it into a second persona.
 6. **Open all** on either persona brings its whole set back.
 
@@ -83,18 +83,20 @@ task package          # build, validate, then dist/tabsona-<version>.zip
 | You want | Do this | Your browser's own login |
 |---|---|---|
 | A session from scratch | **+** on a persona → type a URL | untouched |
-| Use the tab you are on, sign in fresh | **Use this tab** → *Sign in fresh, in…* | untouched |
-| Keep the login you are already using | **Use this tab** → *Move the login I am using into…* | removed |
-| Keep it in both places | **Use this tab** → *Copy it into…* | kept |
+| Use the tab you are on, sign in fresh | **Add to persona** → *Use this tab, signed out* | untouched |
+| Keep the login you are already using | **Add to persona** → *Move my login* | removed |
+| Keep it in both places | **Add to persona** → *Copy my login* | kept |
 
-A **copy** leaves one server-side session shared between your browser and the persona, so signing out in either place ends both. The menu says so where the choice is made.
+**Add to persona** asks *how* first and *which persona* second, so what a choice does to your normal login is on screen before any persona can be clicked. A **copy** leaves one server-side session shared between your browser and the persona, so signing out in either place ends both; the panel says so where the choice is made.
+
+Every button explains itself: rest the pointer on it, or tab to it, and a card says what will happen and what it leaves alone. The **?** in the popup header shows the three-step guide, which also appears on its own until your first persona exists.
 
 ### Two accounts on the same site
 
 A persona holds at most one login per site — that is what makes *Open all* unambiguous. Two accounts means two personas, and you never build that by hand:
 
-- **Sign in as someone else here** (footer) lists every persona that does not yet hold this site, plus *In a new persona*.
-- **Another login for this site** (session menu) creates a new persona named after the site, signed out and ready.
+- **Another account** (footer) lists every persona that does not yet hold this site, plus *In a new persona*.
+- **Add another account** (session menu) creates a new persona named after the site, signed out and ready.
 
 ### Keyboard
 
@@ -120,7 +122,7 @@ The column that matters most is the third. Isolation is not all-or-nothing: a se
 
 Reading and writing cookies are **different Chrome APIs**, and neither can do the other's job:
 
-- **Write** — `declarativeNetRequest` session rules replace the whole `Cookie` header per tab (`tabIds` conditions work only on session rules), and strip `Set-Cookie` from responses so your browser's own jar never learns the login.
+- **Write** — `declarativeNetRequest` session rules replace the whole `Cookie` header per tab and per host (`tabIds` conditions work only on session rules), so a persona's cookies reach only the hosts that set them, and strip `Set-Cookie` from responses so your browser's own jar never learns the login.
 - **Read** — observational `webRequest` with `extraHeaders` still delivers the raw `Set-Cookie`, **HttpOnly included**, tagged with the exact tab. Manifest V3 removed *blocking* webRequest; observation survived.
 - **Storage** — a MAIN-world script at `document_start` namespaces `localStorage` by **session id**, not by tab. That single choice is what makes save and restore possible.
 
@@ -134,7 +136,7 @@ No `chrome.debugger`, so no "being debugged" bar and DevTools keeps working.
 task check
 ```
 
-A full-history secret scan, type-check, 180 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and nine end-to-end suites driving the **built extension** in a real Chrome.
+A full-history secret scan, type-check, 235 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and eleven end-to-end suites driving the **built extension** in a real Chrome.
 
 | Task | Proves |
 |---|---|
@@ -147,6 +149,8 @@ A full-history secret scan, type-check, 180 unit tests, 28 script tests, the Chr
 | `e2e:tabs` | open-in-this-tab moves every layer · a blank new tab never joins a persona |
 | `e2e:boot` | concurrent worker boots never duplicate a content script |
 | `e2e:migrate` | upgrading from older data keeps every login and boots clean |
+| `e2e:cookieonly` | a cookie-only app that redirects signed-out users opens signed in · its cookie reaches no other host |
+| `e2e:storage` | two personas on one origin stay apart on a cookie, a localStorage and an IndexedDB login, each against a plain-tab control |
 
 Every suite that claims isolation also runs a **control** with no extension, and asserts the tabs *do* collide — without it, a pass could just mean the fixture never shared state.
 
@@ -169,7 +173,7 @@ APP_URL=https://your.app APP_USER=you@example.test APP_PASS=... task probe:app
 Surfaced on the badge rather than hidden. The complete list, each entry marked verified-in-code or merely assumed, is in [`docs/limits.md`](docs/limits.md).
 
 - **Service-worker fetches bypass isolation.** They carry no tab id, so no per-tab rule matches. Unfixable in the extension model.
-- **IndexedDB is detected, not isolated.** Apps keeping auth there will cross-contaminate.
+- **IndexedDB inside workers is shared.** The page's own databases are kept per persona; a worker's are not, and the badge says so when a page starts one.
 - **Partitioned cookies (CHIPS) are not captured** — the partition key is modelled but never populated.
 - **Cross-origin iframes** cannot learn which session they belong to.
 - **`SharedWorker` is removed** on isolated sites, because it re-syncs login state across tabs behind every other guard. Blunt; being made per-site.

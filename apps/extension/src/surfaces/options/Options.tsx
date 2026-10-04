@@ -3,12 +3,15 @@
 // to be.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Download, Plus, Search, Upload, X } from 'lucide-react';
+import { Download, Plus, Search, Upload } from 'lucide-react';
 import { filterPersonas } from '@/core/personas';
 import { client } from '@/app/client';
 import { useLibrary } from '@/app/useLibrary';
 import { PersonaRow } from '@/features/personas';
 import { CoverageTable, SiteList } from '@/features/sites';
+import { ConfirmDialog } from '@/ui/ConfirmDialog';
+import { FeedbackBanner } from '@/ui/FeedbackBanner';
+import { confirmDeletePersona, confirmForgetLogin } from '@/ui/help';
 import { Button } from '@/ui/volt/button';
 import { Input } from '@/ui/volt/input';
 import { Separator } from '@/ui/volt/separator';
@@ -18,7 +21,7 @@ import type { OriginCoverage } from '@/domain/messages';
 import type { PersonaId } from '@/domain/types';
 
 export function Options() {
-  const { state, feedback, setFeedback, refresh, run } = useLibrary();
+  const { state, feedback, setFeedback, refresh, run, confirm, confirmRequest, answerConfirm } = useLibrary();
   const [query, setQuery] = useState('');
   const [newName, setNewName] = useState('');
   const [report, setReport] = useState<readonly OriginCoverage[]>([]);
@@ -59,12 +62,12 @@ export function Options() {
       </header>
 
       {feedback && (
-        <div className="mb-3 flex items-start gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs">
-          <span className="flex-1">{feedback.text}</span>
-          <button type="button" aria-label="Dismiss" onClick={() => setFeedback(null)}>
-            <X className="size-3" />
-          </button>
-        </div>
+        <FeedbackBanner
+          tone={feedback.tone}
+          text={feedback.text}
+          onDismiss={() => setFeedback(null)}
+          className="mb-3 rounded-md border border-border"
+        />
       )}
 
       <Tabs defaultValue="personas">
@@ -133,15 +136,18 @@ export function Options() {
                   onToggle={toggle}
                   onOpenAll={(id) => void run(() => client.openPersona(id))}
                   onUpdate={(id, patch) => void run(() => client.updatePersona(id, patch))}
-                  onDuplicate={(id) => void run(() => client.duplicatePersona(id))}
-                  onDelete={(id) => void run(() => client.deletePersona(id))}
-                  onAddSite={() => setFeedback({
-                    tone: 'info',
-                    text: 'Open the site in a tab, then use + or “Save this login” from the popup.',
-                  })}
+                  onDuplicate={(id) => void run(() => client.duplicatePersona(id), `Duplicated “${p.name}”, logins included.`)}
+                  onDelete={(id) => void (async () => {
+                    if (!(await confirm(confirmDeletePersona(p.name)))) return;
+                    await run(() => client.deletePersona(id), `Deleted “${p.name}”.`);
+                  })()}
+                  onAddSite={(id, url) => void run(() => client.addSite(id, url))}
                   onOpenSession={(id, where) => void run(() => client.openSession(id, where))}
                   onRenameSession={(id, label) => void run(() => client.renameSession(id, label))}
-                  onDeleteSession={(id) => void run(() => client.deleteSession(id))}
+                  onDeleteSession={(id) => void (async () => {
+                    if (!(await confirm(confirmForgetLogin()))) return;
+                    await run(() => client.deleteSession(id), 'Forgot that login.');
+                  })()}
               onAnotherLogin={(site) => {
                 void run(() => client.anotherLogin(site));
               }}
@@ -229,6 +235,8 @@ export function Options() {
           </p>
         </TabsContent>
       </Tabs>
+
+      <ConfirmDialog request={confirmRequest} onAnswer={answerConfirm} />
     </div>
   );
 }

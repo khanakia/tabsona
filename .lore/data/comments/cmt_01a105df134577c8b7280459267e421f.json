@@ -1,0 +1,11 @@
+{
+  "_table": "comments",
+  "_v": 1,
+  "body": "Break test run 2026-10-04: with installIdbNamespace disabled in the shim, e2e:storage failed 7 checks — persona A became bob, both personas saw both offline notes, each user's outbox uploaded into the other's account, deleteDatabase in A wiped B, badge reported leaking. Restored from backup copy; suite passes 17/17.",
+  "created_at": "2026-10-04T07:44:27.973496000Z",
+  "created_by_actor_id": null,
+  "entity_id": "tsk_01a105d9079871d8b3403228b02dba97",
+  "entity_table": "tasks",
+  "id": "cmt_01a105df134577c8b7280459267e421f",
+  "updated_at": "2026-10-04T07:44:27.973496000Z"
+}

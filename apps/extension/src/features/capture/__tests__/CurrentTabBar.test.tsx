@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { CurrentTabBar } from '../CurrentTabBar';
+import { ACTION_HELP } from '@/ui/help';
 import type { TabStatus } from '@/domain/messages';
 import type { PersonaView } from '@/domain/types';
 
@@ -38,93 +39,148 @@ const noop = {
   onAddToPersona: () => undefined,
 };
 
+const openJoin = () => fireEvent.click(screen.getByText(ACTION_HELP.addToPersona.label));
+const choose = (id: 'useTabSignedOut' | 'moveLogin' | 'copyLogin') => fireEvent.click(screen.getByText(ACTION_HELP[id].label));
+
 describe('CurrentTabBar — a signed-in PLAIN tab', () => {
   const personas = [persona(), persona({ id: 'p_2', name: 'Client X', color: '#10b981' })];
 
-  it('says the tab is not isolated', () => {
+  it('says in words that the tab uses the normal login', () => {
     render(<CurrentTabBar tab={tab()} personas={personas} {...noop} />);
-    expect(screen.getByText(/not isolated/)).toBeTruthy();
+    expect(screen.getByText(/your normal login, not in a persona/)).toBeTruthy();
   });
 
-  it('offers all three ways to use the tab, not just one', () => {
+  it('asks HOW first, with all three ways explained, before any persona can be clicked', () => {
+    // The consequence is read before a persona name is even on screen.
     render(<CurrentTabBar tab={tab()} personas={personas} {...noop} />);
-    fireEvent.click(screen.getByText('Use this tab'));
-    expect(screen.getByText('Sign in fresh, in…')).toBeTruthy();
-    expect(screen.getByText('Move the login I am using into…')).toBeTruthy();
-    expect(screen.getByText(/Copy it into…/)).toBeTruthy();
+    openJoin();
+    for (const id of ['useTabSignedOut', 'moveLogin', 'copyLogin'] as const) {
+      expect(screen.getByText(ACTION_HELP[id].label)).toBeTruthy();
+    }
+    expect(screen.queryByText('Acme admin')).toBeNull();
   });
 
-  it('lists every persona under each of move and copy', () => {
+  it('says what each choice does to the normal browser login before it is picked', () => {
+    // The exact question a user reported every icon left unanswered.
     render(<CurrentTabBar tab={tab()} personas={personas} {...noop} />);
-    fireEvent.click(screen.getByText('Use this tab'));
-    // Two personas × three groups (fresh / move / copy).
-    expect(screen.getAllByText('Acme admin')).toHaveLength(3);
-    expect(screen.getAllByText('Client X')).toHaveLength(3);
+    openJoin();
+    expect(screen.getByText(ACTION_HELP.copyLogin.gotcha ?? '')).toBeTruthy();
+    expect(screen.getByText(ACTION_HELP.moveLogin.gotcha ?? '')).toBeTruthy();
   });
 
-  it('reports MOVE and COPY as different intentions', () => {
-    // The whole reason the menu is three groups rather than one list: the user decides
-    // whether the browser keeps the login, and we never decide for them.
+  it('then lists every persona, and routes MOVE and COPY as different intentions', () => {
+    // The user decides whether the browser keeps the login; we never decide for them.
     const onSaveTo = vi.fn();
     render(<CurrentTabBar tab={tab()} personas={personas} {...noop} onSaveTo={onSaveTo} />);
-    fireEvent.click(screen.getByText('Use this tab'));
-    const [, move, copy] = screen.getAllByText('Acme admin');
-    fireEvent.click(move as HTMLElement);
-    fireEvent.click(screen.getByText('Use this tab'));
-    fireEvent.click(screen.getAllByText('Acme admin')[2] as HTMLElement);
-    void copy;
+    openJoin();
+    choose('moveLogin');
+    expect(screen.getByText('Client X')).toBeTruthy();
+    fireEvent.click(screen.getByText('Acme admin'));
+    openJoin();
+    choose('copyLogin');
+    fireEvent.click(screen.getByText('Acme admin'));
     expect(onSaveTo.mock.calls).toEqual([['p_1', 'move'], ['p_1', 'copy']]);
   });
 
-  it('warns that a copy shares one server session', () => {
-    // Said inline, where the choice is made — not buried in docs nobody opens.
-    render(<CurrentTabBar tab={tab()} personas={personas} {...noop} />);
-    fireEvent.click(screen.getByText('Use this tab'));
-    expect(screen.getByText(/signing out in either place ends both/i)).toBeTruthy();
-  });
-
-  it('routes a blank session separately from an import', () => {
+  it('routes a signed-out tab separately from an import', () => {
     const onUseTabIn = vi.fn();
     render(<CurrentTabBar tab={tab()} personas={personas} {...noop} onUseTabIn={onUseTabIn} />);
-    fireEvent.click(screen.getByText('Use this tab'));
-    fireEvent.click(screen.getAllByText('Acme admin')[0] as HTMLElement);
+    openJoin();
+    choose('useTabSignedOut');
+    fireEvent.click(screen.getByText('Acme admin'));
     expect(onUseTabIn).toHaveBeenCalledWith('p_1');
+  });
+
+  it('offers a new persona only when moving, the one choice that creates it', () => {
+    render(<CurrentTabBar tab={tab()} personas={personas} {...noop} />);
+    openJoin();
+    choose('copyLogin');
+    expect(screen.queryByText(ACTION_HELP.newPersonaFromLogin.label)).toBeNull();
+    fireEvent.click(screen.getByLabelText('Back'));
+    choose('moveLogin');
+    expect(screen.getByText(ACTION_HELP.newPersonaFromLogin.label)).toBeTruthy();
+  });
+
+  it('can be cancelled without doing anything', () => {
+    const onSaveTo = vi.fn();
+    const onUseTabIn = vi.fn();
+    render(<CurrentTabBar tab={tab()} personas={personas} {...noop} onSaveTo={onSaveTo} onUseTabIn={onUseTabIn} />);
+    openJoin();
+    fireEvent.click(screen.getByText('Cancel'));
+    expect(screen.getByText(ACTION_HELP.addToPersona.label)).toBeTruthy();
+    expect(onSaveTo).not.toHaveBeenCalled();
+    expect(onUseTabIn).not.toHaveBeenCalled();
+  });
+
+  it('tells someone with no personas how to make one, instead of an empty list', () => {
+    render(<CurrentTabBar tab={tab()} personas={[]} {...noop} />);
+    openJoin();
+    choose('copyLogin');
+    expect(screen.getByText(/no personas yet/)).toBeTruthy();
+  });
+
+  it('offers another account on this site, in a persona that lacks it or a new one', () => {
+    const onAddToPersona = vi.fn();
+    const onAnotherLogin = vi.fn();
+    render(<CurrentTabBar tab={tab()} personas={personas} {...noop} onAddToPersona={onAddToPersona} onAnotherLogin={onAnotherLogin} />);
+    fireEvent.click(screen.getByText(ACTION_HELP.anotherAccountHere.label));
+    fireEvent.click(screen.getByText(`${ACTION_HELP.addSiteToPersona.label} Client X`));
+    fireEvent.click(screen.getByText(ACTION_HELP.anotherAccountHere.label));
+    fireEvent.click(screen.getByText(ACTION_HELP.anotherAccountNewPersona.label));
+    expect(onAddToPersona).toHaveBeenCalledWith('p_2', 'https://sync.localhost');
+    expect(onAnotherLogin).toHaveBeenCalledWith('https://sync.localhost');
   });
 });
 
 describe('CurrentTabBar — other states', () => {
   it('offers the grant, and nothing else, on a site that is not allowed yet', () => {
     render(<CurrentTabBar tab={tab({ siteAllowed: false })} personas={[persona()]} {...noop} />);
-    expect(screen.getByText('Allow this site')).toBeTruthy();
-    expect(screen.queryByText('Use this tab')).toBeNull();
+    expect(screen.getByText(ACTION_HELP.allowSite.label)).toBeTruthy();
+    expect(screen.queryByText(ACTION_HELP.addToPersona.label)).toBeNull();
   });
 
   it('offers nothing on a chrome:// page, because nothing there can hold a login', () => {
     render(<CurrentTabBar tab={tab({ isWebPage: false, site: null })} personas={[persona()]} {...noop} />);
-    expect(screen.getByText(/Open a website/)).toBeTruthy();
-    expect(screen.queryByText('Use this tab')).toBeNull();
+    expect(screen.getByText(/Go to a website/)).toBeTruthy();
+    expect(screen.queryByText(ACTION_HELP.addToPersona.label)).toBeNull();
   });
 
-  it('names the persona and its coverage once the tab is isolated', () => {
-    render(
-      <CurrentTabBar
-        tab={tab({ sessionId: 's_1', personaId: 'p_1', personaName: 'Acme admin', color: '#3b82f6', summary: 'isolated' })}
-        personas={[persona()]}
-        {...noop}
-      />,
-    );
+  const inPersona = (over: Partial<TabStatus> = {}) => tab({
+    sessionId: 's_1', personaId: 'p_1', personaName: 'Acme admin', color: '#3b82f6', summary: 'isolated', ...over,
+  });
+
+  it('names the persona and says the tab is separate, in words', () => {
+    render(<CurrentTabBar tab={inPersona()} personas={[persona()]} {...noop} />);
     expect(screen.getByText('Acme admin')).toBeTruthy();
-    expect(screen.getByText('isolated')).toBeTruthy();
+    expect(screen.getByText('Separate')).toBeTruthy();
   });
 
-  it('tells an empty session to sign in rather than claiming isolation', () => {
+  it('tells an empty session to sign in rather than claiming separation', () => {
+    render(<CurrentTabBar tab={inPersona({ isEmpty: true })} personas={[persona()]} {...noop} />);
+    expect(screen.getByText('Not signed in yet')).toBeTruthy();
+  });
+
+  it('never shows a leaking tab as fully separate', () => {
+    // Project rule: degradation is surfaced, never hidden behind a green shield.
     render(
       <CurrentTabBar
-        tab={tab({ sessionId: 's_1', personaName: 'Acme admin', isEmpty: true, summary: 'isolated' })}
+        tab={inPersona({ coverage: [{ layer: 'serviceWorker', status: 'leaking', detail: 'shared' }] })}
         personas={[persona()]}
         {...noop}
       />,
     );
-    expect(screen.getByText('sign in to save')).toBeTruthy();
+    expect(screen.getByText('Partly separate')).toBeTruthy();
+    expect(screen.queryByText('Separate')).toBeNull();
+  });
+
+  it('labels every footer action with a word, and routes save and leave', () => {
+    const onSaveNow = vi.fn();
+    const onUnbind = vi.fn();
+    render(<CurrentTabBar tab={inPersona()} personas={[persona()]} {...noop} onSaveNow={onSaveNow} onUnbind={onUnbind} />);
+    fireEvent.click(screen.getByText(ACTION_HELP.saveNow.label));
+    fireEvent.click(screen.getByText(ACTION_HELP.leavePersona.label));
+    expect(screen.getByText(ACTION_HELP.anotherAccountHere.label)).toBeTruthy();
+    expect(onSaveNow).toHaveBeenCalledWith(7);
+    expect(onUnbind).toHaveBeenCalledWith(7);
   });
 });

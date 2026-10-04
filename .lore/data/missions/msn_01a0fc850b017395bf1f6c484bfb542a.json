@@ -1,0 +1,14 @@
+{
+  "_table": "missions",
+  "_v": 1,
+  "body": "Spike-first phase. No product code until every isolation mechanism has an observed pass or fail. Design, prior-art post-mortem and scope live in docsi/MISSION.md. The failure to avoid is the one already lived through: an extension that looks isolated and quietly leaks.",
+  "completed_at": null,
+  "created_at": "2026-10-02T12:09:32.673232000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "msn_01a0fc850b017395bf1f6c484bfb542a",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "status": "active",
+  "target_date": null,
+  "title": "Prove per-tab session isolation is possible in Chrome 154",
+  "updated_at": "2026-10-02T12:09:32.673232000Z"
+}

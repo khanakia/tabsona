@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "Two personas per lab app stay separate and survive reload; databases() and deleteDatabase scoped; plain-tab control collides; break the shim and watch it fail.",
+  "commitment": "accepted",
+  "completed_at": "2026-10-04T07:44:28.166078000Z",
+  "created_at": "2026-10-04T07:37:51.768120000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a105d9079871d8b3403228b02dba97",
+  "mission_id": "msn_01a105d87df77d56ad56585b968daed0",
+  "plan_id": null,
+  "priority": "high",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "started_at": null,
+  "status": "done",
+  "tasklist_id": "tlt_01a105d8b19f72dea60674b35b25018e",
+  "title": "e2e:storage suite over the three lab apps with controls and a deliberate break",
+  "updated_at": "2026-10-04T07:44:28.166080000Z"
+}

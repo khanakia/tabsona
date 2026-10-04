@@ -2,7 +2,7 @@
 // to a presenter in features/.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Search, Settings2, X } from 'lucide-react';
+import { CircleHelp, Plus, Search, Settings2 } from 'lucide-react';
 import { filterPersonas, flattenForKeyboard } from '@/core/personas';
 import { client } from '@/app/client';
 import { useLibrary } from '@/app/useLibrary';
@@ -10,15 +10,23 @@ import { PersonaRow } from '@/features/personas';
 import { CurrentTabBar } from '@/features/capture';
 import { Button } from '@/ui/volt/button';
 import { Input } from '@/ui/volt/input';
+import { IconAction } from '@/ui/IconAction';
+import { FeedbackBanner } from '@/ui/FeedbackBanner';
+import { HowItWorks } from '@/ui/HowItWorks';
+import { ConfirmDialog } from '@/ui/ConfirmDialog';
+import { ACTION_HELP, confirmDeletePersona, confirmForgetLogin, confirmReplaceLogin } from '@/ui/help';
 import type { PersonaId } from '@/domain/types';
 
 export function Popup() {
-  const { state, feedback, setFeedback, refresh, run, runConfirmable } = useLibrary();
+  const {
+    state, feedback, setFeedback, refresh, run, runConfirmable, confirm, confirmRequest, answerConfirm,
+  } = useLibrary();
   const [query, setQuery] = useState('');
   const [newName, setNewName] = useState('');
   const [adding, setAdding] = useState(false);
   const [expanded, setExpanded] = useState<ReadonlySet<PersonaId>>(new Set());
   const [cursor, setCursor] = useState(0);
+  const [showGuide, setShowGuide] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const personas = useMemo(
@@ -44,11 +52,15 @@ export function Popup() {
   }, []);
 
   const saveTo = useCallback((personaId: PersonaId, mode: 'move' | 'copy') => {
+    const name = state?.personas.find((p) => p.id === personaId)?.name ?? 'the persona';
     void runConfirmable(
       (replace) => client.saveCurrentTab(personaId, mode, replace),
-      (site) => `This persona already has a saved login for ${site}. Replace it?`,
+      (site) => confirmReplaceLogin(name, site),
+      mode === 'move'
+        ? `Moved your login into “${name}”. This tab is now part of it.`
+        : `Copied your login into “${name}”. You are still signed in normally too.`,
     );
-  }, [runConfirmable]);
+  }, [runConfirmable, state?.personas]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -126,35 +138,45 @@ export function Popup() {
               className="w-36"
             />
           )
-          : <Button size="icon-sm" variant="outline" title="New persona" onClick={() => setAdding(true)}><Plus /></Button>}
-        <Button size="icon-sm" variant="ghost" title="Open the full library" onClick={() => client.openOptions()}>
+          : (
+            <IconAction label={ACTION_HELP.newPersona.label} help={ACTION_HELP.newPersona} variant="outline" onClick={() => setAdding(true)}>
+              <Plus />
+            </IconAction>
+          )}
+        <IconAction label={ACTION_HELP.howItWorks.label} help={ACTION_HELP.howItWorks} onClick={() => setShowGuide((v) => !v)}>
+          <CircleHelp />
+        </IconAction>
+        <IconAction label={ACTION_HELP.openLibrary.label} help={ACTION_HELP.openLibrary} onClick={() => client.openOptions()}>
           <Settings2 />
-        </Button>
+        </IconAction>
       </header>
 
       {feedback && (
-        <div className="flex items-start gap-1.5 border-b border-border bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
-          <span className="flex-1">{feedback.text}</span>
-          <button type="button" aria-label="Dismiss" onClick={() => setFeedback(null)}>
-            <X className="size-3" />
-          </button>
-        </div>
+        <FeedbackBanner
+          tone={feedback.tone}
+          text={feedback.text}
+          onDismiss={() => setFeedback(null)}
+          className="border-b border-border"
+        />
+      )}
+
+      {/* The guide shows itself until the first persona exists, then only on request. */}
+      {(showGuide || state.personas.length === 0) && (
+        <section aria-label="How Tabsona works" className="border-b border-border bg-muted/30">
+          <HowItWorks />
+        </section>
       )}
 
       <ul className="min-h-0 flex-1 overflow-y-auto">
         {personas.length === 0
           ? (
-            <li className="px-4 py-8 text-center">
-              <p className="text-xs font-medium">
-                {state.personas.length === 0 ? 'No personas yet' : 'Nothing matches that search'}
-              </p>
-              {state.personas.length === 0 && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  A persona is who you are across a set of apps. Create one, then save the
-                  login you are on.
-                </p>
-              )}
-            </li>
+            state.personas.length === 0
+              ? null
+              : (
+                <li className="px-4 py-8 text-center text-xs font-medium">
+                  Nothing matches that search
+                </li>
+              )
           )
           : personas.map((p) => (
             <PersonaRow
@@ -165,14 +187,13 @@ export function Popup() {
               onToggle={toggle}
               onOpenAll={(id) => { void run(() => client.openPersona(id)); window.close(); }}
               onUpdate={(id, patch) => void run(() => client.updatePersona(id, patch))}
-              onDuplicate={(id) => void run(() => client.duplicatePersona(id))}
-              onDelete={(id) => void run(() => client.deletePersona(id))}
-              onAddSite={(id) => {
-                const url = state.tab.site;
-                if (!url) {
-                  setFeedback({ tone: 'warn', text: 'Open the site you want to add, then press +.' });
-                  return;
-                }
+              onDuplicate={(id) => void run(() => client.duplicatePersona(id), `Duplicated “${p.name}”, logins included.`)}
+              onDelete={(id) => void (async () => {
+                if (!(await confirm(confirmDeletePersona(p.name)))) return;
+                await run(() => client.deletePersona(id), `Deleted “${p.name}”.`);
+              })()}
+              currentSite={state.tab.site}
+              onAddSite={(id, url) => {
                 void run(() => client.addSite(id, url));
                 window.close();
               }}
@@ -181,7 +202,10 @@ export function Popup() {
                 if (where === 'new-tab') window.close();
               }}
               onRenameSession={(id, label) => void run(() => client.renameSession(id, label))}
-              onDeleteSession={(id) => void run(() => client.deleteSession(id))}
+              onDeleteSession={(id) => void (async () => {
+                if (!(await confirm(confirmForgetLogin()))) return;
+                await run(() => client.deleteSession(id), 'Forgot that login.');
+              })()}
               onAnotherLogin={(site) => {
                 void run(() => client.anotherLogin(site));
                 window.close();
@@ -208,8 +232,8 @@ export function Popup() {
           void run(() => client.addSite(personaId, site));
           window.close();
         }}
-        onUnbind={(tabId) => void run(() => client.unbindTab(tabId))}
-        onSaveNow={(tabId) => void run(() => client.saveNow(tabId))}
+        onUnbind={(tabId) => void run(() => client.unbindTab(tabId), 'This tab is back on your normal browser login. The persona kept its login.')}
+        onSaveNow={(tabId) => void run(() => client.saveNow(tabId), 'Saved.')}
         onNewPersonaWithTab={() => {
           void (async () => {
             const site = state.tab.site;
@@ -223,6 +247,8 @@ export function Popup() {
           })();
         }}
       />
+
+      <ConfirmDialog request={confirmRequest} onAnswer={answerConfirm} />
     </div>
   );
 }

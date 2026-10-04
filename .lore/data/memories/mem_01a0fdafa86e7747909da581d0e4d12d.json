@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "Static styling is not a UI — ship the interaction states, and VERIFY them by driving a real mouse.\n\nThe set that reads as \"modern power-user\" and that Aman called out as missing: row hover tint plus the same tint on focus-within; secondary row actions revealed with opacity (never `hidden`, which reflows the list under the cursor) on group-hover AND group-focus-within; the primary action always visible, because a list whose main action only appears on hover is awkward on a trackpad; real tooltips on icon-only controls instead of native `title` (native waits ~1s, cannot be styled, never shows on keyboard focus — the control is effectively unlabelled); chevrons that rotate rather than swap glyphs; a keyboard cursor drawn as a left rule so selection never shifts layout; active:translate-y-px press on buttons.\n\nHow to verify, since unit tests assert content and callbacks, not geometry or interaction: open the built surface over CDP, dispatch a real Input.dispatchMouseEvent mouseMoved over the row, and read getComputedStyle back — opacity 0 idle, 1 on hover, 1 after .focus(); row background changes; tooltip element has text. A screenshot alone proves none of this.",
+  "confidence": null,
+  "created_at": "2026-10-02T17:35:42.702472000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "mem_01a0fdafa86e7747909da581d0e4d12d",
+  "kind": "core",
+  "last_validated_at": null,
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": "apps/extension/src/ui/IconAction.tsx",
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "tx_at": "2026-10-02T17:35:42.702472000Z",
+  "updated_at": "2026-10-02T17:35:42.702472000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

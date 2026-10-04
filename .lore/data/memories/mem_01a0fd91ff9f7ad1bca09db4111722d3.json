@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "Never use a dynamic await-import inside an MV3 service worker bundled by vite.\n\nVite wraps every dynamic import in a preload helper that calls window.dispatchEvent on its error path. A service worker has no window, so the worker dies with \"ReferenceError: window is not defined\" — logged from background.js with no hint of which import caused it.\n\nTwo fixes, use both: make the import static (check for a real cycle first; usually there is none), and set build.modulePreload = false for the worker's build, since a service worker can never use a modulepreload link anyway. Confirm with: grep -c \"vite:preloadError\" dist/background.js — it must be 0.\n\nWHY IT WAS MISSED: the import sat inside a v1-to-v2 migration branch that only runs when v1 data EXISTS. Every automated run used a fresh profile and returned before reaching it, so the suite was green while a real upgrade was broken. A code path that only real data reaches is a path no test covers — seed the state it needs, or it is untested. Covered now by spike/e2e-migrate.mjs, which was verified by deliberately restoring the broken code and watching it reproduce the exact reported error.\n\nObserved on Chrome 154, 2026-10-02.",
+  "confidence": null,
+  "created_at": "2026-10-02T17:03:18.943707000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "mem_01a0fd91ff9f7ad1bca09db4111722d3",
+  "kind": "procedural",
+  "last_validated_at": null,
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": "apps/extension/src/engine/repo.ts",
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "tx_at": "2026-10-02T17:03:18.943708000Z",
+  "updated_at": "2026-10-02T17:03:18.943707000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

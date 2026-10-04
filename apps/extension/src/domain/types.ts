@@ -131,6 +131,10 @@ export interface TabRule {
   readonly id: number;
   readonly priority: number;
   readonly tabId: TabId;
+  /** RE2 pattern the request URL must match, or null for every request the tab makes.
+   *  Null only on the tab's STRIP rule; every rule that SETS a header is scoped to the
+   *  hosts that own it, or one host's cookies would be sent to every other host. */
+  readonly urlRegex: string | null;
   readonly resourceTypes: readonly RuleResourceType[];
   readonly requestHeaders: readonly HeaderEdit[];
   /** Response-header edits. Used to strip `Set-Cookie` so a session's login never

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  computeCoverage, coverageSummary, EMPTY_OBSERVATIONS, worstStatus,
+  computeCoverage, coverageSummary, EMPTY_OBSERVATIONS, shimFactsFrom, worstStatus,
 } from '../coverage';
 import type { StateLayer } from '@/domain/types';
 
@@ -38,6 +38,16 @@ describe('computeCoverage', () => {
   it('reports IndexedDB as leaking only once the origin is seen using it', () => {
     expect(statusOf(computeCoverage('cookie+storage', EMPTY_OBSERVATIONS), 'indexedDB')).toBe('unknown');
     expect(statusOf(computeCoverage('cookie+storage', { ...EMPTY_OBSERVATIONS, usesIndexedDb: true }), 'indexedDB')).toBe('leaking');
+  });
+
+  it('claims IndexedDB covered only when the shim namespaced it and no worker was seen', () => {
+    // Every row of the coverage table in docsi/SPEC_INDEXEDDB.md.
+    const shim = { ...EMPTY_OBSERVATIONS, shimInstalled: true };
+    expect(statusOf(computeCoverage('cookie+storage', { ...shim, idbNamespaced: true }), 'indexedDB')).toBe('covered');
+    expect(statusOf(computeCoverage('cookie+storage', { ...shim, idbNamespaced: true, usesWorker: true }), 'indexedDB')).toBe('leaking');
+    expect(statusOf(computeCoverage('cookie+storage', { ...shim, idbNamespaced: false }), 'indexedDB')).toBe('leaking');
+    // A namespacing report without an installed shim is not evidence.
+    expect(statusOf(computeCoverage('cookie+storage', { ...EMPTY_OBSERVATIONS, idbNamespaced: true }), 'indexedDB')).toBe('unknown');
   });
 
   it('reports a cross-origin frame as leaking', () => {
@@ -97,5 +107,19 @@ describe('coverageSummary', () => {
       { layer: 'localStorage', status: 'leaking', detail: '' },
       { layer: 'serviceWorker', status: 'leaking', detail: '' },
     ])).toBe('leaking: localStorage, serviceWorker');
+  });
+});
+
+describe('shimFactsFrom', () => {
+  it('reads each fact only when it is literally true', () => {
+    expect(shimFactsFrom({ usesIndexedDb: true, idbNamespaced: 'yes', usesWorker: 1, hasServiceWorker: true }))
+      .toEqual({ usesIndexedDb: true, idbNamespaced: false, usesWorker: false, hasServiceWorker: true });
+  });
+
+  it('treats anything malformed as nothing observed, never as a claim', () => {
+    const none = { usesIndexedDb: false, idbNamespaced: false, usesWorker: false, hasServiceWorker: false };
+    expect(shimFactsFrom(null)).toEqual(none);
+    expect(shimFactsFrom('ready')).toEqual(none);
+    expect(shimFactsFrom(undefined)).toEqual(none);
   });
 });

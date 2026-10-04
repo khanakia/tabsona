@@ -15,10 +15,11 @@ Each row says whether it is **verified** (checked in code, or observed in a run)
 | Limit | Shown | Status | Impact |
 |---|---|---|---|
 | Service-worker fetches carry no tab id | badge | verified | A service worker's own requests match no per-tab rule and hit the shared cookie jar. Unfixable in the extension model — only a debugger-based or native engine could see them. |
-| IndexedDB is detected but not isolated | badge | verified | The shim hooks `indexedDB.open` to notice usage and the badge reports leaking. Apps storing auth in IndexedDB (some Firebase and Supabase setups) will cross-contaminate. |
+| IndexedDB opened inside a worker is shared | badge | verified | The page's databases are namespaced per session (`open`, `deleteDatabase`, `databases()` and `db.name` translated; proven by `e2e:storage`, including a break run). A dedicated worker or service worker has its own `indexedDB` the shim never runs in, so the badge reports the layer leaking whenever the page starts a worker. |
+| A persona's IndexedDB data is not exported, duplicated or cleaned up | silent | verified | It lives in the browser under `<session>::<name>`. Export/import JSON leaves it out, a duplicated persona starts with empty databases, and deleting a session leaves its databases behind until the site's data is cleared. |
 | Cross-origin iframes cannot learn their session | badge when seen | assumed | The shim runs in every frame, but the session marker travels on the top frame's URL hash, `window.name` and `sessionStorage` — none of which a cross-origin child shares. Never measured. |
 | A page that reads `localStorage` before `document_start` | silent | assumed | The shim installs at `document_start`, but anything earlier in the same tick would see the real store. Believed rare; never measured. |
-| Dedicated Workers are untouched | silent | verified | The shim does not run inside a Worker, so a worker's own storage and fetches are outside every guard. |
+| Dedicated Workers are untouched | badge | verified | The shim does not run inside a Worker, so a worker's own storage and fetches are outside every guard. The shim notices `new Worker` and the IndexedDB layer is reported leaking on that page. |
 | CacheStorage is untouched | silent | verified | Never namespaced. Rarely carries auth, but an app could cache an authenticated response and serve it to the wrong session. |
 | `SharedWorker` is removed wholesale | silent | verified | `delete window.SharedWorker` on every isolated origin, because it re-syncs login state across same-origin tabs behind every other guard. Breaks any app legitimately using one. |
 | HTTP Basic auth and client certificates | silent | verified | Not handled at all. Browser-level credentials are shared by every tab. |
@@ -57,7 +58,7 @@ Each row says whether it is **verified** (checked in code, or observed in a run)
 
 **Service-worker bypass — needs a different engine.** No extension API attributes a service worker's fetch to a tab. The two real options are the `chrome.debugger` engine (`Fetch.continueRequest` sees every request, at the cost of a visible infobar) or a native host driving real browser contexts.
 
-**IndexedDB — namespace the database name.** The shim already intercepts `indexedDB.open`. Rewriting the database name to `<sessionId>::<name>` is the same trick as the `localStorage` prefix; the work is in `deleteDatabase`, `databases()` and the version-change paths, plus proving it against a real app that stores auth there.
+**IndexedDB — done for the page (2026-10-04).** Database names are rewritten to `<sessionId>::<name>` on the real prototypes; what remains is IndexedDB opened inside workers, which would need the worker's script source proxied.
 
 **Cross-origin iframes — the marker has to reach the child.** The session id would have to travel on something a cross-origin child can read. Nothing currently does. Worth measuring how often auth actually lives in such a frame before building for it.
 

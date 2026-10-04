@@ -210,12 +210,12 @@ await sleep(2000);
 
 await shoot('2-save-menu', `${base}/src/surfaces/popup/index.html`, {
   background: true,
-  frame: { ...POPUP_FRAME, top: 40, zoom: 1.2 },
+  frame: { ...POPUP_FRAME, top: 16, zoom: 1.05 },
   caption: 'Move the login, or copy it — you choose',
   before: async (page) => {
     await waitFor(page, `!!document.querySelector('button')`, 'popup rendered');
     await page.eval(`(() => {
-      const b = [...document.querySelectorAll('button')].find(x => /Use this tab/i.test(x.textContent||''));
+      const b = [...document.querySelectorAll('button')].find(x => /Add to persona/i.test(x.textContent||''));
       if (b) b.click();
       return !!b;
     })()`);

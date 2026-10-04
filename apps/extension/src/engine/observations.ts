@@ -6,6 +6,7 @@
 // installed now.
 
 import { EMPTY_OBSERVATIONS, type OriginObservations } from '@/core/coverage';
+import type { ShimFacts } from '@/domain/messages';
 import type { Origin } from '@/domain/types';
 
 const byOrigin = new Map<Origin, OriginObservations>();
@@ -22,10 +23,7 @@ export function observedOrigins(): Origin[] {
   return [...byOrigin.keys()].sort();
 }
 
-export function noteShimReady(
-  origin: Origin,
-  facts: { usesIndexedDb: boolean; hasServiceWorker: boolean },
-): void {
+export function noteShimReady(origin: Origin, facts: ShimFacts): void {
   patch(origin, { shimInstalled: true, ...facts });
 }
 

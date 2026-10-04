@@ -1,20 +1,25 @@
+import { useState } from 'react';
 import {
-  ArrowRight, Copy, Globe, LogOut, Plus, Save, ShieldAlert, ShieldCheck, ShieldQuestion, UserPlus,
+  ArrowLeft, ArrowRight, ChevronDown, Copy, Globe, LogIn, Plus, Save, ShieldAlert, ShieldCheck,
+  ShieldQuestion, Unlink, UserPlus, UserRoundPlus,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/ui/volt/button';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/ui/volt/dropdown-menu';
+import { ActionMenuItem, WithHelp } from '@/ui/HelpCard';
+import { ACTION_HELP, isolationHelp, type ActionHelp } from '@/ui/help';
 import { shortSite } from '@/ui/format';
 import type { TabStatus } from '@/domain/messages';
 import type { PersonaId, PersonaView } from '@/domain/types';
 
 /**
- * The popup footer: what the current tab is, and the one action that fits it.
+ * The popup footer: what the current tab is, and what you can do with it.
  *
- * This is where "I'm signed in on site1.com — save it" lives, the interaction v1 had no
- * path for. Presentational: props in, events out.
+ * Every control carries a visible word, not just an icon, and every choice says what it
+ * does to the user's normal browser login — the question a user reported every icon
+ * left unanswered. Wording lives in `ui/help.ts`. Presentational: props in, events out.
  */
 export interface CurrentTabBarProps {
   readonly tab: TabStatus;
@@ -37,176 +42,316 @@ export interface CurrentTabBarProps {
 
 export function CurrentTabBar(props: CurrentTabBarProps) {
   const t = props.tab;
+  const [joining, setJoining] = useState(false);
 
   // A chrome:// or about: page can hold no login, so offering anything would be a lie.
   if (!t.isWebPage) {
     return (
       <Bar>
-        <Globe className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="text-muted-foreground">Open a website to save or use a persona here.</span>
+        <Row>
+          <Globe className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="text-muted-foreground">Go to a website to add it to a persona.</span>
+        </Row>
       </Bar>
     );
   }
 
-  // Nothing can be isolated until Chrome has granted the origin.
+  // Nothing can be separated until Chrome has granted the origin.
   if (!t.siteAllowed) {
     return (
       <Bar>
-        <ShieldQuestion className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate">
-          <span className="font-medium">{shortSite(t.site ?? '')}</span>
-          <span className="text-muted-foreground"> is not allowed yet</span>
-        </span>
-        <Button size="xs" onClick={() => t.site && props.onAllowSite(t.site)}>Allow this site</Button>
+        <Row>
+          <ShieldQuestion className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate">
+            <span className="font-medium">{shortSite(t.site ?? '')}</span>
+            <span className="text-muted-foreground"> · Tabsona is not allowed here yet</span>
+          </span>
+          <WithHelp
+            help={ACTION_HELP.allowSite}
+            trigger={<Button size="xs" onClick={() => t.site && props.onAllowSite(t.site)} />}
+          >
+            {ACTION_HELP.allowSite.label}
+          </WithHelp>
+        </Row>
       </Bar>
     );
   }
 
-  // Already isolated: say which persona, how well, and offer only what fits.
+  // In a persona: say which one, whether it is really separate, and offer what fits.
   if (t.sessionId) {
-    const leaking = t.coverage.some((c) => c.status === 'leaking');
-    const Shield = leaking ? ShieldAlert : ShieldCheck;
+    const leakingLayers = t.coverage.filter((c) => c.status === 'leaking').map((c) => c.layer);
+    const status = isolationHelp({ isEmpty: t.isEmpty, leakingLayers });
+    const Shield = leakingLayers.length > 0 ? ShieldAlert : ShieldCheck;
+    const color = t.isEmpty ? 'var(--state-empty)' : leakingLayers.length > 0 ? 'var(--state-expired)' : 'var(--state-signed-in)';
     return (
       <Bar>
-        <span className="size-2.5 shrink-0 rounded-[3px]" style={{ background: t.color ?? 'var(--muted-foreground)' }} />
-        <span className="min-w-0 flex-1 truncate">
-          <span className="font-medium">{t.personaName}</span>
-          <span className="text-muted-foreground"> · {shortSite(t.site ?? '')}</span>
-        </span>
-        <span
-          title={t.coverage.map((c) => `${c.layer}: ${c.detail}`).join('\n')}
-          className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium"
-          style={{ color: t.isEmpty ? 'var(--state-empty)' : leaking ? 'var(--state-expired)' : 'var(--state-signed-in)' }}
-        >
-          <Shield className="size-3.5" />
-          {t.isEmpty ? 'sign in to save' : t.summary}
-        </span>
-        {/* Offered right here because "I want another account on this site" occurs to
-            people while they are looking at the first one. */}
-        <SignInAsSomeoneElse
-          site={t.site ?? ''}
-          personas={props.personas}
-          onAddToPersona={props.onAddToPersona}
-          onAnotherLogin={props.onAnotherLogin}
-          trigger={<Button size="icon-sm" variant="ghost" aria-label="Sign in as someone else here" onClick={() => undefined} />}
-        />
-        <Button size="icon-sm" variant="ghost" title="Save this tab's current state now" onClick={() => t.tabId !== null && props.onSaveNow(t.tabId)}>
-          <Save />
-        </Button>
-        <Button size="icon-sm" variant="ghost" title="Return this tab to your normal browser login" onClick={() => t.tabId !== null && props.onUnbind(t.tabId)}>
-          <LogOut />
-        </Button>
+        <Row>
+          <span className="size-2.5 shrink-0 rounded-[3px]" style={{ background: t.color ?? 'var(--muted-foreground)' }} />
+          <span className="min-w-0 flex-1 truncate">
+            <span className="text-muted-foreground">This tab: </span>
+            <span className="font-medium">{t.personaName}</span>
+            <span className="text-muted-foreground"> · {shortSite(t.site ?? '')}</span>
+          </span>
+          <WithHelp
+            help={status}
+            titled
+            trigger={(
+              <button
+                type="button"
+                className="inline-flex shrink-0 items-center gap-1 rounded text-[11px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                style={{ color }}
+              />
+            )}
+          >
+            <Shield className="size-3.5" />
+            {status.label}
+          </WithHelp>
+        </Row>
+        <Row>
+          {/* Offered right here because "I want another account on this site" occurs to
+              people while they are looking at the first one. */}
+          <AnotherAccountMenu
+            site={t.site ?? ''}
+            personas={props.personas}
+            onAddToPersona={props.onAddToPersona}
+            onAnotherLogin={props.onAnotherLogin}
+          />
+          <span className="flex-1" />
+          <WithHelp
+            help={ACTION_HELP.saveNow}
+            trigger={<Button size="xs" variant="ghost" onClick={() => t.tabId !== null && props.onSaveNow(t.tabId)} />}
+          >
+            <Save />
+            {ACTION_HELP.saveNow.label}
+          </WithHelp>
+          <WithHelp
+            help={ACTION_HELP.leavePersona}
+            trigger={<Button size="xs" variant="ghost" onClick={() => t.tabId !== null && props.onUnbind(t.tabId)} />}
+          >
+            <Unlink />
+            {ACTION_HELP.leavePersona.label}
+          </WithHelp>
+        </Row>
       </Bar>
     );
   }
 
-  // The headline case: an ordinary tab you are signed into, waiting to be filed.
+  // The headline case: an ordinary tab, waiting to be put into a persona.
   return (
     <Bar>
-      <Globe className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate">
-        <span className="font-medium">{shortSite(t.site ?? '')}</span>
-        <span className="text-muted-foreground"> · not isolated</span>
-      </span>
-      <SignInAsSomeoneElse
-        site={t.site ?? ''}
-        personas={props.personas}
-        onAddToPersona={props.onAddToPersona}
-        onAnotherLogin={props.onAnotherLogin}
-        trigger={<Button size="icon-sm" variant="ghost" aria-label="Sign in as someone else here" onClick={() => undefined} />}
-      />
-      <DropdownMenu>
-        <DropdownMenuTrigger render={<Button size="xs" onClick={() => undefined} />}>
-          <Save />
-          Use this tab
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="max-w-[20rem]">
-          {/* Blank session FIRST: it is the normal way to build a persona, and the only
-              option that leaves the browser's own login — and every other plain tab
-              using it — completely alone. */}
-          <DropdownMenuLabel>Sign in fresh, in…</DropdownMenuLabel>
-          {props.personas.map((p) => (
-            <DropdownMenuItem key={`fresh-${p.id}`} onClick={() => props.onUseTabIn(p.id)}>
-              <span className="size-2.5 shrink-0 rounded-[3px]" style={{ background: p.color }} />
-              {p.name}
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuItem onClick={() => props.onNewPersonaWithTab()}>
-            <Plus />
-            New persona from this login
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>Move the login I am using into…</DropdownMenuLabel>
-          {props.personas.map((p) => (
-            <DropdownMenuItem key={`move-${p.id}`} onClick={() => props.onSaveTo(p.id, 'move')}>
-              <ArrowRight />
-              {p.name}
-            </DropdownMenuItem>
-          ))}
-
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>Copy it into… (stay signed in here too)</DropdownMenuLabel>
-          {props.personas.map((p) => (
-            <DropdownMenuItem key={`copy-${p.id}`} onClick={() => props.onSaveTo(p.id, 'copy')}>
-              <Copy />
-              {p.name}
-            </DropdownMenuItem>
-          ))}
-          <p className="px-2 py-1 text-[10px] leading-snug text-muted-foreground">
-            A copy shares one server session — signing out in either place ends both.
-          </p>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <Row>
+        <Globe className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate">
+          <span className="text-muted-foreground">This tab: </span>
+          <span className="font-medium">{shortSite(t.site ?? '')}</span>
+          <span className="text-muted-foreground"> · your normal login, not in a persona</span>
+        </span>
+      </Row>
+      {joining
+        ? (
+          <JoinPersonaPanel
+            personas={props.personas}
+            onUseTabIn={props.onUseTabIn}
+            onSaveTo={props.onSaveTo}
+            onNewPersonaWithTab={props.onNewPersonaWithTab}
+            onClose={() => setJoining(false)}
+          />
+        )
+        : (
+          <Row>
+            <WithHelp
+              help={ACTION_HELP.addToPersona}
+              trigger={<Button size="xs" onClick={() => setJoining(true)} />}
+            >
+              <UserRoundPlus />
+              {ACTION_HELP.addToPersona.label}
+            </WithHelp>
+            <AnotherAccountMenu
+              site={t.site ?? ''}
+              personas={props.personas}
+              onAddToPersona={props.onAddToPersona}
+              onAnotherLogin={props.onAnotherLogin}
+            />
+          </Row>
+        )}
     </Bar>
   );
 }
 
+/** The three ways a plain tab can join a persona, in the order they are offered. */
+type JoinMode = 'fresh' | 'move' | 'copy';
+
+const JOIN_MODES: readonly {
+  readonly mode: JoinMode;
+  readonly help: ActionHelp;
+  readonly Icon: LucideIcon;
+  /** The second question, once this way is chosen. */
+  readonly question: string;
+}[] = [
+  // Signed out FIRST: the normal way to build a persona, and the only choice that leaves
+  // the browser's own login — and every plain tab using it — completely alone.
+  { mode: 'fresh', help: ACTION_HELP.useTabSignedOut, Icon: LogIn, question: 'Use this tab in which persona?' },
+  { mode: 'move', help: ACTION_HELP.moveLogin, Icon: ArrowRight, question: 'Move your login into which persona?' },
+  { mode: 'copy', help: ACTION_HELP.copyLogin, Icon: Copy, question: 'Copy your login into which persona?' },
+];
+
 /**
- * "Sign in as someone else here" — offered against EVERY persona that does not already
- * hold this site, plus a brand-new one.
+ * Putting a plain tab into a persona, as two plain questions: how, then which persona.
  *
- * Without this the only path was: create a persona, navigate a tab to the right site,
- * hover its row and press a hidden `+`. The capability existed; the path did not.
+ * Inline in the footer rather than a dropdown. The dropdown had to list every persona
+ * three times with an explanation above each group, which made it taller than a small
+ * popup and pushed the difference between "move" and "copy" off screen. Asking "how"
+ * first means the consequence is read before any persona name is clickable, and the
+ * panel grows the popup instead of floating over it.
+ */
+function JoinPersonaPanel(props: {
+  readonly personas: readonly PersonaView[];
+  readonly onUseTabIn: (personaId: PersonaId) => void;
+  readonly onSaveTo: (personaId: PersonaId, mode: 'move' | 'copy') => void;
+  readonly onNewPersonaWithTab: () => void;
+  readonly onClose: () => void;
+}) {
+  const [mode, setMode] = useState<JoinMode | null>(null);
+  const chosen = JOIN_MODES.find((m) => m.mode === mode);
+
+  const pick = (personaId: PersonaId) => {
+    if (mode === 'fresh') props.onUseTabIn(personaId);
+    else if (mode === 'move' || mode === 'copy') props.onSaveTo(personaId, mode);
+    props.onClose();
+  };
+
+  return (
+    <section aria-label={ACTION_HELP.addToPersona.label} className="space-y-1.5 rounded-md border border-border bg-background p-2">
+      <div className="flex items-center gap-1.5">
+        {chosen && (
+          <button
+            type="button"
+            aria-label="Back"
+            onClick={() => setMode(null)}
+            className="rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ArrowLeft className="size-3.5" />
+          </button>
+        )}
+        <p className="flex-1 font-medium">
+          {chosen ? chosen.question : 'How should this tab join a persona?'}
+        </p>
+        <Button size="xs" variant="ghost" onClick={props.onClose}>Cancel</Button>
+      </div>
+
+      {!chosen && JOIN_MODES.map(({ mode: m, help, Icon }) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => setMode(m)}
+          className="flex w-full items-start gap-2 rounded-md border border-border px-2 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Icon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 space-y-0.5">
+            <span className="block font-medium">{help.label}</span>
+            <span className="block text-[11px] leading-snug text-muted-foreground">{help.what} {help.touches}</span>
+            {help.gotcha && <span className="block text-[11px] leading-snug text-(--caution)">{help.gotcha}</span>}
+          </span>
+        </button>
+      ))}
+
+      {chosen && (
+        <div className="space-y-1">
+          {props.personas.length === 0 && (
+            <p className="text-muted-foreground">You have no personas yet. Press + at the top to make one.</p>
+          )}
+          {props.personas.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => pick(p.id)}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <PersonaDot color={p.color} />
+              <span className="min-w-0 flex-1 truncate font-medium">{p.name}</span>
+              <span className="shrink-0 text-[11px] text-muted-foreground">
+                {p.sessions.length} website{p.sessions.length === 1 ? '' : 's'}
+              </span>
+            </button>
+          ))}
+          {mode === 'move' && (
+            <button
+              type="button"
+              onClick={() => { props.onNewPersonaWithTab(); props.onClose(); }}
+              className="flex w-full items-start gap-2 rounded-md px-2 py-1 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Plus className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0">
+                <span className="block font-medium">{ACTION_HELP.newPersonaFromLogin.label}</span>
+                <span className="block text-[11px] leading-snug text-muted-foreground">{ACTION_HELP.newPersonaFromLogin.what}</span>
+              </span>
+            </button>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * "Another account" — a fresh, signed-out tab for this site, in an existing persona that
+ * does not hold it yet, or in a brand-new one.
  *
  * Personas that already hold the site are omitted rather than shown disabled: the model
  * is one login per site per persona, so there is nothing for them to do here.
  */
-function SignInAsSomeoneElse(props: {
+function AnotherAccountMenu(props: {
   readonly site: string;
   readonly personas: readonly PersonaView[];
   readonly onAddToPersona: (personaId: PersonaId, site: string) => void;
   readonly onAnotherLogin: (site: string) => void;
-  readonly trigger: React.ReactElement;
 }) {
   const available = props.personas.filter((p) => !p.sessions.some((s) => s.site === props.site));
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={props.trigger}>
+      <WithHelp
+        help={ACTION_HELP.anotherAccountHere}
+        trigger={<DropdownMenuTrigger render={<Button size="xs" variant="outline" onClick={() => undefined} />} />}
+      >
         <UserPlus />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Sign in as someone else here</DropdownMenuLabel>
+        {ACTION_HELP.anotherAccountHere.label}
+        <ChevronDown />
+      </WithHelp>
+      <DropdownMenuContent align="start" className="w-[20rem] max-w-[calc(100vw-1rem)]">
+        <DropdownMenuLabel>{ACTION_HELP.anotherAccountHere.what}</DropdownMenuLabel>
         {available.map((p) => (
-          <DropdownMenuItem key={p.id} onClick={() => props.onAddToPersona(p.id, props.site)}>
-            <span className="size-2.5 shrink-0 rounded-[3px]" style={{ background: p.color }} />
-            {p.name}
-          </DropdownMenuItem>
+          <ActionMenuItem
+            key={p.id}
+            compact
+            help={ACTION_HELP.addSiteToPersona}
+            icon={<PersonaDot color={p.color} />}
+            label={`${ACTION_HELP.addSiteToPersona.label} ${p.name}`}
+            onClick={() => props.onAddToPersona(p.id, props.site)}
+          />
         ))}
         {available.length > 0 && <DropdownMenuSeparator />}
-        <DropdownMenuItem onClick={() => props.onAnotherLogin(props.site)}>
-          <UserPlus />
-          In a new persona
-        </DropdownMenuItem>
+        <ActionMenuItem
+          help={ACTION_HELP.anotherAccountNewPersona}
+          icon={<Plus />}
+          onClick={() => props.onAnotherLogin(props.site)}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
 
+function PersonaDot({ color }: { readonly color: string }) {
+  return <span className="size-2.5 rounded-[3px]" style={{ background: color }} />;
+}
+
 function Bar(props: { readonly children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 border-t border-border bg-muted/50 px-2 py-1.5 text-xs">
+    <div className="space-y-1.5 border-t border-border bg-muted/50 px-2 py-1.5 text-xs">
       {props.children}
     </div>
   );
+}
+
+function Row(props: { readonly children: React.ReactNode }) {
+  return <div className="flex min-w-0 items-center gap-1.5">{props.children}</div>;
 }

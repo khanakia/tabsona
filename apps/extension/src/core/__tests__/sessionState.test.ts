@@ -98,7 +98,7 @@ describe('describeState', () => {
 
   it('tells an expired session what to do', () => {
     expect(describeState({ state: 'expired', cookieCount: 2, storageKeyCount: 0 }))
-      .toBe('cookies expired — sign in again');
+      .toBe('login ended — sign in again');
   });
 
   it('states the real contents, which is what v1 never did', () => {

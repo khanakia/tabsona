@@ -94,13 +94,17 @@ flowchart LR
   style JAR fill:#3f2d1e,stroke:#d99a4a,color:#e7e7ea
 ```
 
-**Write — `declarativeNetRequest`.** One `modifyHeaders` rule per bound tab, `set` on the `cookie` request header, with a `tabIds` condition. Session rules are the only rule class that accepts `tabIds`, so per-tab targeting lives there or nowhere. DNR can set or remove a header; it can **never read one**.
+**Write — `declarativeNetRequest`.** A small set of `modifyHeaders` session rules per bound tab, each with a `tabIds` condition. Session rules are the only rule class that accepts `tabIds`, so per-tab targeting lives there or nowhere. DNR can set or remove a header; it can **never read one**.
 
-We are not in the loop per request. We hand Chrome a rule up front — *"for tab 502, replace Cookie with this exact string"* — and Chrome's network stack does the replacing. That is still interception; it is declarative rather than procedural, because Manifest V3 deleted the procedural option.
+The set is layered by priority. A priority-1 **strip** rule removes `cookie` from every request the tab makes. Above it, one rule per host (and cookie path) the session holds cookies for `set`s the full `Cookie` header for that host, scoped by a `regexFilter` on the request URL. A `Domain=` cookie gets one more rule matching that domain's subdomains. Within one extension a higher-priority rule claims a header and lower ones cannot touch it, so a request to a host the session knows carries exactly that host's cookies, and a request to any other host (analytics, a CDN, an SSO provider) carries none: not the persona's and not the shared jar's.
+
+The rules depend on the session alone, **never on the URL the tab is on**. They once did, and a tab is on `about:blank` when it is bound, so the rule installed before its first real request said "no cookies". An app that redirects signed-out users (any AuthKit or OAuth app) bounced that request to its login page before the corrected rule arrived. The same tab-wide `set` also sent the app's session cookie to every other host the page loaded. `e2e:cookieonly` pins both.
+
+We are not in the loop per request. We hand Chrome rules up front — *"for tab 502, requests to localhost get Cookie: this exact string; everything else gets none"* — and Chrome's network stack does the replacing. That is still interception; it is declarative rather than procedural, because Manifest V3 deleted the procedural option.
 
 **Read — observational `webRequest`.** `onHeadersReceived`, registered **non-blocking** with `['responseHeaders', 'extraHeaders']`, still delivers the raw `Set-Cookie` string — **HttpOnly included** — tagged with the exact `details.tabId`. MV3 removed *blocking* webRequest; observation survived. This is the half everyone assumes is gone, and without it there is no way to learn a session's cookies short of attaching a debugger.
 
-**Strip — also `declarativeNetRequest`.** The same rule removes `set-cookie` from the response, so a session's login never reaches the browser's own jar. Without it, signing into a session tab also signs your whole browser in, and a plain tab silently becomes whoever the persona just signed in as.
+**Strip — also `declarativeNetRequest`.** Every one of the tab's rules removes `set-cookie` from the response, so a session's login never reaches the browser's own jar. Without it, signing into a session tab also signs your whole browser in, and a plain tab silently becomes whoever the persona just signed in as.
 
 ### What this looks like live
 
@@ -109,10 +113,10 @@ With two personas signed in to one site:
 ```
 bindings                { "280914502": "s_yr0mlxr", "280914503": "s_81k0v5v" }
 
-tab 280914502 → request   cookie set "fixture_sid=7c167522…"
-              → response  set-cookie remove
-tab 280914503 → request   cookie set "fixture_sid=16d07b67…"
-              → response  set-cookie remove
+tab 280914502 → any host          cookie remove · set-cookie remove   (priority 1)
+              → localhost, any port cookie set "fixture_sid=7c167522…"   (priority 2001001)
+tab 280914503 → any host          cookie remove · set-cookie remove   (priority 1)
+              → localhost, any port cookie set "fixture_sid=16d07b67…"   (priority 2001001)
 
 browser's own jar for that site    (empty)
 ```
@@ -121,7 +125,7 @@ Same host, different cookie, because the header is replaced **per tab** before i
 
 ### Which cookies go into that string
 
-Not all of them — the session's jar is filtered against the tab's current URL using RFC 6265 rules:
+Not all of them. For each host and cookie path, the session's jar is filtered using RFC 6265 rules, and each result becomes the header for requests matching that host and path:
 
 | Rule | Behaviour |
 |---|---|
@@ -157,8 +161,8 @@ The shim must resolve its session id **synchronously**, before the first app scr
 
 ```mermaid
 flowchart TD
-  START["tab created, parked on about:blank"] --> BIND["bind tab → session<br/>install the DNR rule"]
-  BIND --> WAIT{"rule observably<br/>present?"}
+  START["tab created, parked on about:blank"] --> BIND["bind tab → session<br/>install the DNR rules"]
+  BIND --> WAIT{"installed rules match<br/>the session's?"}
   WAIT -->|no| WAIT
   WAIT -->|yes| NAV["navigate, session marker on the URL hash"]
   NAV --> DS["shim runs at document_start, MAIN world"]
@@ -181,10 +185,10 @@ Each is a different intention, named after its outcome rather than its plumbing.
 
 ```mermaid
 flowchart LR
-  A["Add site<br/>type a URL"] --> R1["blank session<br/>opens signed out"]
-  B["Use this tab<br/>sign in fresh"] --> R2["this tab joins a persona<br/>signed out"]
-  C["Move the login<br/>I am using"] --> R3["imported · taken OUT<br/>of the browser"]
-  D["Copy the login<br/>I am using"] --> R4["imported · browser<br/>stays signed in"]
+  A["Add website<br/>type a URL"] --> R1["blank session<br/>opens signed out"]
+  B["Add to persona →<br/>use this tab, signed out"] --> R2["this tab joins a persona<br/>signed out"]
+  C["Add to persona →<br/>move my login"] --> R3["imported · taken OUT<br/>of the browser"]
+  D["Add to persona →<br/>copy my login"] --> R4["imported · browser<br/>stays signed in"]
 
   style R3 fill:#1e3f2d,stroke:#4ad99a,color:#e7e7ea
   style R4 fill:#3f2d1e,stroke:#d99a4a,color:#e7e7ea
@@ -192,10 +196,10 @@ flowchart LR
 
 | You want | What happens | Your browser's own login |
 |---|---|---|
-| **Add site** — type a URL | A tab opens inside the persona, signed out | untouched |
-| **Use this tab** — sign in fresh | This tab joins the persona with a blank session | untouched |
-| **Move** the login you are using | Imported into the persona, then **deleted** from the browser's jar; this tab re-enters the persona and stays signed in | removed |
-| **Copy** the login you are using | Imported; the browser keeps it too | kept |
+| **Add website** — type a URL | A tab opens inside the persona, signed out | untouched |
+| **Add to persona → Use this tab, signed out** | This tab joins the persona with a blank session | untouched |
+| **Add to persona → Move my login** | Imported into the persona, then **deleted** from the browser's jar; this tab re-enters the persona and stays signed in | removed |
+| **Add to persona → Copy my login** | Imported; the browser keeps it too | kept |
 
 ### Why move is the default for importing
 
@@ -230,14 +234,14 @@ sequenceDiagram
   loop one site at a time
     E->>C: create tab on about:blank
     E->>E: bind tab → session · install rule
-    E->>C: getSessionRules() until the rule is there
+    E->>C: getSessionRules() until the tab's rules match the session's
     E->>C: navigate, carrying the session marker
     E->>E: restore the saved storage slice · reload
   end
   E->>C: group the tabs · name and colour them
 ```
 
-Sequential, not parallel: each tab's rule must be **confirmed** before that tab may navigate. Roughly a second per tab, which is honest rather than fast. Empty sessions open too, signed out — they are the cue to sign in, not an error.
+Sequential, not parallel: each tab's rules must be **confirmed** before that tab may navigate. Confirmed by content, not by id: an id check once passed on a rule that removed every cookie, and would equally pass on a rule left over from the tab's previous session. Roughly a second per tab, which is honest rather than fast. Empty sessions open too, signed out — they are the cue to sign in, not an error.
 
 Opened tabs join a native Chrome tab group titled with the persona, so which tabs belong to which identity is visible in Chrome's own tab strip.
 
@@ -261,7 +265,7 @@ sequenceDiagram
 
   rect rgba(74,217,154,.15)
   note over T,S: RIGHT — bind, confirm, then navigate
-  T->>T: bind · install rule · confirm it exists
+  T->>T: bind · install rules · confirm they match the session
   T->>S: GET / (rule applies)
   S-->>T: signed out, a clean slate
   end
@@ -284,7 +288,7 @@ Isolation is not all-or-nothing, so the extension reports what it actually achie
 | `localStorage` | covered once the shim reports itself installed | MAIN-world Proxy |
 | `sessionStorage` | always covered | already per-tab in the browser |
 | `SharedWorker` | covered when the shim installed | constructor removed |
-| IndexedDB | **leaking** on an origin seen using it | detected, not namespaced |
+| IndexedDB | covered when the shim namespaced it and no worker was seen | database names translated per session; **leaking** if the page starts a worker |
 | Service worker | **leaking** when one is active | its fetches carry no tab id |
 | Cross-origin frames | **leaking** when one is present | cannot learn the session |
 
@@ -299,7 +303,7 @@ The tab's badge shows the worst of these, in the page, where it cannot be missed
 Stated plainly rather than buried. The full list, with each entry marked verified-in-code or merely assumed, is in [`docs/limits.md`](limits.md).
 
 - **Service-worker fetches bypass isolation.** They carry no tab id, so they match no per-tab rule and hit the shared jar. Unfixable inside the extension model — only a debugger-based or native engine could see them.
-- **IndexedDB is detected, not isolated.** Apps keeping auth there (some Firebase and Supabase setups) will cross-contaminate.
+- **IndexedDB inside workers is shared.** The page's own databases are kept per persona (names translated to `<session>::<name>`), but a dedicated worker or service worker has its own `indexedDB` the shim never runs in. The badge reports the layer as leaking whenever the page starts one.
 - **Partitioned cookies (CHIPS) are not captured.** The partition key is part of the model but never populated, so partitions collapse into one record.
 - **Cross-origin iframes** cannot learn which session they belong to.
 - **`SharedWorker` is removed wholesale** on isolated origins — blunt, and it will break an app that legitimately uses one.
@@ -336,7 +340,7 @@ The boundary test verifies its own matcher (it asserts that it finds files, that
 
 ## How it is verified
 
-`task check` is the gate: type-check, 180 unit tests, a build, and nine end-to-end suites that drive the **built extension** in a real Chrome.
+`task check` is the gate: type-check, 235 unit tests, a build, and eleven end-to-end suites that drive the **built extension** in a real Chrome.
 
 | Suite | Asserts |
 |---|---|
@@ -347,6 +351,8 @@ The boundary test verifies its own matcher (it asserts that it finds files, that
 | `e2e:flows` | all four ways to build a session, and what each does to a plain tab |
 | `e2e:twologins` | an existing second persona takes a fresh signed-out session for a site another already holds |
 | `e2e:tabs` | open-in-this-tab moves every layer · a blank new tab never joins a persona · a link from a session tab does |
+| `e2e:cookieonly` | a cookie-only app that redirects signed-out users opens **signed in** from a persona · its cookie reaches no other host |
+| `e2e:storage` | storage lab: two personas on one origin stay apart on a cookie login, a localStorage login and an IndexedDB offline-first app — with a plain-tab control per layer proving the collision is real |
 | `e2e:boot` | concurrent service-worker boots never duplicate a content script |
 | `e2e:migrate` | upgrading from older data keeps every login and boots clean |
 

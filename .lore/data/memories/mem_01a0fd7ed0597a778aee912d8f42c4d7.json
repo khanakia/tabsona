@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "Every read-then-write chrome API in an MV3 worker must be SERIALIZED, not just the first one you get bitten by.\n\nchrome.declarativeNetRequest.updateSessionRules reads the live rule ids, removes them and adds a new set. Two concurrent calls both read the same 'existing' list, both remove it, and the second add collides: 'Rule with id N does not have a unique ID' — and the WHOLE call fails, leaving tabs with no cookie rule and nothing saying so. Trivially hit when one operation syncs per tab while other listeners sync too.\n\nIdentical shape to chrome.scripting.registerContentScripts throwing 'Duplicate script ID'. Fixing only the instance leaves the shape in place; both need an in-process promise chain, and registerContentScripts additionally needs a catch-and-retry because a previous worker GENERATION can write between your read and your write.",
+  "confidence": null,
+  "created_at": "2026-10-02T16:42:21.657685000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "mem_01a0fd7ed0597a778aee912d8f42c4d7",
+  "kind": "procedural",
+  "last_validated_at": null,
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": "apps/extension/src/engine/rules-sync.ts",
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "tx_at": "2026-10-02T16:42:21.657685000Z",
+  "updated_at": "2026-10-02T16:42:21.657685000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

@@ -7,6 +7,7 @@ import { grantedOriginPatterns } from './permissions';
 import { syncRules } from './rules-sync';
 import { renderBadge, statusForTab } from './badge';
 import { captureTabStorage } from './storage';
+import { shimFactsFrom } from '@/core/coverage';
 import { noteShimReady } from './observations';
 import { loadBindings, loadLibrary, migrateFromV1, saveBindings, setSetting, withLock } from './repo';
 import { siteOf } from '@/core/personas';
@@ -183,8 +184,9 @@ chrome.webNavigation.onCreatedNavigationTarget.addListener((details) => {
 
 chrome.tabs.onUpdated.addListener((tabId, info) => {
   void (async () => {
-    // A navigation changes which cookies apply, so rules must follow the url.
-    if (info.url) await syncRules();
+    // No rule sync on navigation: rules are scoped by request url, not by the url the
+    // tab is on, so where a tab navigates never changes them. Re-syncing here once hid
+    // a race where the rule followed the tab one request too late.
     if (info.status === 'complete') {
       await captureTabStorage(tabId).catch(() => false);
       await renderBadge(tabId);
@@ -248,12 +250,9 @@ chrome.runtime.onMessage.addListener((raw, sender, respond: (r: Response) => voi
 
 // Relayed by the ISOLATED-world badge script: the shim's self-report.
 chrome.runtime.onMessage.addListener((raw, sender) => {
-  const msg = raw as { op?: string; origin?: string; usesIndexedDb?: boolean; hasServiceWorker?: boolean };
-  if (msg?.op !== 'shimReady' || !msg.origin) return;
-  noteShimReady(msg.origin, {
-    usesIndexedDb: msg.usesIndexedDb ?? false,
-    hasServiceWorker: msg.hasServiceWorker ?? false,
-  });
+  const msg = typeof raw === 'object' && raw !== null ? (raw as { op?: unknown; origin?: unknown }) : null;
+  if (msg?.op !== 'shimReady' || typeof msg.origin !== 'string' || !msg.origin) return;
+  noteShimReady(msg.origin, shimFactsFrom(raw));
   if (sender.tab?.id !== undefined) void renderBadge(sender.tab.id);
 });
 

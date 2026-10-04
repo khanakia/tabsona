@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "UI for Aman's projects must use volt-web, his shadcn-derived compact design system at /Volumes/D/www/projects/khanakia/volt/volt-web — not hand-rolled components.\n\nWhat to take: src/components/ui/*.tsx (Base UI primitives + CVA variants), src/lib/utils.ts (cn), and the density tokens from src/styles.css. The tokens are the heart of it: --control-height 28px, --control-padding-x 10px, --control-font-size 12px, --row-padding-y 6px, --row-font-size 13px. Every control and row reads them, so changing one value rescales the whole UI in lockstep.\n\nTaste it encodes: Polaris-grade density, flat black primary with no drop shadow and an active-press, outline buttons as a 1px frame, button sizes xs=24px for row actions and default=28px, destructive-outline for inline deletes.\n\nWhat Aman called \"one of the worst UX you ever build\": hand-rolled primitives, lowercase text buttons stacked four-per-row, loose spacing, no icons, no overflow menus. The fix is two real buttons plus a DropdownMenu, coloured state pills, real Tabs/Table/Switch, and lucide icons.\n\nAlso: a UI bug can pass every unit test. The redesigned row put four things on one line and they overlapped at 420px; the tests assert content and callbacks, not geometry. Render the surface and look at it before calling it done.",
+  "confidence": null,
+  "created_at": "2026-10-02T17:16:03.906028000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "mem_01a0fd9dabc270759377f9eee80cc56a",
+  "kind": "core",
+  "last_validated_at": null,
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": "apps/extension/src/ui/volt",
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "tx_at": "2026-10-02T17:16:03.906028000Z",
+  "updated_at": "2026-10-02T17:16:03.906028000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

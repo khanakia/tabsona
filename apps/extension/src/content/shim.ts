@@ -10,6 +10,7 @@
 // else on the page.
 
 import { NAMESPACE_SEPARATOR, SESSION_MARKER } from '@/core/constants';
+import { installIdbNamespace } from '@/core/idb';
 
 /**
  * `Storage.length` — the one property of the real API that is not a method.
@@ -165,15 +166,42 @@ const LENGTH_PROP = 'length';
     }, true);
   } catch { /* ignore */ }
 
+  // --- IndexedDB: one set of databases per session --------------------------
+  //
+  // Database NAMES are translated (`app-db` → `<session>::app-db`) on the real
+  // prototypes, so every reference to indexedDB in this page is covered; what happens
+  // inside an open database is untouched. The installer is pure and unit-tested in
+  // core/idb.ts — this only hands it the page's prototypes. See docsi/SPEC_INDEXEDDB.md.
   let usesIndexedDb = false;
+  let idbNamespaced = false;
   try {
-    const realOpen = indexedDB.open.bind(indexedDB);
-    // Only OBSERVED, not namespaced yet: the badge must report IndexedDB as leaking
-    // on an origin that uses it rather than quietly implying coverage.
-    indexedDB.open = function patched(name: string, version?: number) {
+    idbNamespaced = installIdbNamespace(IDBFactory.prototype, IDBDatabase.prototype, sessionId).installed;
+    // Observe use on top of the translation, so the report says whether the layer
+    // mattered on this page at all.
+    const translatedOpen = IDBFactory.prototype.open;
+    IDBFactory.prototype.open = function open(this: IDBFactory, name: string, version?: number) {
       usesIndexedDb = true;
-      return version === undefined ? realOpen(name) : realOpen(name, version);
-    } as typeof indexedDB.open;
+      return version === undefined ? translatedOpen.call(this, name) : translatedOpen.call(this, name, version);
+    };
+  } catch { /* indexedDB unavailable: report not namespaced rather than pretend */ }
+
+  // A dedicated Worker has its OWN indexedDB, which this script never runs in, so the
+  // badge must know when a page starts one. Observed, never blocked: blocking would
+  // break the app to hide a gap this project's rule is to surface.
+  let usesWorker = false;
+  try {
+    const RealWorker = window.Worker;
+    if (typeof RealWorker === 'function') {
+      const Observed = function (this: unknown, url: string | URL, options?: WorkerOptions) {
+        usesWorker = true;
+        return new RealWorker(url, options);
+      };
+      Observed.prototype = RealWorker.prototype;
+      // BOUNDARY CAST: a plain function standing in for a class constructor. It
+      // delegates to the real Worker and shares its prototype, so instances are genuine
+      // Workers; only the constructor's own type differs.
+      window.Worker = Observed as unknown as typeof Worker;
+    }
   } catch { /* ignore */ }
 
   try {
@@ -234,6 +262,8 @@ const LENGTH_PROP = 'length';
         id: sessionId,
         shimmedLocal,
         usesIndexedDb,
+        idbNamespaced,
+        usesWorker,
         hasServiceWorker,
         dumpLocal: () => dump(realLocal),
         dumpSession: () => dump(realSession),
@@ -247,6 +277,8 @@ const LENGTH_PROP = 'length';
   // evidence the badge accepts for claiming localStorage coverage, which is why it
   // reports facts rather than intentions.
   try {
-    window.postMessage({ __tabsonaReady: { origin: location.origin, shimmedLocal, usesIndexedDb, hasServiceWorker } }, location.origin);
+    window.postMessage({
+      __tabsonaReady: { origin: location.origin, shimmedLocal, usesIndexedDb, idbNamespaced, usesWorker, hasServiceWorker },
+    }, location.origin);
   } catch { /* ignore */ }
 })();

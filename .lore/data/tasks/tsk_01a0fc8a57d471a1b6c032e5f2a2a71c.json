@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "The single sharpest finding from the teardown. Prior art stores a random namespace in sessionStorage, which is per-tab by nature, so the namespace dies with the tab and a restored session can never find its old localStorage. That is exactly WHY no shipped extension offers save/restore. Deriving the namespace from the session/container id is nearly a one-line difference in the shim with the entire headline feature hanging off it. Write it down as a constraint before any shim code exists.",
+  "commitment": "accepted",
+  "completed_at": "2026-10-02T13:02:45.877665000Z",
+  "created_at": "2026-10-02T12:15:20.020105000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a0fc8a57d471a1b6c032e5f2a2a71c",
+  "mission_id": "msn_01a0fc850b017395bf1f6c484bfb542a",
+  "plan_id": null,
+  "priority": "urgent",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "started_at": null,
+  "status": "done",
+  "tasklist_id": "tlt_01a0fc850b62740f891c787b629a6ba8",
+  "title": "Design: key the storage namespace by session id, not by tab",
+  "updated_at": "2026-10-02T13:02:45.877667000Z"
+}

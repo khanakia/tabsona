@@ -19,6 +19,6 @@ It is not an anti-detect browser. Fingerprint spoofing, proxy-per-session, ban e
 ## Known limitations
 
 - Service-worker fetches carry no tab id, so they bypass per-tab isolation. Unfixable in the extension model.
-- IndexedDB is detected and reported as leaking, not isolated.
+- IndexedDB is kept per persona for the page; databases opened inside a worker stay shared and are reported as leaking.
 - Partitioned cookies (CHIPS) are modelled but not captured.
 - Cross-origin iframes cannot learn which session they belong to.
