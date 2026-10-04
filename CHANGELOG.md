@@ -6,22 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-04
+
 ### Added
 
 - **The in-page persona badge can be moved, shrunk and switched off.** It now sits bottom-left by default (top-right covered apps' header buttons), a click shrinks it to a dot and back, and Options → Settings has "Show the persona badge on pages" and a corner picker. Changes apply to open tabs immediately.
 - **Drag the badge anywhere.** The spot is remembered per site (apps put their buttons in different places) and survives reloads; double-click puts it back in the corner, and Options can reset every site at once.
 - **Pick each persona's colour** from nine swatches — one per Chrome tab-group colour, so the badge, the popup dot and the tab group always match. Open tabs and their tab group recolour immediately.
 - **Page titles carry the persona's colour** as a heart in front of the title (`💙 Dashboard`), kept in place when the app changes its title; switchable in Options.
-
-### Fixed
-
-- A persona's description, and a saved login's page title, are cut off to fit the popup; hovering (or tabbing to) a cut-off line now opens a card with the whole text. Lines that fit stay quiet.
-- Session rows show the full site address (`ifpghub.localhost:3000`) on its own line; the page title moved to the line below, where it is the part that gets cut off. Persona names likewise get the whole first line, with the site and tab counts underneath.
-
-## [0.2.0] - 2026-10-04
-
-### Added
-
 - **IndexedDB kept per persona.** The page shim translates database names to `<session>::<name>` (`open`, `deleteDatabase`, `databases()`, `IDBDatabase.name`), so offline-first apps keep separate data per persona. Databases opened inside a worker stay shared and the badge reports it.
 - **A popup that explains itself.** Every button shows what it will do and what it does to your normal browser login, on hover or keyboard focus. "Add to persona" asks how (signed out, move or copy) before which persona, footer actions carry words instead of bare icons, and a three-step guide appears until the first persona exists.
 - **Styled confirmations** before deleting a persona, forgetting a login or replacing a saved login, and a confirmation line after actions that are otherwise silent.
@@ -29,6 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- A persona's description, and a saved login's page title, are cut off to fit the popup; hovering (or tabbing to) a cut-off line now opens a card with the whole text. Lines that fit stay quiet.
+- Session rows show the full site address (`ifpghub.localhost:3000`) on its own line; the page title moved to the line below, where it is the part that gets cut off. Persona names likewise get the whole first line, with the site and tab counts underneath.
 - Opening a persona on an app that redirects signed-out users (AuthKit, OAuth) no longer lands on its login page. Cookie rules were computed from the URL the tab was on, which is `about:blank` when it is bound, so the first request left without the cookie.
 - A persona's cookies are no longer sent to every host its page loads. Rules are now scoped per host and cookie path, and hosts the persona holds nothing for receive no cookie at all.
 - "Add website" now adds the address you typed; the popup used the current tab's site instead and the library page did nothing.
