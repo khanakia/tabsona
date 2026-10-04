@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "The engine is proven end to end on a real app (docsi/SPIKE2_RESULTS.md): simultaneous logins, localStorage isolation keyed by session, save/restore/duplicate, 3 of 3 runs. What is missing is a product: popup to create/name/pick a session, session list with search, the unmissable in-page badge plus toolbar badge, and per-origin coverage reporting. Port spike/ext2 into the house stack (pnpm + Vite + React 19 + Tailwind v4 + Base UI + zustand, vitest).",
+  "commitment": "accepted",
+  "completed_at": "2026-10-02T13:51:38.741657000Z",
+  "created_at": "2026-10-02T13:02:46.026116000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a0fcb5c50a71dca62403fa0f72a856",
+  "mission_id": "msn_01a0fc850b017395bf1f6c484bfb542a",
+  "plan_id": null,
+  "priority": "urgent",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "started_at": null,
+  "status": "done",
+  "tasklist_id": "tlt_01a0fc850b62740f891c787b629a6ba8",
+  "title": "Build the real extension: UI, session list, badge",
+  "updated_at": "2026-10-02T13:51:38.741671000Z"
+}

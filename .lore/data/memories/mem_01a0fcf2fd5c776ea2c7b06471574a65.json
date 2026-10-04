@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "chrome.permissions.request opens Chrome's own confirmation dialog and REQUIRES a human click; it also must be called straight from a click handler in an extension page (the MV3 service worker can never supply a user gesture).\n\nConsequence for automation: a headless CDP driver that calls it HANGS INDEFINITELY — no error, no timeout, just a silent stall. CDP's Runtime.evaluate userGesture:true satisfies the gesture requirement but does NOT dismiss the dialog.\n\nWorkaround for an e2e: pre-grant the origin by adding it to the BUILT manifest's host_permissions before launching (never the source manifest), and say at the point of use why. Observed on Chrome 154.0.8037.93, 2026-10-02.",
+  "confidence": null,
+  "created_at": "2026-10-02T14:09:38.140484000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "mem_01a0fcf2fd5c776ea2c7b06471574a65",
+  "kind": "procedural",
+  "last_validated_at": null,
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": "docsi/BUILD_NOTES.md",
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "tx_at": "2026-10-02T14:09:38.140484000Z",
+  "updated_at": "2026-10-02T14:09:38.140484000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

@@ -1,8 +1,13 @@
+<!-- lore:pointer:start -->
+@.lore/LORE.md
+<!-- if your agent does not support @import, read .lore/LORE.md now -->
+<!-- lore:pointer:end -->
+
 # tabsona
 
 A Chrome extension that gives **each tab its own login session**, grouped into **personas** — a named identity across a set of apps. Open a persona and every site in it opens as a tab, already signed in.
 
-Status: **shipped and gated.** `task check` is the real gate — type-check, unit tests, a build, and nine end-to-end suites driving the built extension in a real Chrome. Read [`docs/how-it-works.md`](docs/how-it-works.md) before changing anything in `src/engine/` or `src/content/`.
+Status: **shipped and gated.** `task check` is the real gate — type-check, unit tests, a build, and eleven end-to-end suites driving the built extension in a real Chrome. Read [`docs/how-it-works.md`](docs/how-it-works.md) before changing anything in `src/engine/` or `src/content/`.
 
 ## Who this is for
 
@@ -21,10 +26,11 @@ Do not re-derive these, and do not build a design that ignores one.
 - **DNR must also strip `Set-Cookie` on the response for bound tabs.** Without it, signing into a session tab also signs the whole browser in, and a plain tab silently becomes whoever the persona just signed in as.
 - **`chrome.cookies.getAll` returns `[]` for every filter shape on Chrome 154**, while `chrome.cookies.get({url, name})` returns the same cookie with its HttpOnly flag. Cookies cannot be enumerated; they can be looked up by name. Any assertion built on `getAll` passes whether or not the jar was cleared.
 - **A cookie records no port.** Removing via `http://${domain}${path}` yields `http://localhost/`, which does not address a cookie stored for `localhost:8787`. Chrome reports no error and the cookie survives. Build removal URLs from the tab's real origin and confirm with `chrome.cookies.get`.
-- **`localStorage`, `IndexedDB` and `CacheStorage` are engine-partitioned per origin with no extension hook to re-partition per tab.** Any isolation there is a shim, and a shim has blind spots. Enumerate them; never claim coverage you have not observed.
+- **`localStorage`, `IndexedDB` and `CacheStorage` are engine-partitioned per origin with no extension hook to re-partition per tab.** Any isolation there is a shim, and a shim has blind spots. Enumerate them; never claim coverage you have not observed. localStorage keys and IndexedDB database names are both translated to `<session>::<name>` (`core/idb.ts`); a worker's `indexedDB` is outside the shim and must stay reported.
 - **`sessionStorage` is already per-tab, for free.** Apps keeping their token there need no machinery.
 - **A service worker's own fetches carry no tab id**, so they match no per-tab rule and hit the shared jar. Unfixable inside the extension model — detect and surface it, never hide it.
 - **Three channels re-sync login state across same-origin tabs behind your back:** `storage` events, `BroadcastChannel`, and `SharedWorker`. Isolating cookies and `localStorage` without neutralising all three means one tab's refresh flips another tab's user.
+- **A tab's DNR rules must never depend on the URL the tab is on.** A tab is on `about:blank` when it is bound, so a URL-derived rule says "no cookies" for the first real request, and an app that 302s signed-out users bounces before any resync lands. Scope by request URL instead (`regexFilter` per host), under a priority-1 strip rule: a higher-priority rule claims a header and lower ones cannot touch it. A tab-wide `set` also sends one host's cookies to every host the page loads.
 - **Scope `webRequest` listeners to granted hosts, never `<all_urls>`.** With optional host permissions the broad form logs one warning and then never fires — a silent failure.
 - **The MV3 service worker is torn down at will, and several events boot it at once.** Reloading at `chrome://extensions` runs the module body *and* fires `onInstalled`. Every read-then-write chrome API (`registerContentScripts`, `updateSessionRules`) must be serialized, and `registerContentScripts` additionally needs catch-and-retry, because a previous worker generation can write between your read and your write.
 - **Never use a dynamic `await import()` in the worker.** Vite wraps it in a preload helper that calls `window.dispatchEvent`, and a service worker has no `window`. Keep `build.modulePreload: false`.

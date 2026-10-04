@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "MV3 kept OBSERVATIONAL webRequest: onHeadersReceived registered non-blocking with ['responseHeaders','extraHeaders'] still delivers the raw HttpOnly Set-Cookie, tagged with the exact details.tabId.\n\nThis is easy to assume died with blocking webRequest. It did not, and it is the read half of per-tab cookie isolation — declarativeNetRequest can SET or REMOVE the cookie header but can never READ one, so without this there is no way to learn a session's cookies without chrome.debugger.\n\nExecuted and observed on Chrome 154.0.8037.93 on 2026-10-02 via spike/run-test.mjs: two tabs on one origin held two different logins across a refresh of both, with no debugger attached and no infobar.",
+  "confidence": null,
+  "created_at": "2026-10-02T12:33:25.250226000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "mem_01a0fc9ae702737a9f5fcdd46b14a261",
+  "kind": "procedural",
+  "last_validated_at": null,
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": "docsi/SPIKE_RESULTS.md",
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "tx_at": "2026-10-02T12:33:25.250226000Z",
+  "updated_at": "2026-10-02T12:33:25.250226000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

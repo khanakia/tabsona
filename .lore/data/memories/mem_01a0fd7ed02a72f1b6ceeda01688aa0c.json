@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "Chrome 154: chrome.cookies.getAll returns an EMPTY array for every filter shape — {url}, {domain}, {name}, {}, promise and callback form — while chrome.cookies.get({url, name}) returns the very same cookie complete with its HttpOnly flag.\n\nVerified against a live login with BOTH the 'cookies' permission and the matching host permission granted, and cross-checked with CDP Network.getCookies, which did see the cookie. chrome.runtime.lastError was undefined throughout, so it fails silently.\n\nConsequence: you cannot ENUMERATE an origin's cookies, only look them up by name. Workaround that works: read the names off the tab's own outgoing Cookie header via observational webRequest.onBeforeSendHeaders with ['requestHeaders','extraHeaders'], provoking one same-origin fetch from the page, then call chrome.cookies.get per name for full identity. Try getAll first so the workaround costs nothing where it works.",
+  "confidence": null,
+  "created_at": "2026-10-02T16:42:21.610191000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "mem_01a0fd7ed02a72f1b6ceeda01688aa0c",
+  "kind": "procedural",
+  "last_validated_at": null,
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": "apps/extension/src/engine/import.ts",
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "tx_at": "2026-10-02T16:42:21.610191000Z",
+  "updated_at": "2026-10-02T16:42:21.610191000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

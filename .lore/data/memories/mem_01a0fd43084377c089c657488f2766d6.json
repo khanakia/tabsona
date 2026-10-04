@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "MV3: reloading an extension at chrome://extensions runs the service-worker MODULE BODY and fires chrome.runtime.onInstalled — two startup paths at once. Any boot work that is not coalesced therefore runs twice concurrently.\n\nConcrete failure: chrome.scripting.registerContentScripts throws \"Duplicate script ID '<id>'\" and the WHOLE call fails, so one racing registration leaves the content script unregistered — tabs then load with no isolation and nothing says so.\n\nThree things are needed, and the first two alone are not enough:\n1. coalesce boot() behind a single in-flight promise;\n2. serialize registerContentScripts itself (unregister-then-register is NOT atomic — a test calling it 3x in parallel still reproduced the error after boot was fixed);\n3. catch 'Duplicate script ID', unregister by id, and retry once — a previous worker GENERATION can register between your read and your write, which no in-process lock can prevent.\n\nAlso unregister by what getRegisteredContentScripts() actually reports rather than by the ids you expect, so an id left by an older build is cleaned up.\n\nWHY NO TEST CAUGHT IT: a headless CDP harness starts the worker exactly once. Restart-shaped bugs are invisible to it. Observed on Chrome 154, reported by a real install, 2026-10-02.",
+  "confidence": null,
+  "created_at": "2026-10-02T15:37:03.811504000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "mem_01a0fd43084377c089c657488f2766d6",
+  "kind": "procedural",
+  "last_validated_at": null,
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": "spike/run-boot.mjs",
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "tx_at": "2026-10-02T15:37:03.811504000Z",
+  "updated_at": "2026-10-02T15:37:03.811504000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

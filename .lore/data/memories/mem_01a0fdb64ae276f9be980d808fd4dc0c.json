@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "multisession-tabs: a capability with no discoverable path is not a capability.\n\nAman could not work out how to get two logins for the same site, and nothing was broken — the model supports it (two logins for one site means two personas, which is what keeps \"open this persona\" unambiguous). Reaching it meant creating a persona, finding a tab already on that site, and pressing +. Nobody guesses that. Worse, \"Duplicate\" was the obvious-looking button and does the OPPOSITE of what is wanted: it clones the same login.\n\nThe fix was never a model change. It was one action, offered where the thought occurs: \"Another login for this site\" in the session row's menu and in the current-tab bar, doing the whole journey — new persona named after the site (numbered, skipping taken names), one empty session, opened SIGNED OUT and ready.\n\nSigned out is the load-bearing part: inheriting the first login makes the whole exercise pointless, and is exactly what an un-isolated tab does. Pinned by spike/e2e-twologins.mjs.\n\nGeneralise: when a user says \"I cannot do X\" and X is in fact supported, do not explain the sequence — collapse it into one action sited where they were standing when they wanted it.",
+  "confidence": null,
+  "created_at": "2026-10-02T17:42:57.506452000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "mem_01a0fdb64ae276f9be980d808fd4dc0c",
+  "kind": "core",
+  "last_validated_at": null,
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": "spike/e2e-twologins.mjs",
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "tx_at": "2026-10-02T17:42:57.506452000Z",
+  "updated_at": "2026-10-02T17:42:57.506452000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

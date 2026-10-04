@@ -1,0 +1,11 @@
+{
+  "_table": "task_lists",
+  "_v": 1,
+  "body": "Each spike is a throwaway unpacked extension plus the two-role fixture app, and each has a pass condition that is OBSERVED, not reasoned about. A spike that cannot be demonstrated failing has not been run.",
+  "created_at": "2026-10-02T12:09:32.770231000Z",
+  "id": "tlt_01a0fc850b62740f891c787b629a6ba8",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "status_str": "active",
+  "title": "Spikes S0-S5",
+  "updated_at": "2026-10-02T12:09:32.770234000Z"
+}

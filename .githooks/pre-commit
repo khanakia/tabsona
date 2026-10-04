@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# >>> lore-sync >>>
+( if command -v lore >/dev/null 2>&1; then if lore sync hook --help >/dev/null 2>&1; then lore sync hook pre-commit; else echo "lore: installed lore cannot check .lore/data (no 'sync hook'); upgrade it" >&2; fi; fi ) || exit $?
+# <<< lore-sync <<<
 # Pre-commit guard: refuse secrets and compiled binaries before they enter history.
 #
 # Why it exists: this repository is PUBLIC, and the Chrome Web Store flow keeps

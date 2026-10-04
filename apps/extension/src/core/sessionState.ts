@@ -61,7 +61,7 @@ export function describeState(view: {
     case 'empty':
       return 'nothing saved yet — sign in once';
     case 'expired':
-      return 'cookies expired — sign in again';
+      return 'login ended — sign in again';
     case 'signed-in':
     case 'unknown': {
       const parts: string[] = [];

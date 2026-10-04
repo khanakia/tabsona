@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "Aman's point 3. Same mechanism as the deleted 'use here', but comprehensible because it is offered on a row that already reads 'signed in - 4 cookies - 2h ago', and named after the outcome rather than the plumbing. Must bounce through about:blank: a same-URL change is a fragment navigation and the shim would never re-run. Spec section 7.4.",
+  "commitment": "accepted",
+  "completed_at": "2026-10-02T16:42:21.495835000Z",
+  "created_at": "2026-10-02T16:00:23.402698000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a0fd58636a7aae99978f29eb0099a4",
+  "mission_id": "msn_01a0fc850b017395bf1f6c484bfb542a",
+  "plan_id": null,
+  "priority": "high",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "started_at": null,
+  "status": "done",
+  "tasklist_id": "tlt_01a0fc850b62740f891c787b629a6ba8",
+  "title": "Verb: open a session into the CURRENT tab",
+  "updated_at": "2026-10-02T16:42:21.495837000Z"
+}

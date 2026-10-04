@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "After the spikes, write docsi/ENGINE_ADR.md choosing between the DNR cookie path, the chrome.debugger path, the native-host path and the cheap-fast-path-only option, citing the observed spike results. Re-score the WeightedScore in docsi/MISSION.md with real numbers and replace the estimate warning. No product scaffold is written before this lands.",
+  "commitment": "accepted",
+  "completed_at": null,
+  "created_at": "2026-10-02T12:09:57.378496000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a0fc856b82779d9771ea95ad381bb8",
+  "mission_id": "msn_01a0fc850b017395bf1f6c484bfb542a",
+  "plan_id": null,
+  "priority": "high",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "started_at": null,
+  "status": "cancelled",
+  "tasklist_id": "tlt_01a0fc850b62740f891c787b629a6ba8",
+  "title": "Record the engine decision as an ADR once S0-S5 report",
+  "updated_at": "2026-10-02T12:15:19.923695000Z"
+}

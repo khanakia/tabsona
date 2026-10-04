@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "multisession-tabs: saving a login must MOVE it out of the browser's shared jar, never copy it.\n\nThe bug Aman found by reasoning: save copied the cookie, so the persona and the browser's own jar held the SAME session id — one server-side session. Signing out in any normal tab invalidated it everywhere and the saved persona became silently worthless. \"Added to group 1\" has to mean it now LIVES in group 1.\n\nThe move: capture into the persona, delete those cookies from the browser jar, clear the page's real storage, then re-enter the tab the user is on into that persona so it stays signed in. Nothing is lost; the identity gets one home instead of two.\n\nTwo traps found doing it, both of which made a broken fix look correct:\n1. An assertion built on chrome.cookies.getAll passes whether or not the jar was cleared, because getAll returns [] for everything on Chrome 154. The first test reported \"jar cleared\" while a fresh tab was still signed in. The only honest check is behavioural — open an un-isolated tab and ask the SERVER who it is.\n2. A cookie records no port, so removing via http://${cookie.domain}${cookie.path} yields http://localhost/ and does not address a cookie stored for localhost:8787. Chrome reports no error and the cookie survives. Build the removal URL from the tab's real ORIGIN, and confirm each removal with chrome.cookies.get (which works where getAll does not).\n\nPinned by spike/e2e-move.mjs.",
+  "confidence": null,
+  "created_at": "2026-10-03T03:16:21.642981000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "mem_01a0ffc3420a7eff92f06376906c28d8",
+  "kind": "core",
+  "last_validated_at": null,
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": "spike/e2e-move.mjs",
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "tx_at": "2026-10-03T03:16:21.642981000Z",
+  "updated_at": "2026-10-03T03:16:21.642981000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

@@ -4,9 +4,11 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/ui/volt/button';
 import { Input } from '@/ui/volt/input';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/ui/volt/dropdown-menu';
 import { IconAction, REVEAL_ON_ROW_HOVER } from '@/ui/IconAction';
+import { ActionMenuItem, WithHelp } from '@/ui/HelpCard';
+import { ACTION_HELP } from '@/ui/help';
 import { SessionRow } from '@/features/sessions/SessionRow';
 import type { PersonaId, PersonaView, SessionId } from '@/domain/types';
 
@@ -122,25 +124,23 @@ export function PersonaRow(props: PersonaRowProps) {
         </div>
 
         <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-          {p.sessions.length} site{p.sessions.length === 1 ? '' : 's'}
-          {p.openTabCount > 0 && ` · ${p.openTabCount} open`}
+          {p.sessions.length} website{p.sessions.length === 1 ? '' : 's'}
+          {p.openTabCount > 0 && ` · ${p.openTabCount} tab${p.openTabCount === 1 ? '' : 's'} open`}
         </span>
 
         <div className="flex shrink-0 items-center gap-0.5">
           {/* The one action a persona exists for gets the only solid button in the row. */}
-          <Button
-            size="xs"
-            disabled={p.sessions.length === 0}
-            onClick={() => props.onOpenAll(p.id)}
-            title={p.sessions.length === 0
-              ? 'This persona has no sites yet'
-              : `Open all ${p.sessions.length} sites as tabs`}
+          <WithHelp
+            help={p.sessions.length === 0
+              ? { ...ACTION_HELP.openAll, what: 'This persona has no websites yet. Add one first.' }
+              : ACTION_HELP.openAll}
+            trigger={<Button size="xs" disabled={p.sessions.length === 0} onClick={() => props.onOpenAll(p.id)} />}
           >
             <Play />
-            Open all
-          </Button>
+            {ACTION_HELP.openAll.label}
+          </WithHelp>
           <div className={cn('flex items-center gap-0.5', REVEAL_ON_ROW_HOVER)}>
-            <IconAction label="Add a site to this persona" onClick={beginAddSite}>
+            <IconAction label={ACTION_HELP.addSite.label} help={ACTION_HELP.addSite} onClick={beginAddSite}>
               <Plus />
             </IconAction>
             <DropdownMenu>
@@ -149,20 +149,16 @@ export function PersonaRow(props: PersonaRowProps) {
               >
                 <MoreHorizontal />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={beginEdit}>
-                  <Pencil />
-                  Rename &amp; describe
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => props.onDuplicate(p.id)}>
-                  <Copy />
-                  Duplicate, logins included
-                </DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-72">
+                <ActionMenuItem help={ACTION_HELP.renamePersona} icon={<Pencil />} onClick={beginEdit} />
+                <ActionMenuItem help={ACTION_HELP.duplicatePersona} icon={<Copy />} onClick={() => props.onDuplicate(p.id)} />
                 <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onClick={() => props.onDelete(p.id)}>
-                  <Trash2 />
-                  Delete persona
-                </DropdownMenuItem>
+                <ActionMenuItem
+                  destructive
+                  help={ACTION_HELP.deletePersona}
+                  icon={<Trash2 />}
+                  onClick={() => props.onDelete(p.id)}
+                />
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -172,7 +168,7 @@ export function PersonaRow(props: PersonaRowProps) {
       {addingSite && (
         <div className="flex items-center gap-2 border-t border-border/50 bg-muted/30 px-2 py-2 pl-9">
           <span className="w-20 shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-            Add site
+            Add website
           </span>
           <Input
             autoFocus
@@ -238,8 +234,9 @@ export function PersonaRow(props: PersonaRowProps) {
         p.sessions.length === 0
           ? (
             <p className="py-2 pl-9 pr-2 text-xs text-muted-foreground">
-              No sites yet. Open a site, then use <span className="font-medium text-foreground">+</span> or
-              {' '}<span className="font-medium text-foreground">Save this login</span>.
+              No websites yet. Press <span className="font-medium text-foreground">+</span> to add one, or go to
+              a website and choose <span className="font-medium text-foreground">{ACTION_HELP.addToPersona.label}</span> at
+              the bottom of this window.
             </p>
           )
           : (

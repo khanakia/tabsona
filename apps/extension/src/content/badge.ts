@@ -4,6 +4,7 @@
 // In the isolated world on purpose — it needs chrome.runtime, and page code must not
 // be able to find or remove the chip that tells the user what is isolated.
 
+import { shimFactsFrom } from '@/core/coverage';
 import type { ShimReadyNotice } from '@/domain/messages';
 
 const CHIP_ID = '__tabsona_chip__';
@@ -72,17 +73,13 @@ chrome.runtime.onMessage.addListener((raw: unknown) => {
 // postMessage is the only channel between them.
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
-  const data = event.data as { __tabsonaReady?: { origin: string; usesIndexedDb: boolean; hasServiceWorker: boolean } };
-  const ready = data?.__tabsonaReady;
-  if (!ready) return;
+  const data: unknown = event.data;
+  const ready = typeof data === 'object' && data !== null ? (data as { __tabsonaReady?: unknown }).__tabsonaReady : undefined;
+  const origin = typeof ready === 'object' && ready !== null ? (ready as { origin?: unknown }).origin : undefined;
+  if (typeof origin !== 'string') return;
   // A one-way notification, NOT part of the request/response surface: the worker
   // handles it in a separate listener and sends nothing back. Typed on its own so it
   // does not have to be squeezed into the Request union it has no business in.
-  const notice: ShimReadyNotice = {
-    op: 'shimReady',
-    origin: ready.origin,
-    usesIndexedDb: ready.usesIndexedDb,
-    hasServiceWorker: ready.hasServiceWorker,
-  };
+  const notice: ShimReadyNotice = { op: 'shimReady', origin, ...shimFactsFrom(ready) };
   void chrome.runtime.sendMessage(notice).catch(() => undefined);
 });

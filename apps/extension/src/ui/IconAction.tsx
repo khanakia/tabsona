@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { Button } from '@/ui/volt/button';
 import { Tooltip, TooltipContent, TooltipPositioner, TooltipTrigger } from '@/ui/volt/tooltip';
 import { cn } from '@/lib/utils';
+import { HelpCardBody } from './HelpCard';
+import { HELP_CARD_DELAY_MS, type ActionHelp } from './help';
 
 /**
  * An icon button with a REAL tooltip, not a native `title`.
@@ -12,6 +14,9 @@ import { cn } from '@/lib/utils';
  */
 export function IconAction(props: {
   readonly label: string;
+  /** When given, the tooltip becomes a full help card (name, what happens, what it
+   *  touches) instead of just the name. Every action in ACTION_HELP should pass it. */
+  readonly help?: ActionHelp;
   readonly onClick: () => void;
   readonly children: ReactNode;
   readonly variant?: 'ghost' | 'outline' | 'destructive-outline';
@@ -24,6 +29,7 @@ export function IconAction(props: {
   return (
     <Tooltip>
       <TooltipTrigger
+        {...(props.help ? { delay: HELP_CARD_DELAY_MS } : {})}
         render={(
           <Button
             variant={props.variant ?? 'ghost'}
@@ -38,14 +44,23 @@ export function IconAction(props: {
         {props.children}
       </TooltipTrigger>
       <TooltipPositioner>
-        <TooltipContent className="flex items-center gap-2 px-2 py-1">
-          {props.label}
-          {props.keys && (
-            <kbd className="rounded border border-primary-foreground/25 px-1 font-mono text-[10px] opacity-70">
-              {props.keys}
-            </kbd>
+        {props.help
+          ? (
+            <TooltipContent className="max-w-64 border border-border bg-popover px-2.5 py-2 text-[11px] leading-snug text-popover-foreground shadow-md [&>[data-slot=tooltip-arrow]]:hidden">
+              <HelpCardBody help={props.help} titled />
+              {props.keys && <p className="mt-1 text-muted-foreground">Shortcut: <kbd className="font-mono">{props.keys}</kbd></p>}
+            </TooltipContent>
+          )
+          : (
+            <TooltipContent className="flex items-center gap-2 px-2 py-1">
+              {props.label}
+              {props.keys && (
+                <kbd className="rounded border border-primary-foreground/25 px-1 font-mono text-[10px] opacity-70">
+                  {props.keys}
+                </kbd>
+              )}
+            </TooltipContent>
           )}
-        </TooltipContent>
       </TooltipPositioner>
     </Tooltip>
   );

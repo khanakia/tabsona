@@ -7,10 +7,12 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/ui/volt/button';
 import { Input } from '@/ui/volt/input';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/ui/volt/dropdown-menu';
 import { StateBadge } from '@/ui/session-state';
 import { IconAction, REVEAL_ON_ROW_HOVER } from '@/ui/IconAction';
+import { ActionMenuItem, WithHelp } from '@/ui/HelpCard';
+import { ACTION_HELP } from '@/ui/help';
 import { shortAgo, shortSite } from '@/ui/format';
 import type { SessionId, SessionView } from '@/domain/types';
 
@@ -88,11 +90,8 @@ export function SessionRow(props: SessionRowProps) {
               {s.state !== 'empty' && ` · ${shortAgo(s.savedAt)}`}
             </span>
             {s.openTabCount > 0 && (
-              <span
-                title={`${s.openTabCount} tab${s.openTabCount === 1 ? '' : 's'} open in this session`}
-                className="shrink-0 rounded bg-primary/10 px-1 text-[10px] font-semibold text-primary"
-              >
-                {s.openTabCount} open
+              <span className="shrink-0 rounded bg-primary/10 px-1 text-[10px] font-semibold text-primary">
+                {s.openTabCount} tab{s.openTabCount === 1 ? '' : 's'} open
               </span>
             )}
           </div>
@@ -101,12 +100,20 @@ export function SessionRow(props: SessionRowProps) {
         <div className="flex shrink-0 items-center gap-0.5">
           {/* Open stays visible: it is why the row exists, and a list whose main action
               only appears on hover is awkward on a trackpad. Everything else fades in. */}
-          <Button size="xs" variant="ghost" onClick={() => props.onOpen(s.id, 'new-tab')}>
+          <WithHelp
+            help={ACTION_HELP.openSession}
+            trigger={<Button size="xs" variant="ghost" onClick={() => props.onOpen(s.id, 'new-tab')} />}
+          >
             <ExternalLink />
-            Open
-          </Button>
+            {ACTION_HELP.openSession.label}
+          </WithHelp>
           <div className={cn('flex items-center gap-0.5', REVEAL_ON_ROW_HOVER)}>
-            <IconAction label="Open in the tab you are on" keys="⌘↵" onClick={() => props.onOpen(s.id, 'this-tab')}>
+            <IconAction
+              label={ACTION_HELP.openSessionHere.label}
+              help={ACTION_HELP.openSessionHere}
+              keys="⌘↵"
+              onClick={() => props.onOpen(s.id, 'this-tab')}
+            >
               <SquareArrowDownRight />
             </IconAction>
             <DropdownMenu>
@@ -115,22 +122,22 @@ export function SessionRow(props: SessionRowProps) {
               >
                 <MoreHorizontal />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-72">
                 {props.onAnotherLogin && (
-                  <DropdownMenuItem onClick={() => props.onAnotherLogin?.(s.site)}>
-                    <UserPlus />
-                    Another login for this site
-                  </DropdownMenuItem>
+                  <ActionMenuItem
+                    help={ACTION_HELP.anotherAccountForSite}
+                    icon={<UserPlus />}
+                    onClick={() => props.onAnotherLogin?.(s.site)}
+                  />
                 )}
-                <DropdownMenuItem onClick={() => setExpanded(true)}>
-                  <Pencil />
-                  Rename
-                </DropdownMenuItem>
+                <ActionMenuItem help={ACTION_HELP.renameSession} icon={<Pencil />} onClick={() => setExpanded(true)} />
                 <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onClick={() => props.onDelete(s.id)}>
-                  <Trash2 />
-                  Delete session
-                </DropdownMenuItem>
+                <ActionMenuItem
+                  destructive
+                  help={ACTION_HELP.deleteSession}
+                  icon={<Trash2 />}
+                  onClick={() => props.onDelete(s.id)}
+                />
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

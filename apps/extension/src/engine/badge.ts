@@ -1,7 +1,7 @@
 // The badge: a toolbar marker plus an in-page chip — and the honest part, it reports
 // COVERAGE, not just a name.
 
-import { computeCoverage, coverageSummary, worstStatus } from '@/core/coverage';
+import { computeCoverage, coverageSummary, shimFactsFrom, worstStatus } from '@/core/coverage';
 import { isEmpty } from '@/core/sessionState';
 import { loadBindings, loadLibrary } from './repo';
 import { noteShimReady, observationsFor } from './observations';
@@ -26,26 +26,26 @@ async function pullShimReport(tabId: TabId): Promise<void> {
     target: { tabId },
     world: 'MAIN',
     func: () => {
-      const h = (window as {
-        __tabsonaSession?: { shimmedLocal: boolean; usesIndexedDb: boolean; hasServiceWorker: boolean };
-      }).__tabsonaSession;
-      return h
-        ? { origin: location.origin, shimmedLocal: h.shimmedLocal, usesIndexedDb: h.usesIndexedDb, hasServiceWorker: h.hasServiceWorker }
-        : null;
+      // Serialised by executeScript, so only plain data crosses back: copy the fields
+      // rather than the handle, whose methods would not survive the trip.
+      const h: unknown = (window as { __tabsonaSession?: unknown }).__tabsonaSession;
+      if (typeof h !== 'object' || h === null) return null;
+      const r = h as Record<string, unknown>;
+      return {
+        origin: location.origin,
+        shimmedLocal: r.shimmedLocal === true,
+        usesIndexedDb: r.usesIndexedDb, idbNamespaced: r.idbNamespaced,
+        usesWorker: r.usesWorker, hasServiceWorker: r.hasServiceWorker,
+      };
     },
   }).catch(() => [{ result: null }] as const);
 
-  const report = res?.result as
-    | { origin: string; shimmedLocal: boolean; usesIndexedDb: boolean; hasServiceWorker: boolean }
-    | null | undefined;
+  const report: unknown = res?.result;
+  if (typeof report !== 'object' || report === null) return;
+  const { origin, shimmedLocal } = report as { origin?: unknown; shimmedLocal?: unknown };
 
   // Only a shim that reports it actually replaced localStorage counts as evidence.
-  if (report?.shimmedLocal) {
-    noteShimReady(report.origin, {
-      usesIndexedDb: report.usesIndexedDb,
-      hasServiceWorker: report.hasServiceWorker,
-    });
-  }
+  if (shimmedLocal === true && typeof origin === 'string') noteShimReady(origin, shimFactsFrom(report));
 }
 
 export async function statusForTab(tabId: TabId | null): Promise<TabStatus> {

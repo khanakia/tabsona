@@ -1,3 +1,4 @@
+import { ACTION_HELP } from '@/ui/help';
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/ui/volt/button';
 import { shortSite } from '@/ui/format';
@@ -17,8 +18,9 @@ export function SiteList(props: SiteListProps) {
   if (props.allowedOrigins.length === 0) {
     return (
       <p className="text-xs text-muted-foreground">
-        No sites allowed yet. Nothing can be isolated until you allow one — open a site and
-        use <span className="font-medium text-foreground">Allow this site</span> in the popup.
+        No websites allowed yet. Tabsona can only keep logins separate on websites you allow —
+        go to one and press <span className="font-medium text-foreground">{ACTION_HELP.allowSite.label}</span> in
+        the popup.
       </p>
     );
   }

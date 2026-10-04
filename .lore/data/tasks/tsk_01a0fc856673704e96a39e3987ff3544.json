@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "Aman does not know which storage layer holds the login in his apps, and guessing decides how much machinery gets built. Write a probe (bookmarklet or tiny unpacked extension) that, on a logged-in page, reports which of document.cookie / localStorage / sessionStorage / IndexedDB holds something token-shaped, then diffs against the logged-out state to confirm which entry is actually the credential. Run it on every app. PASS: a written table of app -> auth layer(s). This gates every other spike: if most apps turn out to be sessionStorage or bearer-token, the heavy engine is deferrable.",
+  "commitment": "accepted",
+  "completed_at": "2026-10-02T13:02:45.838190000Z",
+  "created_at": "2026-10-02T12:09:56.083011000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a0fc856673704e96a39e3987ff3544",
+  "mission_id": "msn_01a0fc850b017395bf1f6c484bfb542a",
+  "plan_id": null,
+  "priority": "urgent",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "started_at": null,
+  "status": "done",
+  "tasklist_id": "tlt_01a0fc850b62740f891c787b629a6ba8",
+  "title": "S0 — probe where each app keeps its auth",
+  "updated_at": "2026-10-02T13:02:45.838336000Z"
+}

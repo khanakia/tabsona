@@ -35,8 +35,40 @@ export const RULE_RESOURCE_TYPES = [
 export const CAPTURE_RESOURCE_TYPES = ['main_frame', 'xmlhttprequest'] as const;
 
 /** Rule ids live in a reserved band so they cannot collide with any rule this
- *  extension might add later. */
+ *  extension might add later. Ids are assigned sequentially from here on every sync;
+ *  nothing may rely on a rule keeping its id across syncs. */
 export const RULE_ID_BASE = 1_000;
+
+/**
+ * Priority layering of a bound tab's rules.
+ *
+ * Within one extension, once a higher-priority `modifyHeaders` rule has edited a header,
+ * lower-priority rules cannot touch it. So each tab gets a priority-1 STRIP rule that
+ * removes `Cookie` from every request, and higher-priority rules that set the session's
+ * cookies for the hosts that own them. A host the session holds nothing for falls
+ * through to the strip, so neither the shared jar nor another host's cookies ever
+ * reach it.
+ *
+ * Priority = tier × TIER_SPAN + host labels × LABEL_SPAN + path length (capped), so an
+ * exact-host rule always beats a parent-domain rule, a deeper domain beats a shallower
+ * one, and a longer cookie path beats a shorter one, which is the precedence a browser
+ * applies when it picks cookies.
+ */
+export const STRIP_RULE_PRIORITY = 1;
+/** Parent-domain rules: a `Domain=` cookie reaching a subdomain the session never visited. */
+export const DOMAIN_RULE_TIER = 1;
+/** Exact-host rules: everything the session holds for that host. */
+export const HOST_RULE_TIER = 2;
+/** Larger than any LABEL_SPAN term (a hostname has at most 127 labels). */
+export const PRIORITY_TIER_SPAN = 1_000_000;
+/** Larger than the capped path term. */
+export const PRIORITY_LABEL_SPAN = 1_000;
+/** Cap on the path term, so a pathological cookie path cannot spill into the label term. */
+export const MAX_PATH_PRIORITY = PRIORITY_LABEL_SPAN - 1;
+
+/** The schemes a cookie rule is generated for. Both, because `Secure` cookies may go
+ *  only over https (except on localhost), so the header can differ per scheme. */
+export const RULE_SCHEMES = ['http', 'https'] as const;
 
 /** Measured: without confirming the rule before navigating, isolation failed one run
  *  in three, because a first request that leaves rule-less rides the shared jar. */

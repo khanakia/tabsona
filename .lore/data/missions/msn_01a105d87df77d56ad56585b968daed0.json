@@ -1,0 +1,14 @@
+{
+  "_table": "missions",
+  "_v": 1,
+  "body": "Namespace IndexedDB database names per session in the page shim, the same way localStorage is, and prove it with mini fixture apps (cookie login, localStorage login, IndexedDB offline-first app) plus unit and end-to-end suites with controls. Spec: docsi/SPEC_INDEXEDDB.md",
+  "completed_at": null,
+  "created_at": "2026-10-04T07:37:16.535871000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "msn_01a105d87df77d56ad56585b968daed0",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "status": "active",
+  "target_date": null,
+  "title": "IndexedDB isolation per persona, proven by storage-lab fixture apps",
+  "updated_at": "2026-10-04T07:37:16.535871000Z"
+}

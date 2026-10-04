@@ -1,0 +1,4 @@
+#!/bin/sh
+# >>> lore-sync >>>
+( command -v lore >/dev/null 2>&1 && lore sync hook refresh >/dev/null 2>&1 ) || true
+# <<< lore-sync <<<

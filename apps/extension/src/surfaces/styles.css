@@ -48,6 +48,10 @@
   --state-unknown: oklch(0.62 0.12 250);
   --state-empty: oklch(0.72 0.14 75);
   --state-expired: oklch(0.6 0.2 25);
+
+  /* A consequence worth a second look before choosing — amber, not red, because it is a
+     heads-up rather than an error. Darker than --state-empty so it reads as text. */
+  --caution: oklch(0.58 0.14 65);
 }
 
 .dark {
@@ -75,6 +79,7 @@
   --state-unknown: oklch(0.7 0.13 250);
   --state-empty: oklch(0.8 0.14 75);
   --state-expired: oklch(0.68 0.19 25);
+  --caution: oklch(0.8 0.14 75);
 }
 
 @theme inline {

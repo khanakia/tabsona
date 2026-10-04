@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SessionRow } from '../SessionRow';
+import { ACTION_HELP } from '@/ui/help';
 import type { SessionView } from '@/domain/types';
 
 /**
@@ -52,7 +53,7 @@ describe('SessionRow', () => {
     // Queried by accessible name, not by `title`: the icon-only control carries an
     // aria-label and a real tooltip, so a native title would be redundant.
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
-    fireEvent.click(screen.getByLabelText('Open in the tab you are on'));
+    fireEvent.click(screen.getByLabelText(ACTION_HELP.openSessionHere.label));
     expect(onOpen.mock.calls).toEqual([['s_1', 'new-tab'], ['s_1', 'this-tab']]);
   });
 
@@ -83,18 +84,27 @@ describe('SessionRow', () => {
     const onAnotherLogin = vi.fn();
     render(<SessionRow session={view()} {...noop} onAnotherLogin={onAnotherLogin} />);
     fireEvent.click(screen.getByLabelText('More actions'));
-    fireEvent.click(screen.getByText('Another login for this site'));
+    fireEvent.click(screen.getByText(ACTION_HELP.anotherAccountForSite.label));
     expect(onAnotherLogin).toHaveBeenCalledWith('https://sync.localhost');
   });
 
   it('hides that action on a surface that cannot offer it', () => {
     render(<SessionRow session={view()} {...noop} />);
     fireEvent.click(screen.getByLabelText('More actions'));
-    expect(screen.queryByText('Another login for this site')).toBeNull();
+    expect(screen.queryByText(ACTION_HELP.anotherAccountForSite.label)).toBeNull();
   });
 
   it('shows how many tabs are open in this session', () => {
     render(<SessionRow session={view({ openTabCount: 2 })} {...noop} />);
-    expect(screen.getByTitle('2 tabs open in this session').textContent).toBe('2 open');
+    expect(screen.getByText('2 tabs open')).toBeTruthy();
+  });
+
+  it('explains every menu entry in place, and warns before forgetting a login', () => {
+    // A bare "Delete session" left people unsure whether the website would sign them out.
+    render(<SessionRow session={view()} {...noop} onAnotherLogin={() => undefined} />);
+    fireEvent.click(screen.getByLabelText('More actions'));
+    expect(screen.getByText(ACTION_HELP.anotherAccountForSite.what)).toBeTruthy();
+    expect(screen.getByText(ACTION_HELP.deleteSession.what)).toBeTruthy();
+    expect(screen.getByText(ACTION_HELP.deleteSession.gotcha ?? '')).toBeTruthy();
   });
 });

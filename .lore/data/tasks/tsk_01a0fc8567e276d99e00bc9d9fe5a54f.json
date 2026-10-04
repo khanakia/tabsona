@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "Build the two-role fixture app (cookie session + localStorage token + sessionStorage token + IndexedDB token, one role switch). With NO extension installed, record exactly which layers collide across two tabs. Everything later is measured against this baseline. PASS: the table exists and each row was observed, not assumed.",
+  "commitment": "accepted",
+  "completed_at": "2026-10-02T12:33:03.840513000Z",
+  "created_at": "2026-10-02T12:09:56.450446000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a0fc8567e276d99e00bc9d9fe5a54f",
+  "mission_id": "msn_01a0fc850b017395bf1f6c484bfb542a",
+  "plan_id": null,
+  "priority": "high",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "started_at": null,
+  "status": "done",
+  "tasklist_id": "tlt_01a0fc850b62740f891c787b629a6ba8",
+  "title": "S1 — baseline collision truth table",
+  "updated_at": "2026-10-02T12:33:03.840614000Z"
+}

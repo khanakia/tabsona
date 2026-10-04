@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "manifest.json hardcodes http://localhost:8787/* and https://sync.localhost/*. Adding an app means editing the manifest and rebuilding, which makes the tool unusable for its own purpose (Aman has many apps). Move to optional_host_permissions plus a request flow in the popup. NOTE the trap already paid for: with optional host permissions a webRequest listener registered for <all_urls> logs one warning and then NEVER FIRES — the listener must be re-registered scoped to whatever was actually granted, which is why boot() re-runs on chrome.permissions.onAdded.",
+  "commitment": "accepted",
+  "completed_at": "2026-10-02T14:09:38.025679000Z",
+  "created_at": "2026-10-02T13:51:38.939183000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a0fce285bb7309932e5559646341c9",
+  "mission_id": "msn_01a0fc850b017395bf1f6c484bfb542a",
+  "plan_id": null,
+  "priority": "urgent",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "started_at": null,
+  "status": "done",
+  "tasklist_id": "tlt_01a0fc850b62740f891c787b629a6ba8",
+  "title": "Host permissions must be a grant flow, not a hardcoded manifest list",
+  "updated_at": "2026-10-02T14:09:38.025833000Z"
+}

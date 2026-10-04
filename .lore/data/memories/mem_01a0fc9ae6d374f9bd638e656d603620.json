@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "Chrome 154 silently ignores --load-extension; load unpacked extensions via the CDP browser-target command Extensions.loadUnpacked({path}) instead.\n\nChrome 154.0.8037.93 starts normally with --load-extension and the flag does NOTHING — no error, no warning. The only extension service workers present are Chrome's own built-ins, so a harness that attaches to 'the service worker' silently measures a Google extension (observed: fignfifoniblkonapihmkfakmlgkbkcf, reporting metricsPrivate/offscreen permissions and no chrome.webRequest) and then reports a meaningless failure. --enable-unsafe-extension-debugging does not fix it.\n\nWorking path: connect to the websocket from /json/version and call Extensions.loadUnpacked({path}); it returns the new extension's id, and chrome-extension://<id>/background.js then appears in /json/list.\n\nVerified by spike/probe-load.mjs on 2026-10-02: A(--load-extension)=false, B(+unsafe flag)=false, C(CDP loadUnpacked)=true. Re-run 'task spike:probe-load' if a future Chrome changes this.",
+  "confidence": null,
+  "created_at": "2026-10-02T12:33:25.203324000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "mem_01a0fc9ae6d374f9bd638e656d603620",
+  "kind": "procedural",
+  "last_validated_at": null,
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": "spike/probe-load.mjs",
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "tx_at": "2026-10-02T12:33:25.203324000Z",
+  "updated_at": "2026-10-02T12:33:25.203324000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

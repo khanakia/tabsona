@@ -76,10 +76,25 @@ export const DEFAULT_SETTINGS: Settings = {
  * handled by its own listener. Folding it into the request union would force every
  * exhaustive switch to carry a case that never returns anything.
  */
-export interface ShimReadyNotice {
+export interface ShimReadyNotice extends ShimFacts {
   readonly op: 'shimReady';
   readonly origin: string;
+}
+
+/**
+ * What the page shim observed and achieved on one page — the only evidence the badge
+ * accepts. Declared once because it crosses three boundaries (MAIN-world shim →
+ * ISOLATED-world badge → worker, plus the worker's own executeScript pull), and four
+ * hand-copied shapes of it had already drifted to differ by field.
+ */
+export interface ShimFacts {
+  /** The page opened an IndexedDB database. */
   readonly usesIndexedDb: boolean;
+  /** Every IndexedDB entry point that takes a database name is translated per session. */
+  readonly idbNamespaced: boolean;
+  /** The page started a dedicated Worker, whose own `indexedDB` the shim cannot reach. */
+  readonly usesWorker: boolean;
+  /** A service worker controls the page; its fetches carry no tab id. */
   readonly hasServiceWorker: boolean;
 }
 

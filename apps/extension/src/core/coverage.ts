@@ -4,6 +4,7 @@
 // that LOOKS isolated while leaking. Rather than assert isolation, the engine
 // reports per layer, and anything it cannot vouch for is said out loud.
 
+import type { ShimFacts } from '@/domain/messages';
 import type { EngineKind, LayerCoverage, StateLayer } from '@/domain/types';
 
 /** Facts the background has observed about one origin, from real signals only. */
@@ -15,8 +16,12 @@ export interface OriginObservations {
   readonly shimInstalled: boolean;
   /** A cross-origin iframe was seen; our shim cannot reach its session identity. */
   readonly hasCrossOriginFrame: boolean;
-  /** The page touched IndexedDB. Not namespaced yet, so this is a known leak. */
+  /** The page opened an IndexedDB database. */
   readonly usesIndexedDb: boolean;
+  /** The shim reported every IndexedDB name entry point translated per session. */
+  readonly idbNamespaced: boolean;
+  /** A dedicated Worker was started; its own IndexedDB is out of the shim's reach. */
+  readonly usesWorker: boolean;
   /** At least one cookie has been captured for this session on this origin. */
   readonly hasCookies: boolean;
 }
@@ -29,8 +34,28 @@ export const EMPTY_OBSERVATIONS: OriginObservations = {
   shimInstalled: false,
   hasCrossOriginFrame: false,
   usesIndexedDb: false,
+  idbNamespaced: false,
+  usesWorker: false,
   hasCookies: false,
 };
+
+/**
+ * Read the shim's facts out of an untyped message or script result.
+ *
+ * The one place an untrusted shape becomes `ShimFacts`: each field is accepted only when
+ * it is literally `true`, so a missing or malformed field reads as "not observed" — the
+ * pessimistic default this whole module is built on — and never as a claim.
+ */
+export function shimFactsFrom(raw: unknown): ShimFacts {
+  const flag = (key: keyof ShimFacts): boolean =>
+    typeof raw === 'object' && raw !== null && (raw as Record<string, unknown>)[key] === true;
+  return {
+    usesIndexedDb: flag('usesIndexedDb'),
+    idbNamespaced: flag('idbNamespaced'),
+    usesWorker: flag('usesWorker'),
+    hasServiceWorker: flag('hasServiceWorker'),
+  };
+}
 
 const LAYER_ORDER: readonly StateLayer[] = [
   'cookies',
@@ -41,6 +66,27 @@ const LAYER_ORDER: readonly StateLayer[] = [
   'sharedWorker',
   'crossOriginFrames',
 ];
+
+/**
+ * The IndexedDB layer, from observations only. See the table in docsi/SPEC_INDEXEDDB.md.
+ *
+ * Covered needs BOTH halves of the evidence: the shim said it translated every entry
+ * point, and no dedicated worker was seen — a worker has its own `indexedDB` the shim
+ * never runs in, so a page that starts one may be writing to the shared databases.
+ */
+function indexedDbCoverage(obs: OriginObservations): LayerCoverage {
+  if (obs.shimInstalled && obs.idbNamespaced) {
+    return obs.usesWorker
+      ? { layer: 'indexedDB', status: 'leaking', detail: 'A worker on this page has its own IndexedDB the shim cannot reach.' }
+      : { layer: 'indexedDB', status: 'covered', detail: 'Database names are namespaced per persona by the page shim.' };
+  }
+  if (obs.shimInstalled) {
+    return { layer: 'indexedDB', status: 'leaking', detail: 'Namespacing could not be installed here — databases are shared.' };
+  }
+  return obs.usesIndexedDb
+    ? { layer: 'indexedDB', status: 'leaking', detail: 'Shim not installed here — databases are shared with other tabs.' }
+    : { layer: 'indexedDB', status: 'unknown', detail: 'No IndexedDB use observed.' };
+}
 
 /**
  * Compute coverage for one origin under one engine.
@@ -65,9 +111,7 @@ export function computeCoverage(
     // Free, and the one layer nothing has to be built for.
     sessionStorage: { layer: 'sessionStorage', status: 'covered', detail: 'Already isolated per tab by the browser.' },
 
-    indexedDB: obs.usesIndexedDb
-      ? { layer: 'indexedDB', status: 'leaking', detail: 'This origin uses IndexedDB, which is not namespaced yet.' }
-      : { layer: 'indexedDB', status: 'unknown', detail: 'No IndexedDB use observed.' },
+    indexedDB: indexedDbCoverage(obs),
 
     serviceWorker: obs.hasServiceWorker
       ? { layer: 'serviceWorker', status: 'leaking', detail: 'A service worker is active; its own fetches carry no tab id and bypass per-tab rules.' }
