@@ -2,9 +2,9 @@
   "manifest_version": 3,
   "name": "Tabsona — multi-account tabs & saved logins",
   "short_name": "Tabsona",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Give each tab its own login. Save a set of signed-in sites as a persona and reopen the whole set in one click.",
-  "homepage_url": "https://github.com/khanakia/tabsona",
+  "homepage_url": "https://khanakia.com/apps",
   "minimum_chrome_version": "120",
   "permissions": [
     "declarativeNetRequest",

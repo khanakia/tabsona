@@ -248,6 +248,7 @@ chrome.runtime.onMessage.addListener((raw, sender, respond: (r: Response) => voi
         case 'setSetting': await setSetting(msg.key, msg.value); await renderAllBadges(); respond({ ok: true }); break;
         case 'setBadgePosition': await updateSettings({ badgePosition: msg.position }); await renderAllBadges(); respond({ ok: true }); break;
         case 'resetBadgePlacements': await clearBadgePlacements(); await renderAllBadges(); respond({ ok: true }); break;
+        case 'updateSettings': await updateSettings(msg.patch); await renderAllBadges(); respond({ ok: true }); break;
         default: {
           // Exhaustiveness: an op added without a handler fails to compile.
           const never: never = msg;

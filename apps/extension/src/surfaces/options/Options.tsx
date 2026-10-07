@@ -9,15 +9,18 @@ import { client } from '@/app/client';
 import { useLibrary } from '@/app/useLibrary';
 import { PersonaRow } from '@/features/personas';
 import { CoverageTable, SiteList } from '@/features/sites';
+import { SettingsPanel } from '@/features/settings';
+import { isOptionsSection, sectionFromHash } from '@/core/settings';
+import { PERSONA_PALETTE } from '@/core/constants';
 import { ConfirmDialog } from '@/ui/ConfirmDialog';
 import { FeedbackBanner } from '@/ui/FeedbackBanner';
-import { confirmDeletePersona, confirmForgetLogin } from '@/ui/help';
+import { EXPLAIN, confirmDeletePersona, confirmForgetLogin } from '@/ui/help';
+import { SectionIntro } from '@/ui/SectionIntro';
+import { AboutLinks } from '@/ui/AboutLinks';
 import { Button } from '@/ui/volt/button';
 import { Input } from '@/ui/volt/input';
-import { Separator } from '@/ui/volt/separator';
-import { Switch } from '@/ui/volt/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/volt/tabs';
-import { BADGE_CORNERS, type BadgeCorner, type OriginCoverage } from '@/domain/messages';
+import type { OptionsSection, OriginCoverage } from '@/domain/messages';
 import type { PersonaId } from '@/domain/types';
 
 export function Options() {
@@ -27,6 +30,20 @@ export function Options() {
   const [report, setReport] = useState<readonly OriginCoverage[]>([]);
   const [expanded, setExpanded] = useState<ReadonlySet<PersonaId>>(new Set());
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // The section follows the URL hash, so the popup's gear can open this page straight on
+  // Settings (`#settings`) — including when the page is already open in a tab.
+  const [section, setSection] = useState<OptionsSection>(() => sectionFromHash(location.hash));
+  useEffect(() => {
+    const follow = () => setSection(sectionFromHash(location.hash));
+    window.addEventListener('hashchange', follow);
+    return () => window.removeEventListener('hashchange', follow);
+  }, []);
+  const showSection = (next: OptionsSection) => {
+    setSection(next);
+    history.replaceState(null, '', `#${next}`);
+    if (next === 'coverage') void client.coverageReport().then(setReport);
+  };
 
   const personas = useMemo(
     () => filterPersonas(state?.personas ?? [], query),
@@ -70,17 +87,19 @@ export function Options() {
         />
       )}
 
-      <Tabs defaultValue="personas">
+      <Tabs value={section} onValueChange={(v) => { if (isOptionsSection(v)) showSection(v); }}>
         <TabsList>
           <TabsTrigger value="personas">Personas</TabsTrigger>
           <TabsTrigger value="sites">Sites</TabsTrigger>
-          <TabsTrigger value="coverage" onClick={() => void client.coverageReport().then(setReport)}>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="coverage">
             Coverage
           </TabsTrigger>
           <TabsTrigger value="data">Data</TabsTrigger>
         </TabsList>
 
         <TabsContent value="personas" className="mt-4 space-y-3">
+          <SectionIntro help={EXPLAIN.personas} />
           <div className="flex items-center gap-2">
             <div className="relative min-w-0 max-w-sm flex-1">
               <Search className="pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground" />
@@ -157,61 +176,29 @@ export function Options() {
         </TabsContent>
 
         <TabsContent value="sites" className="mt-4 max-w-2xl space-y-4">
-          <p className="text-xs text-muted-foreground">
-            Nothing can be isolated until its site is allowed. Granting happens from the
-            popup, because Chrome requires the request to come from a click and then shows
-            its own confirmation — a step that cannot be automated and should not be hidden.
-          </p>
+          <SectionIntro help={EXPLAIN.sites} />
           <SiteList
             allowedOrigins={state.allowedOrigins}
             onRevoke={(pattern) => void client.revokeOrigin(pattern).then(refresh)}
           />
-          <Separator />
-          <div className="space-y-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Settings</h2>
-            <Toggle
-              label="Group a persona's tabs in Chrome"
-              hint="Opened tabs join a native Chrome tab group named after the persona, so which tabs are which is visible in the tab strip."
-              checked={state.settings.useTabGroups}
-              onChange={(v) => void run(() => client.setSetting('useTabGroups', v))}
-            />
-            <Toggle
-              label="Open a persona in a new window"
-              hint="Keeps a persona's tabs away from what you are already working on."
-              checked={state.settings.openPersonaInNewWindow}
-              onChange={(v) => void run(() => client.setSetting('openPersonaInNewWindow', v))}
-            />
-            <Toggle
-              label="Show the persona badge on pages"
-              hint="A small badge on every persona tab says which persona it is and whether it is fully separate. Click it on a page to shrink it to a dot."
-              checked={state.settings.showPageBadge}
-              onChange={(v) => void run(() => client.setSetting('showPageBadge', v))}
-            />
-            {state.settings.showPageBadge && (
-              <BadgeCornerPicker
-                value={state.settings.badgePosition}
-                onChange={(corner) => void run(() => client.setBadgePosition(corner))}
-                onForgetDragged={() => void run(() => client.resetBadgePlacements(), 'Every badge is back in its corner.')}
-              />
-            )}
-            <Toggle
-              label="Mark page titles with the persona colour"
-              hint="Puts the persona's coloured heart in front of each tab's title (💙 Dashboard), so the tab strip shows whose tab is whose."
-              checked={state.settings.markPageTitles}
-              onChange={(v) => void run(() => client.setSetting('markPageTitles', v))}
-            />
-          </div>
+        </TabsContent>
+
+        <TabsContent value="settings" className="mt-4 max-w-2xl">
+          <SettingsPanel
+            settings={state.settings}
+            onChange={(patch) => void run(() => client.updateSettings(patch))}
+            onForgetDragged={() => void run(() => client.resetBadgePlacements(), 'Every badge is back in its corner.')}
+            sample={state.personas[0] ?? { name: 'Your persona', color: PERSONA_PALETTE[0].hex }}
+          />
         </TabsContent>
 
         <TabsContent value="coverage" className="mt-4 space-y-3">
-          <p className="text-xs text-muted-foreground">
-            What was actually measured per origin, not what was assumed. A layer is only
-            reported as covered when something was observed to make it so.
-          </p>
+          <SectionIntro help={EXPLAIN.coverage} />
           <CoverageTable report={report} />
         </TabsContent>
 
         <TabsContent value="data" className="mt-4 max-w-2xl space-y-4">
+          <SectionIntro help={EXPLAIN.data} />
           <div
             className="rounded-md border px-3 py-2 text-xs"
             style={{
@@ -255,69 +242,11 @@ export function Options() {
         </TabsContent>
       </Tabs>
 
+      <footer className="mt-8 border-t border-border pt-3">
+        <AboutLinks />
+      </footer>
+
       <ConfirmDialog request={confirmRequest} onAnswer={answerConfirm} />
-    </div>
-  );
-}
-
-function Toggle(props: {
-  readonly label: string;
-  readonly hint: string;
-  readonly checked: boolean;
-  readonly onChange: (v: boolean) => void;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <Switch checked={props.checked} onCheckedChange={props.onChange} className="mt-0.5" />
-      <div className="min-w-0">
-        <p className="text-xs font-medium">{props.label}</p>
-        <p className="text-xs text-muted-foreground">{props.hint}</p>
-      </div>
-    </div>
-  );
-}
-
-/** Human names for each corner, in the order offered. */
-const CORNER_LABEL: Record<BadgeCorner, string> = {
-  'bottom-left': 'Bottom left',
-  'bottom-right': 'Bottom right',
-  'top-left': 'Top left',
-  'top-right': 'Top right',
-};
-
-/**
- * Where the in-page badge sits, as four buttons rather than a dropdown: four choices fit
- * on one line, and the current one is visible without opening anything.
- */
-function BadgeCornerPicker(props: {
-  readonly value: BadgeCorner;
-  readonly onChange: (corner: BadgeCorner) => void;
-  /** Drop every per-site dragged position, so all sites use this corner again. */
-  readonly onForgetDragged: () => void;
-}) {
-  return (
-    <div className="pl-12">
-      <p className="mb-1 text-xs font-medium">Badge position</p>
-      <div role="radiogroup" aria-label="Badge position" className="flex flex-wrap gap-1">
-        {BADGE_CORNERS.map((corner) => (
-          <Button
-            key={corner}
-            size="xs"
-            role="radio"
-            aria-checked={props.value === corner}
-            variant={props.value === corner ? 'default' : 'outline'}
-            onClick={() => props.onChange(corner)}
-          >
-            {CORNER_LABEL[corner]}
-          </Button>
-        ))}
-      </div>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Pick a corner your apps do not use for buttons. Dragging the badge on a page moves it for that site only; double-click it there to put it back.
-      </p>
-      <Button size="xs" variant="outline" className="mt-1.5" onClick={props.onForgetDragged}>
-        Put every dragged badge back in this corner
-      </Button>
     </div>
   );
 }

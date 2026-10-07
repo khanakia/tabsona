@@ -125,6 +125,10 @@ export async function renderBadge(tabId: TabId): Promise<void> {
     summary: status.summary,
     isEmpty: status.isEmpty,
     position: settings.badgePosition,
+    style: settings.badgeStyle,
+    // 0 = never hide. Seconds, not ms, so the page script cannot be handed a value the
+    // settings validation never saw.
+    hideAfterSeconds: settings.autoHideBadge ? settings.badgeHideSeconds : 0,
     placement: status.site ? placements[status.site] ?? null : null,
     titleMark: settings.markPageTitles && status.color ? paletteEntryFor(status.color).emoji : null,
   }).catch(() => undefined); // no content script here: nothing to draw on

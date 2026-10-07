@@ -146,8 +146,11 @@ export async function launchChrome({ port, extensionPath = null, ignoreCertError
 
     targets: async () => (await fetch(`http://127.0.0.1:${port}/json/list`)).json(),
 
+    // The target URL rides in the QUERY of /json/new, so its own `#fragment` must be
+    // escaped — unescaped, fetch treats it as this request's fragment and silently drops
+    // it, and a page opened at `…#settings` arrives without the hash.
     newTab: async (url) =>
-      (await fetch(`http://127.0.0.1:${port}/json/new?${url}`, { method: 'PUT' })).json(),
+      (await fetch(`http://127.0.0.1:${port}/json/new?${url.replace(/#/g, '%23')}`, { method: 'PUT' })).json(),
 
     async kill() {
       this.swSession?.close();

@@ -106,10 +106,11 @@ export async function loadSettings(): Promise<Settings> {
   return normalizeSettings(got[STORAGE_KEY_SETTINGS]);
 }
 
-/** Change one setting under the lock, so two quick toggles cannot lose one write. */
+/** Change settings under the lock, so two quick toggles cannot lose one write. The merged
+ *  result is validated like a read, so an out-of-range or unknown value is never stored. */
 export async function updateSettings(patch: Partial<Settings>): Promise<void> {
   await withLock(async () => {
-    const next: Settings = { ...(await loadSettings()), ...patch };
+    const next: Settings = normalizeSettings({ ...(await loadSettings()), ...patch });
     await chrome.storage.local.set({ [STORAGE_KEY_SETTINGS]: next });
   });
 }

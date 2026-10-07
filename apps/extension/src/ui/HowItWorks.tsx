@@ -1,4 +1,5 @@
 import { ACTION_HELP } from './help';
+import { AboutLinks } from './AboutLinks';
 
 /**
  * The three steps, for someone opening Tabsona for the first time.
@@ -23,18 +24,21 @@ export function HowItWorks() {
     },
   ];
   return (
-    <ol className="space-y-2 px-3 py-3 text-xs">
-      {steps.map((step, i) => (
-        <li key={step.title} className="flex gap-2">
-          <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-            {i + 1}
-          </span>
-          <span>
-            <span className="font-medium">{step.title}. </span>
-            <span className="text-muted-foreground">{step.body}</span>
-          </span>
-        </li>
-      ))}
-    </ol>
+    <div className="space-y-2 px-3 py-3">
+      <ol className="space-y-2 text-xs">
+        {steps.map((step, i) => (
+          <li key={step.title} className="flex gap-2">
+            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+              {i + 1}
+            </span>
+            <span>
+              <span className="font-medium">{step.title}. </span>
+              <span className="text-muted-foreground">{step.body}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className="pl-6"><AboutLinks compact /></div>
+    </div>
   );
 }

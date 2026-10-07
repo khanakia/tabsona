@@ -154,3 +154,18 @@ export const LOCALHOST_SUFFIX = '.localhost';
 /** A cookie expiring within this window is treated as already gone, so a session is
  *  not reported as usable seconds before it stops working. */
 export const EXPIRY_GRACE_MS = 30_000;
+
+/**
+ * Where Tabsona lives outside the extension, for the About links and the manifest's
+ * homepage. Named once so the popup, the library page and the manifest cannot disagree.
+ */
+export const PROJECT_LINKS = {
+  /** The author's site: every Khanakia tool is listed at /apps. */
+  website: 'https://khanakia.com',
+  apps: 'https://khanakia.com/apps',
+  github: 'https://github.com/khanakia/tabsona',
+  /** How it works, limits and the privacy policy (GitHub Pages). */
+  docs: 'https://khanakia.github.io/tabsona/',
+  issues: 'https://github.com/khanakia/tabsona/issues',
+  store: 'https://chromewebstore.google.com/detail/njpkmpklnjepcbconpnchdhbiljjjeoj',
+} as const;

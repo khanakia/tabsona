@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-07
+
+### Added
+
+- **Settings have their own tab**, opened straight from the popup's ⚙ button (a separate library button opens the persona list). They used to sit at the bottom of "Sites", where nobody looked.
+- **Badge style:** show the persona's name or just a coloured dot by default; clicking the badge on a page still switches between the two.
+- **A live badge preview** at the top of Settings: your persona's badge on a mock page, in the chosen corner and style; click it to shrink it, and "Replay hide" shows auto-hide play out. It shares one definition of the badge's look with the real one, so the two cannot drift.
+- **ⓘ help on every section** of the library page (Personas, Sites, Settings groups, Coverage, Data): rest on it or tab to it for what that part is for and what it does to your logins.
+- **Auto-hide the badge** after a number of seconds you choose (1–60, default 5). It stays while the pointer is on it; the title marker and toolbar icon keep saying whose tab it is.
+
+- **About links:** the library page's footer and the popup's guide link to khanakia.com, the help pages and the issue tracker; the extension's homepage (shown on Chrome's extension details page) is now khanakia.com/apps.
+
+### Changed
+
+- The badge's default corner is now **bottom-right**. A corner you already picked is kept.
+
+### Fixed
+
+- The end-to-end harness dropped the `#fragment` of any URL it opened, so a page opened at `…#settings` arrived without it.
+
 ## [0.2.0] - 2026-10-04
 
 ### Added

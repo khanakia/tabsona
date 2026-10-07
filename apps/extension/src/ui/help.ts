@@ -29,7 +29,7 @@ export const LAYER_PLAIN: Readonly<Record<StateLayer, string>> = {
  * without its explanation is a type error, not a missing tooltip found later.
  */
 export type ActionId =
-  | 'newPersona' | 'openLibrary' | 'howItWorks'
+  | 'newPersona' | 'openLibrary' | 'openSettings' | 'howItWorks'
   | 'openAll' | 'addSite' | 'renamePersona' | 'changeColor' | 'duplicatePersona' | 'deletePersona'
   | 'openSession' | 'openSessionHere' | 'anotherAccountForSite' | 'renameSession' | 'deleteSession'
   | 'allowSite' | 'addToPersona' | 'useTabSignedOut' | 'newPersonaFromLogin' | 'moveLogin' | 'copyLogin'
@@ -64,8 +64,13 @@ export const ACTION_HELP: Readonly<Record<ActionId, ActionHelp>> = {
   },
   openLibrary: {
     label: 'Open full library',
-    what: 'Opens a full page to manage every persona, the websites Tabsona may use, and settings.',
+    what: 'Opens a full page listing every persona and saved login, the websites Tabsona may use, and what it measured on each.',
     touches: 'Nothing changes until you edit something there.',
+  },
+  openSettings: {
+    label: 'Settings',
+    what: 'Opens the settings: the badge on pages (corner, dot or name, hide after a few seconds), page-title colours and tab groups.',
+    touches: 'Nothing changes until you flip a setting.',
   },
   howItWorks: {
     label: 'How it works',
@@ -276,3 +281,54 @@ export function confirmReplaceLogin(personaName: string, site: string): ConfirmR
     destructive: true,
   };
 }
+
+/** The library page's sections and settings groups that carry an ⓘ. A closed set, so a
+ *  section added to the page without an explanation fails to compile where it is used. */
+export type ExplainId =
+  | 'personas' | 'sites' | 'coverage' | 'data'
+  | 'settingsBadge' | 'settingsTitles' | 'settingsTabs';
+
+/**
+ * What each part of the library page is for, in the same three-question shape as
+ * ACTION_HELP: what it is, what it does to your logins, and the one thing to watch.
+ * Shown behind the ⓘ beside each section title.
+ */
+export const EXPLAIN: Readonly<Record<ExplainId, ActionHelp>> = {
+  personas: {
+    label: 'Personas',
+    what: 'A persona is one identity, like “Acme admin”, with one saved login per website. Opening it opens every one of its websites in its own tabs, already signed in.',
+    touches: 'Personas live only in this browser. Nothing is sent anywhere.',
+  },
+  sites: {
+    label: 'Allowed websites',
+    what: 'Tabsona only works on websites you allow. Allowing happens from the popup, where Chrome shows its own prompt, so it always takes your click.',
+    touches: 'Removing a website here stops Tabsona working there. Saved logins for it are kept.',
+  },
+  coverage: {
+    label: 'What is kept separate',
+    what: 'For each website, which kinds of saved data Tabsona actually kept separate per persona — measured on real pages, never assumed.',
+    touches: 'Covered: kept separate. Leaking: shared with the website’s other tabs. Unknown: not seen in use yet.',
+    gotcha: 'A website showing “Leaking” may let one persona’s tab affect another’s.',
+  },
+  data: {
+    label: 'Back up and restore',
+    what: 'Export saves every persona and its logins to a file. Import adds them back, merging with what is already here.',
+    touches: 'Importing never deletes anything you already have.',
+    gotcha: 'The file holds working logins. Keep it somewhere private.',
+  },
+  settingsBadge: {
+    label: 'Badge on pages',
+    what: 'The small label on every persona tab, saying whose tab it is and whether it is fully separate. You can move it, shrink it to a dot, or let it hide itself.',
+    touches: 'It only shows information. It never changes a login.',
+  },
+  settingsTitles: {
+    label: 'Page titles',
+    what: 'Puts the persona’s coloured heart in front of each tab’s title, so the tab strip shows whose tab is whose even when the badge is hidden.',
+    touches: 'Only the tab title changes. Nothing is sent to the website.',
+  },
+  settingsTabs: {
+    label: 'Tabs',
+    what: 'How a persona’s tabs are arranged when you open it: in a Chrome tab group in its colour, and optionally in a window of their own.',
+    touches: 'Arrangement only. Logins are not affected.',
+  },
+};

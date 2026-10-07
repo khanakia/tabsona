@@ -6,7 +6,7 @@
 // persona a tab was ("in page title can we show the color").
 //
 // Asserts:
-//   1. a persona tab shows the badge in the DEFAULT corner, bottom-left, with its name
+//   1. a persona tab shows the badge in the DEFAULT corner, bottom-right, with its name
 //   2. a click shrinks it to a dot, and the click does not reach the page's handlers
 //   3. dragging moves it, and the spot survives a reload (stored per site)
 //   4. double-clicking puts it back in the corner
@@ -16,6 +16,10 @@
 //   7. switching title marking off restores the app's own title
 //   8. the corner setting moves it; switching the badge off removes it
 //   9. control: a plain, unbound tab never shows a badge or a marker
+//  10. recolouring reaches the Chrome tab group
+//  11. "Dot only" starts the badge as a dot, and auto-hide removes it after the set
+//      seconds while the title marker stays
+//  12. the library opens straight on Settings from `#settings`
 
 import { attach, claimNewTab, pageIds, report, requireGrant, sleep, startChrome, waitFor } from './lib/harness.mjs';
 
@@ -93,7 +97,7 @@ await mouse('mousePressed', c.x, c.y, 1);
 await mouse('mouseReleased', c.x, c.y, 1);
 await mouse('mousePressed', c.x, c.y, 2);
 await mouse('mouseReleased', c.x, c.y, 2);
-await waitFor(page, `(() => { const r = ${RECT}; return !!r && r.left < ${CORNER_SLACK_PX} && r.bottom < ${CORNER_SLACK_PX}; })()`, 'badge back in its corner', 10000);
+await waitFor(page, `(() => { const r = ${RECT}; return !!r && r.right < ${CORNER_SLACK_PX} && r.bottom < ${CORNER_SLACK_PX}; })()`, 'badge back in its corner', 10000);
 const resetRect = await page.eval(RECT);
 
 // --- 5. title marker, including the app changing its title -------------------------
@@ -142,13 +146,33 @@ await chrome.op(`updatePersona(${JSON.stringify(persona)}, { color: '#10b981' })
 await sleep(800);
 const groupColours = await chrome.json(`chrome.tabGroups.query({ title: 'Badge check' }).then(gs => gs.map(g => g.color))`);
 
+// --- 11. dot style + auto-hide, on a fresh page ---------------------------------------
+const HIDE_SECONDS = 1;
+await chrome.op(`updateSettings({ badgeStyle: 'dot', autoHideBadge: true, badgeHideSeconds: ${HIDE_SECONDS} })`);
+await page.send('Page.reload');
+await sleep(600);
+await waitFor(page, `!!${CHIP}`, 'badge drawn on fresh page', 15000);
+const startsAsDot = await page.eval(RECT);
+await sleep(HIDE_SECONDS * 1000 + 1500);
+const afterHide = await page.eval(RECT);
+const titleWhileHidden = await page.eval('document.title');
+await chrome.op(`updateSettings({ badgeStyle: 'label', autoHideBadge: false })`);
+
+// --- 12. the library opens on Settings ------------------------------------------------
+const lib = await attach(await chrome.newTab(`chrome-extension://${chrome.extensionId}/src/surfaces/options/index.html#settings`));
+await waitFor(lib, `!!document.querySelector('[role=tab]')`, 'library rendered', 15000);
+await sleep(500);
+const activeSection = await lib.eval(`document.querySelector('[role=tab][aria-selected=true]')?.textContent ?? null`);
+const hasBadgeSettings = await lib.eval(`!!document.querySelector('[aria-label="Badge on pages"]')`);
+lib.close();
+
 page.close();
 plain.close();
 await chrome.kill();
 
 const near = (a, b) => Math.abs(a.x - b.x) <= POSITION_SLACK_PX && Math.abs(a.y - b.y) <= POSITION_SLACK_PX + 4;
 const pass = report('in-page persona badge and title marker', [
-  ['shown in the default corner, bottom-left', !!initial && initial.left < CORNER_SLACK_PX && initial.bottom < CORNER_SLACK_PX, JSON.stringify(initial)],
+  ['shown in the default corner, bottom-right', !!initial && initial.right < CORNER_SLACK_PX && initial.bottom < CORNER_SLACK_PX, JSON.stringify(initial)],
   ['shows the persona name', initial?.text?.includes('Badge check') === true, String(initial?.text)],
   ['a click shrinks it to a dot', !!shrunk && shrunk.w <= 16 && shrunk.text === '', JSON.stringify(shrunk)],
   ['the click does not reach the page\'s click handlers', pageClicks === 0, String(pageClicks)],
@@ -157,7 +181,7 @@ const pass = report('in-page persona badge and title marker', [
   ['the dragged spot is stored for the site', storedOk],
   ['…and the badge comes back there after a reload', !!afterReload && Math.abs(droppedCentre.y - reloadCentre.y) < 30 && reloadCentre.x > CORNER_SLACK_PX * 3,
     `dropped ${JSON.stringify(droppedCentre)} reloaded ${JSON.stringify(reloadCentre)}`],
-  ['double-click puts it back in the corner', !!resetRect && resetRect.left < CORNER_SLACK_PX && resetRect.bottom < CORNER_SLACK_PX, JSON.stringify(resetRect)],
+  ['double-click puts it back in the corner', !!resetRect && resetRect.right < CORNER_SLACK_PX && resetRect.bottom < CORNER_SLACK_PX, JSON.stringify(resetRect)],
   ['the page title carries the persona colour marker', markedTitle.startsWith('💙 '), markedTitle],
   ['the marker comes back when the app changes its title', remarked === '💙 Route two', remarked],
   ['recolouring the persona updates the open tab\'s title marker', recolouredTitle === '❤️ Route two', recolouredTitle],
@@ -167,6 +191,10 @@ const pass = report('in-page persona badge and title marker', [
   ['switching the badge off removes it from an open tab', afterOff === null, JSON.stringify(afterOff)],
   ['control: a plain tab shows no badge', plainChip === null, JSON.stringify(plainChip)],
   ['recolouring the persona recolours its Chrome tab group', groupColours.length > 0 && groupColours.every((g) => g === 'green'), JSON.stringify(groupColours)],
+  ['"Dot only" starts the badge as a dot', !!startsAsDot && startsAsDot.w <= 16 && startsAsDot.text === '', JSON.stringify(startsAsDot)],
+  ['auto-hide removes the badge after the set seconds', afterHide === null, JSON.stringify(afterHide)],
+  ['…while the title marker stays', /^\p{Extended_Pictographic}/u.test(titleWhileHidden), titleWhileHidden],
+  ['the library opens straight on Settings', activeSection === 'Settings' && hasBadgeSettings === true, `${activeSection} / badge section ${hasBadgeSettings}`],
   ['control: a plain tab\'s title is left alone', !/^\p{Extended_Pictographic}/u.test(plainTitle), plainTitle],
 ]);
 process.exit(pass ? 0 : 1);

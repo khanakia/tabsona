@@ -5,7 +5,7 @@
 // `vi.mock` of a module path. A boundary test enforces this; it is not a convention.
 
 import type {
-  AppState, OriginCoverage, Request, Response, BadgeCorner, SettingKey, TabStatus,
+  AppState, OriginCoverage, Request, Response, BadgeCorner, OptionsSection, SettingKey, SettingsPatch, TabStatus,
 } from '@/domain/messages';
 import type { PersonaId, SessionId, TabId } from '@/domain/types';
 
@@ -95,6 +95,7 @@ export const client = {
   setSetting: (key: SettingKey, value: boolean) => send({ op: 'setSetting', key, value }).then(errorOf),
   setBadgePosition: (position: BadgeCorner) => send({ op: 'setBadgePosition', position }).then(errorOf),
   resetBadgePlacements: () => send({ op: 'resetBadgePlacements' }).then(errorOf),
+  updateSettings: (patch: SettingsPatch) => send({ op: 'updateSettings', patch }).then(errorOf),
   exportData: async (): Promise<string | null> => {
     const res = await send({ op: 'exportData' });
     return res.ok && 'json' in res ? res.json : null;
@@ -120,8 +121,22 @@ export const client = {
     catch { return false; }
   },
 
-  openOptions(): void {
-    chrome.runtime.openOptionsPage();
+  /**
+   * Open the full library, on a given section. Reuses an already-open library tab so
+   * repeated clicks do not pile up tabs; the section travels in the URL hash, which the
+   * page follows live (Options listens for `hashchange`).
+   */
+  async openOptions(section: OptionsSection = 'personas'): Promise<void> {
+    const base = chrome.runtime.getURL('src/surfaces/options/index.html');
+    const url = `${base}#${section}`;
+    // A pattern Chrome rejects must not stop the library from opening: fall back to a new tab.
+    const [existing] = await chrome.tabs.query({ url: `${base}*` }).catch(() => []);
+    if (existing?.id !== undefined) {
+      await chrome.tabs.update(existing.id, { url, active: true });
+      if (existing.windowId !== undefined) await chrome.windows.update(existing.windowId, { focused: true });
+    } else {
+      await chrome.tabs.create({ url });
+    }
   },
 
   /** Download a blob the user asked for, without needing the downloads permission. */

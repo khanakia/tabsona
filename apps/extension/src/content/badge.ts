@@ -5,7 +5,10 @@
 // be able to find or remove the chip that tells the user what is isolated.
 
 import { shimFactsFrom } from '@/core/coverage';
-import { isBadgeCorner } from '@/core/settings';
+import {
+  BADGE_DOT_SIZE_PX, BADGE_EDGE_OFFSET_PX, BADGE_FONT, BADGE_PADDING, SEVERITY_RING, badgeLabel, type BadgeSeverity,
+} from '@/core/badgeLook';
+import { clampHideSeconds, isBadgeCorner, isBadgeStyle } from '@/core/settings';
 import { pixelsToPlacement, placementFrom, placementToPixels } from '@/core/placement';
 import { withTitleMark, withoutTitleMark } from '@/core/titleMark';
 import {
@@ -14,15 +17,8 @@ import {
 
 const CHIP_ID = '__tabsona_chip__';
 
-/** Severity drives the colour, because "isolated" and "leaking" must not look alike. */
-const SEVERITY_BACKGROUND = {
-  covered: 'rgba(16,185,129,.92)',
-  unknown: 'rgba(245,158,11,.92)',
-  leaking: 'rgba(239,68,68,.95)',
-  'not-applicable': 'rgba(82,82,91,.92)',
-} as const satisfies Record<string, string>;
-
-type Severity = keyof typeof SEVERITY_BACKGROUND;
+const SEVERITY_BACKGROUND = SEVERITY_RING;
+type Severity = BadgeSeverity;
 
 interface BadgeMessage {
   readonly kind: 'badge:render' | 'badge:clear';
@@ -39,10 +35,18 @@ interface BadgeMessage {
   readonly placement?: unknown;
   /** The coloured marker for the page title, or null when marking is off. */
   readonly titleMark?: string | null;
+  /** How the badge starts on this page ('label' | 'dot'). Validated on arrival. */
+  readonly style?: unknown;
+  /** Seconds after which the badge hides on this page; 0 = never. Validated on arrival. */
+  readonly hideAfterSeconds?: unknown;
 }
 
-/** Offset from the viewport edge, shared by every corner. */
-const EDGE_OFFSET = '8px';
+/** How long the badge takes to fade out when it auto-hides. */
+const HIDE_FADE_MS = 300;
+/** When the pointer is on the badge at hide time, check again this much later. */
+const HIDE_RETRY_MS = 1000;
+
+const EDGE_OFFSET = `${BADGE_EDGE_OFFSET_PX}px`;
 
 const CORNER_STYLE: Record<BadgeCorner, Partial<CSSStyleDeclaration>> = {
   'top-left': { top: EDGE_OFFSET, left: EDGE_OFFSET },
@@ -51,8 +55,7 @@ const CORNER_STYLE: Record<BadgeCorner, Partial<CSSStyleDeclaration>> = {
   'bottom-right': { bottom: EDGE_OFFSET, right: EDGE_OFFSET },
 };
 
-/** Diameter of the shrunk badge: big enough to click, small enough to cover nothing. */
-const DOT_SIZE = '14px';
+const DOT_SIZE = `${BADGE_DOT_SIZE_PX}px`;
 
 /** How far the pointer must move before a press counts as a drag rather than a click.
  *  Below it, a slightly shaky click still shrinks the badge instead of nudging it. */
@@ -78,6 +81,14 @@ let collapsed = false;
 let appliedMark: string | null = null;
 /** A single tap waiting to see whether a second one follows (see DOUBLE_TAP_MS). */
 let pendingTap: ReturnType<typeof setTimeout> | null = null;
+/** True once the user has clicked the badge on this page: from then on their choice of
+ *  dot or name wins over the Settings default, until reload. */
+let userToggled = false;
+/** Auto-hide: the pending timer, and whether the badge has already hidden on this page.
+ *  Hidden stays hidden until reload — a badge that popped back on every status update
+ *  would defeat the point of hiding it. */
+let hideTimer: ReturnType<typeof setTimeout> | null = null;
+let hiddenForPage = false;
 
 function clear(): void {
   document.getElementById(CHIP_ID)?.remove();
@@ -85,8 +96,38 @@ function clear(): void {
 
 function render(msg: BadgeMessage): void {
   lastMessage = msg;
+  if (!userToggled) collapsed = isBadgeStyle(msg.style) && msg.style === 'dot';
+  scheduleHide(msg.hideAfterSeconds);
   draw();
   applyTitleMark(msg.titleMark ?? null);
+}
+
+/**
+ * Start (or cancel) the auto-hide timer for this page.
+ *
+ * `seconds` is untrusted message data: anything other than a positive number means
+ * "never hide", and a hide that was switched off brings the badge back immediately.
+ */
+function scheduleHide(seconds: unknown): void {
+  const s = typeof seconds === 'number' && seconds > 0 ? clampHideSeconds(seconds) : null;
+  if (s === null) {
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    hiddenForPage = false;
+    return;
+  }
+  if (hideTimer || hiddenForPage) return;
+  const attempt = () => {
+    const chip = document.getElementById(CHIP_ID);
+    // Never pull the badge out from under the pointer: wait until it leaves.
+    if (chip?.matches(':hover')) { hideTimer = setTimeout(attempt, HIDE_RETRY_MS); return; }
+    hideTimer = null;
+    hiddenForPage = true;
+    if (!chip) return;
+    chip.style.transition = `opacity ${HIDE_FADE_MS}ms`;
+    chip.style.opacity = '0';
+    setTimeout(draw, HIDE_FADE_MS);
+  };
+  hideTimer = setTimeout(attempt, s * 1000);
 }
 
 function reset(): void {
@@ -95,14 +136,14 @@ function reset(): void {
   applyTitleMark(null);
 }
 
-/** What the badge says when expanded. */
+/** What the badge says when expanded — one definition, shared with the Settings preview. */
 function badgeText(msg: BadgeMessage): string {
-  // The session name is the identity; the rest is the honesty. A chip that only says
-  // "admin" lets the user assume isolation it may not have — and, on a session with no
-  // login saved yet, lets them read "signed out" as a broken button rather than the
-  // intended first step.
-  if (msg.isEmpty) return `${msg.name} · sign in to save`;
-  return msg.severity === 'leaking' ? `${msg.name} · ${msg.summary}` : String(msg.name ?? '');
+  return badgeLabel({
+    name: String(msg.name ?? ''),
+    ...(msg.isEmpty === undefined ? {} : { isEmpty: msg.isEmpty }),
+    ...(msg.severity === undefined ? {} : { severity: msg.severity }),
+    ...(msg.summary === undefined ? {} : { summary: msg.summary }),
+  });
 }
 
 /** Viewport and badge size, for the placement maths in core/placement.ts. */
@@ -121,7 +162,7 @@ function pinAt(el: HTMLElement, left: number, top: number): void {
 function draw(): void {
   clear();
   const msg = lastMessage;
-  if (!msg || msg.showBadge === false || !document.documentElement) return;
+  if (!msg || msg.showBadge === false || hiddenForPage || !document.documentElement) return;
 
   const ring = SEVERITY_BACKGROUND[msg.severity ?? 'unknown'];
   const corner = isBadgeCorner(msg.position) ? msg.position : DEFAULT_SETTINGS.badgePosition;
@@ -142,12 +183,12 @@ function draw(): void {
     position: 'fixed', zIndex: '2147483647',
     background: msg.color ?? ring,
     color: '#fff',
-    font: '600 11px/1.5 ui-sans-serif,system-ui,sans-serif',
+    font: BADGE_FONT,
     boxShadow: `0 1px 4px rgba(0,0,0,.35), 0 0 0 2px ${ring}`,
     cursor: 'grab', userSelect: 'none', letterSpacing: '.01em', touchAction: 'none',
     ...(collapsed
       ? { width: DOT_SIZE, height: DOT_SIZE, padding: '0', borderRadius: '50%' }
-      : { padding: '2px 8px', borderRadius: '999px' }),
+      : { padding: BADGE_PADDING, borderRadius: '999px' }),
     ...CORNER_STYLE[corner],
   } satisfies Partial<CSSStyleDeclaration>);
   document.documentElement.appendChild(el);
@@ -167,6 +208,7 @@ function draw(): void {
   // sees it — that runs before any handler of ours, and cannot be prevented from here.
   const swallow = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
   const toggle = () => {
+    userToggled = true;
     collapsed = !collapsed;
     draw();
     document.getElementById(CHIP_ID)?.focus();
