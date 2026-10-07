@@ -34,5 +34,5 @@
     "Cloud sync of credentials"
   ],
   "brand": { "skipped": true, "note": "Branding phase skipped by request; icons are generated from apps/extension/scripts/make-icons.mjs" },
-  "khanakia": { "addToApps": false }
+  "khanakia": { "addToApps": true, "appsUrl": "https://khanakia.com/apps" }
 }

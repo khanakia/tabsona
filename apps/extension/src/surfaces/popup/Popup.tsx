@@ -2,7 +2,7 @@
 // to a presenter in features/.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CircleHelp, Plus, Search, Settings2 } from 'lucide-react';
+import { CircleHelp, LibraryBig, Plus, Search, Settings2 } from 'lucide-react';
 import { filterPersonas, flattenForKeyboard } from '@/core/personas';
 import { client } from '@/app/client';
 import { useLibrary } from '@/app/useLibrary';
@@ -146,7 +146,10 @@ export function Popup() {
         <IconAction label={ACTION_HELP.howItWorks.label} help={ACTION_HELP.howItWorks} onClick={() => setShowGuide((v) => !v)}>
           <CircleHelp />
         </IconAction>
-        <IconAction label={ACTION_HELP.openLibrary.label} help={ACTION_HELP.openLibrary} onClick={() => client.openOptions()}>
+        <IconAction label={ACTION_HELP.openLibrary.label} help={ACTION_HELP.openLibrary} onClick={() => void client.openOptions('personas')}>
+          <LibraryBig />
+        </IconAction>
+        <IconAction label={ACTION_HELP.openSettings.label} help={ACTION_HELP.openSettings} onClick={() => void client.openOptions('settings')}>
           <Settings2 />
         </IconAction>
       </header>

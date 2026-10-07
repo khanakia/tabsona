@@ -11,7 +11,7 @@ Give each tab its own login session. Save, open and reuse a whole set of signed-
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-262%20unit%20%2B%2028%20script%20%2B%2012%20e2e-success.svg)](#verify-it-yourself)
+[![Tests](https://img.shields.io/badge/tests-281%20unit%20%2B%2028%20script%20%2B%2012%20e2e-success.svg)](#verify-it-yourself)
 
 [How it works](docs/how-it-works.md) · [Limits](docs/limits.md) · [Privacy](https://khanakia.github.io/tabsona/privacy.html) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
@@ -136,7 +136,7 @@ No `chrome.debugger`, so no "being debugged" bar and DevTools keeps working.
 task check
 ```
 
-A full-history secret scan, type-check, 262 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and twelve end-to-end suites driving the **built extension** in a real Chrome.
+A full-history secret scan, type-check, 281 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and twelve end-to-end suites driving the **built extension** in a real Chrome.
 
 | Task | Proves |
 |---|---|
@@ -226,7 +226,7 @@ Not yet. Firefox has a first-class containers API and deserves a different engin
 <details>
 <summary><strong>How do I know it is really isolating?</strong></summary>
 
-Don't take it on trust — the badge on each tab reports which layers it actually achieved on that origin, and the Coverage tab in Options explains each one. The badge sits bottom-left by default: click it to shrink it to a dot, drag it anywhere (remembered per site), double-click to put it back, or change the corner or switch it off in Options → Settings. Each tab's title also starts with the persona's colour (`💙 Dashboard`), and every persona's colour can be changed from its Rename & describe panel. Then run `task check`, which proves it end to end against a real Chrome, including control runs that demonstrate collision without the extension.
+Don't take it on trust — the badge on each tab reports which layers it actually achieved on that origin, and the Coverage tab in Options explains each one. The badge sits bottom-right by default: click it to shrink it to a dot, drag it anywhere (remembered per site), double-click to put it back. The popup's ⚙ button opens Settings, where you choose the corner, show it as a name or a dot, hide it after a few seconds, or switch it off. Each tab's title also starts with the persona's colour (`💙 Dashboard`), and every persona's colour can be changed from its Rename & describe panel. Then run `task check`, which proves it end to end against a real Chrome, including control runs that demonstrate collision without the extension.
 
 </details>
 

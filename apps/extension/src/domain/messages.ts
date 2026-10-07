@@ -60,10 +60,34 @@ export type Request =
   | { readonly op: 'importData'; readonly json: string }
   | { readonly op: 'setSetting'; readonly key: SettingKey; readonly value: boolean }
   | { readonly op: 'setBadgePosition'; readonly position: BadgeCorner }
-  | { readonly op: 'resetBadgePlacements' };
+  | { readonly op: 'resetBadgePlacements' }
+  | { readonly op: 'updateSettings'; readonly patch: SettingsPatch };
 
 /** On/off settings a user can flip. Closed set so a typo cannot create a phantom setting. */
-export type SettingKey = 'useTabGroups' | 'openPersonaInNewWindow' | 'showPageBadge' | 'markPageTitles';
+export type SettingKey = 'useTabGroups' | 'openPersonaInNewWindow' | 'showPageBadge' | 'markPageTitles' | 'autoHideBadge';
+
+/**
+ * How the badge first appears on a page: the persona's name, or just a coloured dot.
+ * Only the starting state — clicking the badge on a page still switches between the two.
+ */
+export type BadgeStyle = 'label' | 'dot';
+
+/** Every badge style, in the order the settings control offers them. */
+export const BADGE_STYLES: readonly BadgeStyle[] = ['label', 'dot'];
+
+/** Bounds for "hide the badge after N seconds". One second is the shortest a person can
+ *  still read it in; past a minute the badge is effectively always there anyway. */
+export const BADGE_HIDE_SECONDS_MIN = 1;
+export const BADGE_HIDE_SECONDS_MAX = 60;
+/** Long enough to read which persona this is, short enough to be out of the way. */
+export const BADGE_HIDE_SECONDS_DEFAULT = 5;
+
+/**
+ * The sections of the full library page, so a surface can open it on the right one
+ * (`#settings`). A closed set: an unknown hash falls back to the first section.
+ */
+export type OptionsSection = 'personas' | 'sites' | 'settings' | 'coverage' | 'data';
+export const OPTIONS_SECTIONS: readonly OptionsSection[] = ['personas', 'sites', 'settings', 'coverage', 'data'];
 
 /**
  * Where the in-page persona badge sits.
@@ -74,12 +98,18 @@ export type SettingKey = 'useTabGroups' | 'openPersonaInNewWindow' | 'showPageBa
 export type BadgeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
 /** Every corner, in the order the settings control offers them. */
-export const BADGE_CORNERS: readonly BadgeCorner[] = ['bottom-left', 'bottom-right', 'top-left', 'top-right'];
+export const BADGE_CORNERS: readonly BadgeCorner[] = ['bottom-right', 'bottom-left', 'top-right', 'top-left'];
 
 /** Everything a user can configure. On/off switches plus the badge corner. */
 export interface Settings extends Readonly<Record<SettingKey, boolean>> {
   readonly badgePosition: BadgeCorner;
+  readonly badgeStyle: BadgeStyle;
+  /** Used only while `autoHideBadge` is on. Always within the MIN..MAX bounds above. */
+  readonly badgeHideSeconds: number;
 }
+
+/** A partial change to settings, validated by the worker before it is stored. */
+export type SettingsPatch = Partial<Settings>;
 
 /** What every setting is before the user changes it, and the fallback for any stored
  *  value that is missing or invalid (see core/settings.ts). */
@@ -91,9 +121,14 @@ export const DEFAULT_SETTINGS: Settings = {
   // On by default: the in-page badge is where a tab says which persona it is and
   // whether it is fully separate. Off is for people who rely on tab groups instead.
   showPageBadge: true,
-  // Bottom-left: the corner apps least often fill with controls. Top-right, the old
-  // fixed spot, covered real header buttons.
-  badgePosition: 'bottom-left',
+  // Bottom-right: out of the way of navigation, which apps put top and left. Top-right,
+  // the original fixed spot, covered real header buttons.
+  badgePosition: 'bottom-right',
+  badgeStyle: 'label',
+  // Off by default: the badge is the in-page safety signal, so hiding it is the user's
+  // call. When on, the title marker and toolbar icon still say whose tab it is.
+  autoHideBadge: false,
+  badgeHideSeconds: BADGE_HIDE_SECONDS_DEFAULT,
   // On by default: the tab strip and window title are where people look when they have
   // six tabs on one app open, and a coloured marker there says whose each one is.
   markPageTitles: true,
