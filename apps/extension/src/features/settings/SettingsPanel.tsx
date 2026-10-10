@@ -4,11 +4,13 @@ import { Input } from '@/ui/volt/input';
 import { Switch } from '@/ui/volt/switch';
 import { BadgePreview } from './BadgePreview';
 import { AllSitesRow } from './AllSites';
-import { SectionIntro } from '@/ui/SectionIntro';
+import { NormalLogin } from './NormalLogin';
+import { SettingsNav } from './SettingsNav';
+import { HelpIcon } from '@/ui/SectionIntro';
 import { EXPLAIN, type ActionHelp } from '@/ui/help';
 import {
-  BADGE_CORNERS, BADGE_HIDE_SECONDS_MAX, BADGE_HIDE_SECONDS_MIN, BADGE_STYLES,
-  type BadgeCorner, type BadgeStyle, type Settings, type SettingsPatch,
+  BADGE_CORNERS, BADGE_HIDE_SECONDS_MAX, BADGE_HIDE_SECONDS_MIN, BADGE_STYLES, SETTINGS_GROUPS,
+  type BadgeCorner, type BadgeStyle, type Settings, type SettingsGroup, type SettingsPatch,
 } from '@/domain/messages';
 
 /**
@@ -31,7 +33,46 @@ export interface SettingsPanelProps {
   /** Ask Chrome for every website. Must run straight from the click (user gesture). */
   readonly onAllowAllSites: () => void;
   readonly onRemoveAllSites: () => void;
+  /** The "use my normal login" list, from AppState.passThroughHosts. */
+  readonly passThroughHosts: readonly string[];
+  readonly onAddPassThrough: (hosts: readonly string[]) => void;
+  readonly onRemovePassThrough: (host: string) => void;
+  /** Scroll to this card when it changes to a value (a deep link, `#settings/badge`). */
+  readonly focusGroup?: SettingsGroup | null;
+  /** A nav click: the host mirrors it into the URL hash. */
+  readonly onGroupSelect?: (group: SettingsGroup) => void;
 }
+
+/** Which ⓘ help each card carries; its label is also the card's title and its nav entry. */
+const GROUP_HELP: Readonly<Record<SettingsGroup, ActionHelp>> = {
+  websites: EXPLAIN.settingsSites,
+  'normal-login': EXPLAIN.settingsNormalLogin,
+  badge: EXPLAIN.settingsBadge,
+  titles: EXPLAIN.settingsTitles,
+  tabs: EXPLAIN.settingsTabs,
+};
+
+/** One line under each card title; the full explanation stays behind the ⓘ. */
+const GROUP_BLURB: Readonly<Record<SettingsGroup, string>> = {
+  websites: 'Where Tabsona may work: every website with one Chrome prompt, or only the ones you allow.',
+  'normal-login': 'Websites a persona tab reaches with your browser’s own login. Nothing is on the list until you add it.',
+  badge: 'The label on every persona tab: where it sits, how it looks, when it hides.',
+  titles: 'Show whose tab is whose in the tab strip.',
+  tabs: 'How a persona’s tabs are arranged in Chrome.',
+};
+
+/** DOM id of a card, for scrolling to it and watching it. */
+const cardId = (g: SettingsGroup): string => `settings-${g}`;
+
+/**
+ * A card counts as "current" while it crosses a band near the top of the viewport: the top
+ * 10% is ignored (sticky chips), and the bottom 70% is ignored so the card that has
+ * scrolled up to the reading line wins rather than the one just entering below.
+ */
+const SPY_ROOT_MARGIN = '-10% 0px -70% 0px';
+
+/** How close to the page end counts as "at the bottom" (sub-pixel scroll rounding). */
+const BOTTOM_SLACK_PX = 4;
 
 /** Human names for each corner. */
 const CORNER_LABEL: Record<BadgeCorner, string> = {
@@ -49,13 +90,75 @@ const STYLE_LABEL: Record<BadgeStyle, string> = {
 
 export function SettingsPanel(props: SettingsPanelProps) {
   const s = props.settings;
+  const [active, setActive] = useState<SettingsGroup>(props.focusGroup ?? SETTINGS_GROUPS[0] ?? 'websites');
+  const { focusGroup } = props;
+
+  // Scroll spy: highlight the card nearest the top while the page scrolls. Without
+  // IntersectionObserver (old browsers, jsdom) the highlight just follows clicks.
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return undefined;
+    const visible = new Set<SettingsGroup>();
+    const pageEnded = () => window.scrollY > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - BOTTOM_SLACK_PX;
+    const observer = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        const group = SETTINGS_GROUPS.find((g) => cardId(g) === e.target.id);
+        if (group === undefined) continue;
+        if (e.isIntersecting) visible.add(group); else visible.delete(group);
+      }
+      const first = SETTINGS_GROUPS.find((g) => visible.has(g));
+      if (first !== undefined && !pageEnded()) setActive(first);
+    }, { rootMargin: SPY_ROOT_MARGIN });
+    for (const g of SETTINGS_GROUPS) {
+      const el = document.getElementById(cardId(g));
+      if (el) observer.observe(el);
+    }
+    // The last cards can never scroll up to the reading line when the page ends first, so
+    // reaching the bottom of the page selects the last card.
+    const atBottom = () => {
+      const last = SETTINGS_GROUPS[SETTINGS_GROUPS.length - 1];
+      if (last !== undefined && pageEnded()) setActive(last);
+    };
+    window.addEventListener('scroll', atBottom, { passive: true });
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('scroll', atBottom);
+    };
+  }, []);
+
+  const scrollTo = (group: SettingsGroup) => {
+    setActive(group);
+    const el = document.getElementById(cardId(group));
+    // jsdom (and very old engines) have no scrollIntoView; the highlight still moves.
+    if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  // A deep link (or a hash change while the page is open) scrolls to its card.
+  useEffect(() => {
+    if (focusGroup) scrollTo(focusGroup);
+  }, [focusGroup]);
+
+  const select = (group: SettingsGroup) => {
+    scrollTo(group);
+    props.onGroupSelect?.(group);
+  };
+
   return (
-    <div className="space-y-6">
-      <Section help={EXPLAIN.settingsSites}>
+    <div className="flex flex-col gap-3 sm:flex-row sm:gap-6">
+      <SettingsNav
+        items={SETTINGS_GROUPS.map((id) => ({ id, label: GROUP_HELP[id].label }))}
+        active={active}
+        onSelect={select}
+      />
+      <div className="min-w-0 max-w-2xl flex-1 space-y-4">
+      <Section group="websites">
         <AllSitesRow allowed={props.allSitesAllowed} onAllow={props.onAllowAllSites} onRemove={props.onRemoveAllSites} />
       </Section>
 
-      <Section help={EXPLAIN.settingsBadge}>
+      <Section group="normal-login">
+        <NormalLogin hosts={props.passThroughHosts} onAdd={props.onAddPassThrough} onRemove={props.onRemovePassThrough} />
+      </Section>
+
+      <Section group="badge">
         <BadgePreview settings={s} sample={props.sample} />
         <Toggle
           label="Show the badge"
@@ -101,7 +204,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
         )}
       </Section>
 
-      <Section help={EXPLAIN.settingsTitles}>
+      <Section group="titles">
         <Toggle
           label="Mark page titles with the persona colour"
           hint="Puts the persona's coloured heart in front of each tab's title (💙 Dashboard), so the tab strip shows whose tab is whose."
@@ -110,7 +213,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
         />
       </Section>
 
-      <Section help={EXPLAIN.settingsTabs}>
+      <Section group="tabs">
         <Toggle
           label="Open tabs in a tab group"
           hint="On: every tab a persona opens (Open all, one site, another login, using this tab) joins one Chrome tab group per persona, named and coloured after it. Off: tabs open individually, ungrouped."
@@ -124,14 +227,27 @@ export function SettingsPanel(props: SettingsPanelProps) {
           onChange={(v) => props.onChange({ openPersonaInNewWindow: v })}
         />
       </Section>
+      </div>
     </div>
   );
 }
 
-function Section(props: { readonly help: ActionHelp; readonly children: React.ReactNode }) {
+/** One settings card: title with its ⓘ, a one-line description, then the controls. */
+function Section(props: { readonly group: SettingsGroup; readonly children: React.ReactNode }) {
+  const help = GROUP_HELP[props.group];
   return (
-    <section aria-label={props.help.label} className="space-y-3">
-      <SectionIntro help={props.help} />
+    <section
+      id={cardId(props.group)}
+      aria-label={help.label}
+      className="scroll-mt-14 space-y-3 rounded-lg border border-border bg-card p-4 sm:scroll-mt-4"
+    >
+      <header>
+        <h2 className="flex items-center gap-1 text-[13px] font-semibold">
+          {help.label}
+          <HelpIcon help={help} />
+        </h2>
+        <p className="text-xs text-muted-foreground">{GROUP_BLURB[props.group]}</p>
+      </header>
       {props.children}
     </section>
   );

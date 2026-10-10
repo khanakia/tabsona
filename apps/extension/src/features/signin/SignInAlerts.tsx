@@ -4,6 +4,7 @@ import { WithHelp } from '@/ui/HelpCard';
 import { ACTION_HELP, SIGN_IN_NOT_SEPARATED } from '@/ui/help';
 import { shortSite } from '@/ui/format';
 import { allSignInHosts } from '@/core/signin';
+import { offerFor } from '@/core/passthrough';
 import type { SignInAlert } from '@/domain/messages';
 
 /**
@@ -26,6 +27,22 @@ export interface SignInAlertsProps {
   readonly alerts: readonly SignInAlert[];
   /** Ask Chrome for these origins in one dialog. Must run straight from the click. */
   readonly onAllow: (origins: readonly string[]) => void;
+  /**
+   * The "use my normal login" list and the action that extends it. Both optional: a
+   * surface without them simply does not offer the choice. Offered only for Google hosts
+   * (the preset): Google cannot sign in from a separate login, so allowing it would still
+   * fail, while "use my normal Google login" makes it work.
+   */
+  readonly passThroughHosts?: readonly string[];
+  readonly onUseNormalLogin?: (hosts: readonly string[]) => void;
+}
+
+/** The Google offer for `hosts`, or null when there is none to make (no action wired, or no
+ *  Google host among them). */
+function googleOffer(props: SignInAlertsProps, hosts: readonly string[]) {
+  if (!props.onUseNormalLogin) return null;
+  const offer = offerFor(hosts, props.passThroughHosts ?? []);
+  return offer?.kind === 'google' ? offer : null;
 }
 
 /** The banner's props: the alerts, plus the one-prompt alternative to allowing host by host. */
@@ -45,11 +62,11 @@ export function SignInAlertBanner(props: SignInAlertBannerProps) {
   if (hosts.length === 0) return null;
   const apps = props.alerts.map((a) => shortSite(a.site)).join(', ');
   return (
-    <div role="alert" className="flex flex-wrap items-start gap-1.5 border-b border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
+    <div role="alert" className="flex flex-wrap items-start gap-x-1.5 gap-y-1 border-b border-destructive/40 bg-destructive/10 px-2 py-1 text-xs leading-snug text-destructive">
       <ShieldAlert className="mt-px size-3.5 shrink-0" />
       <p className="min-w-0 flex-1 break-words">
         <span className="font-semibold">Sign-in not separated</span>
-        {` on ${apps}: it goes through ${hosts.length === 1 ? 'a website' : `${hosts.length} websites`} Tabsona is not allowed on, so a persona can come back signed in as you.`}
+        {` · ${apps} signs in through ${hosts.length === 1 ? 'a website' : `${hosts.length} websites`} Tabsona is not allowed on.`}
       </p>
       <HelpIcon />
       <WithHelp
@@ -58,8 +75,26 @@ export function SignInAlertBanner(props: SignInAlertBannerProps) {
       >
         {hosts.length === 1 ? ACTION_HELP.allowSignInSite.label : `${ACTION_HELP.allowAllSignInSites.label} ${hosts.length}`}
       </WithHelp>
+      <NormalLoginSuggestion props={props} hosts={hosts} />
       {props.onAllowAllSites && <AllSitesSuggestion onAllow={props.onAllowAllSites} />}
     </div>
+  );
+}
+
+/** One line under the alarm for a Google sign-in: use the browser's own Google login. */
+function NormalLoginSuggestion(p: { readonly props: SignInAlertsProps; readonly hosts: readonly string[] }) {
+  const offer = googleOffer(p.props, p.hosts);
+  if (!offer) return null;
+  return (
+    <p className="flex w-full items-center gap-1.5 pl-5 text-foreground">
+      <span className="min-w-0 flex-1">Signing in with Google? Google lets you pick the account, and the app’s login stays separate.</span>
+      <WithHelp
+        help={ACTION_HELP.useNormalGoogleLogin}
+        trigger={<Button size="xs" variant="outline" onClick={() => p.props.onUseNormalLogin?.(offer.hosts)} />}
+      >
+        {ACTION_HELP.useNormalGoogleLogin.label}
+      </WithHelp>
+    </p>
   );
 }
 
@@ -110,6 +145,11 @@ export function SignInSitesSection(props: SignInSitesSectionProps) {
           {/* The host gets the row's free width and the button stays a fixed short "Allow":
               a button labelled with the host itself squeezed a long host into a one-letter
               column. Hosts wrap at dots and hyphens like words, never letter by letter. */}
+          {googleOffer(props, alert.hosts) && (
+            <div className="mt-1">
+              <NormalLoginSuggestion props={props} hosts={alert.hosts} />
+            </div>
+          )}
           <ul className="mt-1 divide-y divide-border/60 rounded border border-border/60 bg-background/60">
             {alert.hosts.map((host) => (
               <li key={host} className="flex items-center gap-2 px-2 py-1">

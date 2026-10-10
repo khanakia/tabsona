@@ -10,7 +10,7 @@ import {
 } from '@/core/personas';
 import { computeCoverage } from '@/core/coverage';
 import {
-  loadBindings, loadLibrary, loadSettings, mutateLibrary, mutateSession,
+  loadBindings, loadLibrary, loadPassThroughHosts, loadSettings, mutateLibrary, mutateSession,
   saveBindings, saveLibrary, withLock,
 } from './repo';
 import { awaitRuleForTab, syncRules } from './rules-sync';
@@ -53,6 +53,7 @@ export async function getState(): Promise<AppState> {
     signInAlerts: await openSignInAlerts(),
     allSitesAllowed: allSites,
     settings,
+    passThroughHosts: await loadPassThroughHosts(),
   };
 }
 

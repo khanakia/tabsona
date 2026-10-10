@@ -10,6 +10,7 @@ Everything Tabsona does, end to end: the model, the mechanism, the exact Chrome 
 - [Page storage: the key carries the session](#page-storage-the-key-carries-the-session)
 - [The four ways to build a session](#the-four-ways-to-build-a-session)
 - [The sign-in gate](#the-sign-in-gate-stop-before-the-leak-ask-in-place)
+- [Signing in with Google](#signing-in-with-google-and-other-identity-providers)
 - [Opening a persona](#opening-a-persona)
 - [Why ordering matters more than anything else](#why-ordering-matters-more-than-anything-else)
 - [Honest coverage](#honest-coverage)
@@ -131,7 +132,40 @@ Every hop of a sign-in is visible only once the host before it is allowed, so as
 
 **Never save a leaked login.** If a persona tab still completed a hop through a host Tabsona was not allowed on (a gate rule that failed to install, a `fetch` redirect the gate does not cover), the tab is in a *leak window* for five minutes from the last such hop: cookies and page storage captured from it are dropped rather than saved, the session is marked, the badge and popup say "signed in through an unprotected website", and **Start over signed out** clears that session's cookies and page data for the site and reloads it. A rule keeps the strip, so the dropped cookies never reached the browser's jar either.
 
-**Rule priority layering.** Chrome cancels every `modifyHeaders` rule of the same or lower priority than a matching `allow`, silently. The gate needs an `allow` per granted host, so it sits *below* everything that edits headers: `1` gate block, `2` gate allow, `3` the Cookie / Set-Cookie strip, above `1,000,000` the per-host cookie SET rules. The allow only has to beat the block. Pinned by a unit test and proven by the isolation, cookieonly, twologins, and signin suites, which all run with the gate in place.
+**Rule priority layering.** Chrome cancels every `modifyHeaders` rule, and every `block`, of the same or lower priority than a matching `allow`, silently. The gate needs an `allow` per granted host, so it sits *below* everything that edits headers; the pass-through exemption (next section) is an `allow` that is meant to cancel those edits, so it sits *above* everything. The complete order, lowest to highest: `1` gate block, `2` gate allow, `3` the Cookie / Set-Cookie strip, `1,000,000` and up the parent-domain cookie SET rules, `2,000,000` and up the exact-host cookie SET rules, `3,000,000` the pass-through allow. The highest possible cookie rule stays under `3,000,000` by construction (the label and path terms never reach one tier span). Pinned by a unit test (`core/__tests__/passthrough.test.ts`) and proven by the isolation, cookieonly, twologins, and signin suites, which all run with the gate in place.
+
+### Pass-through hosts: use the browser's login on chosen websites
+
+Google cannot sign in from a separate login. It sets its flow cookie (`__Host-GAPS`) on a `302` and expects it back on the redirect's follow-up request; a per-tab rule is installed only after the response is seen, so the follow-up leaves without it (0 of 10 in `spike/probe-redirect-cookie.mjs`, and holding the follow-up with the debugger does not help, because Chrome fixes the rule's header changes before the DevTools pause). Its device-bound session refreshes also run inside the browser, out of reach of any per-tab rule. So the fix is not better isolation but an honest exception: the user lists the websites a persona tab reaches **with the browser's own login**, and everything else stays separate.
+
+The list (`passThroughHosts` in `chrome.storage.local`, written behind the lock in `engine/repo.ts`, empty until the user adds something) holds `host`, `*.host` or `host:port` entries, normalised and capped (`core/passthrough.ts`). For every bound tab the engine installs one tab-scoped `allow` per entry at priority `3,000,000`, matching the request url by `regexFilter` with the same host rules as a Chrome grant (no port means any port, `*.` is the domain and every subdomain, never a look-alike). That single rule does three things at once, with no host permission needed because an `allow` edits nothing: the Cookie strip and any per-host SET rule are cancelled, so the request carries the browser's own `Cookie`; the response's `Set-Cookie` is kept, so it lands in the browser's jar (and a redirect-set cookie reaches the follow-up, because the browser's network stack handles it, not us); and the gate's block is cancelled, so the tab is not stopped on a host Tabsona holds no grant for.
+
+Everything else that would treat such a host as a leak is told it is intended: the capture listener saves no cookie from it and does not file a redirect into it as a sign-in hop, the leak window never opens for it, the sign-in alerts and the popup's "websites to allow" omit it, and the shim and the relay (`excludeMatches` on their registration) do not run there, so `document.cookie`, `localStorage` and IndexedDB are the page's own. The badge script does run: on such a host it says **uses your normal login (your choice)**, in blue, never "isolated" (coverage status `shared`, `core/coverage.ts`).
+
+The Google preset (`accounts.google.com`, `accounts.youtube.com`, the two hosts Google's sign-in walks; deliberately not `*.google.com`, which would hand Gmail and Drive the browser's login too) is **offered, never applied** (the list starts empty; Settings always shows the defaults with their state, and **Restore default sites** re-adds only the missing ones, so a removed default is one click away): the gate page offers "Use my normal Google login here" when it stops a Google host, the popup's sign-in alert offers the same, and Settings → "Use my normal login on" has **Restore default sites** plus a box to add any host (a country domain such as `accounts.google.co.in`). Picking it adds the hosts, re-scopes the content scripts, and resumes the stopped navigation (a form POST goes back to the form, like any gate stop). The trade-off is shown wherever the choice is offered: the website then sees the browser's login, shared with every other tab, so an account added at Google inside a persona is added to the browser too, and the account chooser decides which Google account the persona gets. The app's own session (the cookie the app sets after the OAuth callback) stays per persona, because the app's host is not on the list.
+
+### Signing in with Google (and other identity providers)
+
+This is the whole story of the hardest login to keep separate, in the order it was found, because each step explains a piece of the machinery above.
+
+**1. The first failure was not Google.** Apps such as a Next.js app on WorkOS AuthKit sign in through a chain of websites (the app, `api.workos.com`, the custom auth domain, `*.authkit.app`). Tabsona holds a permission for the app only, and Chrome applies a header rule only on a host the extension may touch, so the hop to the provider carried the browser's own cookies and the provider answered as the browser's user. A fresh persona came back signed in as someone it was never meant to be. Fixing it took four pieces: every hop of the chain is filed under the app's site (not under the responding provider, which hid the alerts after the first Allow); a login that slipped through a hop is never saved into the persona (the leak window); the **gate** stops the tab before it leaves, because a `block` rule works on a host with no permission while a `redirect` does not; and the rule priorities were corrected, since an `allow` silently cancels every header edit of the same or lower priority.
+
+**2. Then Google itself.** With the chain allowed, Google's own screens still failed, in this order. Allowing a host after the gate stopped a form POST resumed it as a GET, and Google answered "Required parameter is missing: response_type": the gate now recognises a stopped form and takes the tab back to the form. Google then said "Cookies are disabled" because it writes a test cookie from script and reads it back, and `document.cookie` was still the browser's: the shim now owns it, with a request barrier so a `fetch` sent right after a write waits for the rule that carries it. That passed a Google-like fixture and still failed on real Google.
+
+**3. The cause, measured.** Google mints its flow cookie (`__Host-GAPS`) on the very first `302` of the sign-in and expects it back on the redirect's follow-up request, tied to the flow id in the redirect url. Tabsona learns a cookie only after the response is seen and then installs a rule, which took 1 to 23 ms; Chrome issues the follow-up immediately, so it leaves without the cookie and Google starts a second, mismatched flow. A probe with a three-hop redirect chain (`spike/probe-redirect-cookie.mjs`) passed 0 of 10 times. Everything that could repair this was tried:
+
+| Approach | Result |
+|---|---|
+| Per-tab rules, as everywhere else | 0 of 10: the follow-up outruns the rule |
+| Hold the follow-up with the debugger until the rule is in | 0 of 10: Chrome fixes a rule's header changes before the debugger's pause, so a rule installed during the pause is too late |
+| The debugger writes the `Cookie` header itself, plus a `Set-Cookie` strip rule | 10 of 10 and the browser's jar stays clean, but `debugger` cannot be an optional permission: every user would see "read and change all your data" on install, and a debugging banner while it runs |
+| Swap the persona's cookies into the real jar for the sign-in | Works, but leaks both ways (plain tabs send the persona's cookies, the persona sends the browser's), leaves cookies behind because cookies cannot be enumerated, and forbids two persona tabs of one site |
+
+Google's device-bound session refreshes also run inside the browser, out of reach of any per-tab rule, so even a perfect engine could end with the persona's Google session refreshed against the browser's jar.
+
+**4. The choice: stop trying to isolate Google.** Isolation matters for the app's session, not for the identity provider. So the user lists the websites a persona tab reaches with the browser's own login (see above), and everything else stays separate. The trade-off is stated wherever the choice is offered: Google then sees the browser's login, shared with the other tabs, so the account chooser decides which Google account a persona gets. The app's own session, the cookie the app sets after the OAuth callback, stays per persona. This was confirmed on a real Google sign-in through a WorkOS staging app, and the end-to-end suite proves it with a fixture whose redirect sets a cookie (phases P, P2 and P3 of `spike/e2e-signin.mjs`), each guard broken on purpose to watch it fail.
+
+**5. Not done, and why.** A strict mode that keeps Google per persona would need the debugger engine, best shipped as a separate companion extension so the main extension's permissions do not change. It is parked until per-persona Google accounts are a real need. What stays outside every layer is listed in [limits.md](limits.md): a `form.submit()` resume, the `cookieStore` API, synchronous XHR, a cookie set on a redirect for a host that is not on the list, service-worker requests, and subframes.
 
 ### What this looks like live
 
@@ -319,10 +353,11 @@ Isolation is not all-or-nothing, so the extension reports what it actually achie
 | Service worker | **leaking** when one is active | its fetches carry no tab id |
 | Cross-origin frames | **leaking** when one is present | cannot learn the session |
 | Sign-in through another website | **leaking** when a redirect to a host Tabsona is not allowed on was seen anywhere in the site's sign-in chain | no header rule applies there, so the browser's own login is used; allowing the host clears it |
+| A website on the "use my normal login" list | **shared** (the user's choice) | nothing is kept separate there by design, so no layer is claimed: the badge says "uses your normal login (your choice)", never "isolated", and it is neither a leak nor an alert |
 
 A layer is reported as covered **only when something was observed to make it so**. Absence of evidence shows as `unknown`, never as success — an optimistic default is exactly how a tool ends up telling you it isolated something it did not.
 
-The tab's badge shows the worst of these, in the page, where it cannot be missed. A tool that *looks* isolated while leaking is worse than no tool: it turns every later bug into a question about whether the tool lied.
+The tab's badge shows the worst of these (a leak, then unknown, then a chosen share), in the page, where it cannot be missed. A tool that *looks* isolated while leaking is worse than no tool: it turns every later bug into a question about whether the tool lied.
 
 ---
 
@@ -348,14 +383,16 @@ src/
   domain/        zero imports — the vocabulary (Persona, Session, CookieRecord, coverage, messages)
   core/          pure logic, tested with NO mocks
                  cookies · namespace · rules · coverage · personas · sessionState · tabgroups · signin
+                 gate · hostAccess · passthrough · settings · placement · badgeLook · titleMark · idb
   engine/        the chrome.* adapters
-                 repo (storage + lock) · rules-sync · capture · storage · import
-                 tabgroups · badge · service · index (worker entry)
+                 repo (storage + lock) · rules-sync · capture · pagecookies · storage · import
+                 gate · passthrough · permissions · observations · tabgroups · badge
+                 service · index (worker entry)
   app/           client.ts — the ONE module in the UI layer that names chrome.*
-  features/      personas · sessions · capture · sites — a presenter + barrel each
+  features/      personas · sessions · capture · sites · gate · signin · settings — a presenter + barrel each
   ui/            design system (from volt-web) + shared bits
-  surfaces/      popup · options — thin, both consuming the same presenters
-  content/       shim (MAIN world) · badge (ISOLATED world)
+  surfaces/      popup · options · gate — thin, consuming the same presenters
+  content/       shim (MAIN world) · relay (ISOLATED, document_start) · badge (ISOLATED)
 ```
 
 Each layer may import only the one below it. Two rules are **enforced by a test over the source**, not by good intentions:
@@ -369,7 +406,7 @@ The boundary test verifies its own matcher (it asserts that it finds files, that
 
 ## How it is verified
 
-`task check` is the gate: type-check, 435 unit tests, a build, and thirteen end-to-end suites that drive the **built extension** in a real Chrome.
+`task check` is the gate: type-check, 488 unit tests, a build, and thirteen end-to-end suites that drive the **built extension** in a real Chrome.
 
 | Suite | Asserts |
 |---|---|

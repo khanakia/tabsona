@@ -4,7 +4,8 @@
 
 import { registerCapture, whenCapturesSettled } from './capture';
 import { pageWroteCookie } from './pagecookies';
-import { forgetGateTab, gateContinue, gateInfo, gateOpenNormally, noteFormSubmit, openLeakWindow, registerGate } from './gate';
+import { forgetGateTab, gateContinue, gateInfo, gateListStoppedHost, gateOpenNormally, noteFormSubmit, openLeakWindow, registerGate } from './gate';
+import { addPassThroughHosts, removePassThroughHost } from './passthrough';
 import { accessPatterns } from './permissions';
 import { syncRules } from './rules-sync';
 import { renderAllBadges, renderBadge, statusForTab } from './badge';
@@ -12,10 +13,11 @@ import { captureTabStorage } from './storage';
 import { shimFactsFrom } from '@/core/coverage';
 import { noteShimReady } from './observations';
 import {
-  clearBadgePlacements, loadBindings, loadLibrary, migrateFromV1, saveBindings, setBadgePlacement, setGatePending, setSetting,
+  clearBadgePlacements, loadBindings, loadLibrary, loadPassThroughHosts, migrateFromV1, saveBindings, setBadgePlacement, setGatePending, setSetting,
   updateSettings, withLock,
 } from './repo';
 import { placementFrom } from '@/core/placement';
+import { passThroughMatchPattern } from '@/core/passthrough';
 import { OPTIONS_PAGE_PATH } from '@/core/constants';
 import { siteOf } from '@/core/personas';
 import {
@@ -51,6 +53,13 @@ function registerContentScripts(): Promise<void> {
 
 async function doRegisterContentScripts(): Promise<void> {
   const matches = await accessPatterns();
+  // The shim and the relay replace localStorage, IndexedDB and document.cookie with the
+  // persona's own. On a website the user chose to reach with their normal login that
+  // would be wrong twice over: the page would see a persona jar the browser never sends,
+  // and an identity provider's own script would fight it. So neither runs there. The badge
+  // does, so the tab can still say "uses your normal login".
+  const passThrough = (await loadPassThroughHosts()).map(passThroughMatchPattern);
+  const excludeMatches = passThrough.length > 0 ? { excludeMatches: passThrough } : {};
 
   // Unregister by what is ACTUALLY registered, not by the ids we expect, so an id left
   // behind by an older build is cleaned up too.
@@ -65,14 +74,14 @@ async function doRegisterContentScripts(): Promise<void> {
     {
       // MAIN world + document_start: the shim must replace localStorage BEFORE any app
       // script reads it. A content script in the isolated world cannot.
-      id: SHIM_SCRIPT_ID, js: ['shim.js'], matches,
+      id: SHIM_SCRIPT_ID, js: ['shim.js'], matches, ...excludeMatches,
       runAt: 'document_start', world: 'MAIN', allFrames: true,
     },
     {
       // Carries the shim's cookie writes and barrier questions to the worker. Its own
       // script, at document_start in every frame: see content/relay.ts for why the badge
       // (document_idle, top frame) cannot do it.
-      id: RELAY_SCRIPT_ID, js: ['relay.js'], matches,
+      id: RELAY_SCRIPT_ID, js: ['relay.js'], matches, ...excludeMatches,
       runAt: 'document_start', world: 'ISOLATED', allFrames: true,
     },
     {
@@ -94,6 +103,33 @@ async function doRegisterContentScripts(): Promise<void> {
       .catch(() => undefined);
     await chrome.scripting.registerContentScripts(scripts);
   }
+}
+
+/**
+ * Every change to the "use my normal login" list has three effects, kept together so none
+ * can be forgotten: the rules (inside add/remove), the content scripts (the shim and the
+ * relay must not run on a listed website, see doRegisterContentScripts) and the badges.
+ */
+async function afterNormalLoginChange(): Promise<void> {
+  await registerContentScripts();
+  await renderAllBadges();
+}
+
+async function addNormalLogin(hosts: readonly string[]): Promise<void> {
+  await addPassThroughHosts(hosts);
+  await afterNormalLoginChange();
+}
+
+async function removeNormalLogin(host: string): Promise<void> {
+  await removePassThroughHost(host);
+  await afterNormalLoginChange();
+}
+
+/** The gate page's "Use my normal login here": list the stopped host, resume the tab. */
+async function useNormalLoginAndResume(tabId: number): Promise<boolean> {
+  if (!(await gateListStoppedHost(tabId))) return false;
+  await afterNormalLoginChange(); // scripts first: the resumed page must not load the shim
+  return gateContinue(tabId);
 }
 
 /**
@@ -293,6 +329,11 @@ chrome.runtime.onMessage.addListener((raw, sender, respond: (r: Response) => voi
         case 'gateOpenNormally':
           respond(await gateOpenNormally(msg.tabId) ? { ok: true } : { ok: false, error: 'nothing is waiting in that tab' });
           break;
+        case 'gateUsePassThrough':
+          respond(await useNormalLoginAndResume(msg.tabId) ? { ok: true } : { ok: false, error: 'nothing is waiting in that tab' });
+          break;
+        case 'passThroughAdd': await addNormalLogin(msg.hosts); respond({ ok: true }); break;
+        case 'passThroughRemove': await removeNormalLogin(msg.host); respond({ ok: true }); break;
         case 'startOver': await startOver(msg.sessionId); respond({ ok: true }); break;
         default: {
           // Exhaustiveness: an op added without a handler fails to compile.
@@ -338,6 +379,7 @@ Object.assign(globalThis, {
     coverageReport, exportData, importData,
     boot, registerContentScripts, updateSettings, renderAllBadges,
     gateInfo, gateContinue, gateOpenNormally, startOver,
+    addNormalLogin, removeNormalLogin, useNormalLoginAndResume,
     // E2E seams for states a headless run cannot reach honestly: a stopped tab whose host
     // Chrome's permission dialog (a human click) would then allow, and a leak window.
     setGatePending, openLeakWindow,

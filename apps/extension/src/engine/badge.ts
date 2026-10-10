@@ -1,7 +1,7 @@
 // The badge: a toolbar marker plus an in-page chip — and the honest part, it reports
 // COVERAGE, not just a name.
 
-import { computeCoverage, coverageSummary, shimFactsFrom, worstStatus } from '@/core/coverage';
+import { computeCoverage, coverageSummary, passThroughCoverage, shimFactsFrom, worstStatus } from '@/core/coverage';
 import { isEmpty } from '@/core/sessionState';
 import { actionBadgeText } from '@/core/badgeLook';
 import { loadBadgePlacements, loadBindings, loadLibrary, loadSettings, loadSignInHops } from './repo';
@@ -11,6 +11,7 @@ import type { SignInAlert, TabStatus } from '@/domain/messages';
 import { signInAlertsFor, withLandingHost } from '@/core/signin';
 import type { TabId } from '@/domain/types';
 import { isOriginAllowed, ungrantedOrigins } from './permissions';
+import { dropPassThrough, isPassThroughUrl } from './passthrough';
 
 const NEUTRAL_BADGE = '#52525b';
 /** Toolbar badge colour while a sign-in host is un-allowed: the leaking red, as a hex
@@ -59,6 +60,7 @@ export async function statusForTab(tabId: TabId | null): Promise<TabStatus> {
     tabId, url: null, site: null, isWebPage: false, siteAllowed: false,
     sessionId: null, personaId: null, personaName: null, color: null,
     isEmpty: false, coverage: [], summary: 'not isolated', unguardedSignInSites: [], leakedSignInSites: [],
+    usesNormalLogin: false,
   };
   if (tabId === null) return blank;
 
@@ -82,6 +84,19 @@ export async function statusForTab(tabId: TabId | null): Promise<TabStatus> {
     return { ...blank, url, site: origin, isWebPage: true, siteAllowed };
   }
 
+  // A website the user chose to reach with their normal login: nothing here is kept
+  // separate, by choice, and the badge must say exactly that and never "isolated".
+  const usesNormalLogin = await isPassThroughUrl(origin);
+  if (usesNormalLogin) {
+    const coverage = passThroughCoverage();
+    return {
+      tabId, url, site: origin, isWebPage: true, siteAllowed,
+      sessionId: session.id, personaId: persona.id, personaName: persona.name, color: persona.color,
+      isEmpty: false, coverage, summary: coverageSummary(coverage),
+      unguardedSignInSites: [], leakedSignInSites: [], usesNormalLogin: true,
+    };
+  }
+
   // Refresh the evidence before judging, so coverage reflects this tab as it is.
   await pullShimReport(tabId).catch(() => undefined);
   // Re-checked against the LIVE permission set every time, so allowing a sign-in site
@@ -94,7 +109,7 @@ export async function statusForTab(tabId: TabId | null): Promise<TabStatus> {
   // signed-out chain ends on the provider's own login page, and no response from there
   // ever reaches the capture listener, so this is the only way to see that last host.
   const hops = withLandingHost(await loadSignInHops(), session.site, origin)[session.site] ?? [];
-  const unguardedSignInSites = await ungrantedOrigins(hops);
+  const unguardedSignInSites = await dropPassThrough(await ungrantedOrigins(hops));
   // A sign-in that already went through an unguarded website (its login was refused, see
   // engine/capture.ts) is reported on the same layer, whether or not the host has been
   // allowed since: the session is not signed in as itself until it starts over.
@@ -115,6 +130,7 @@ export async function statusForTab(tabId: TabId | null): Promise<TabStatus> {
     summary: coverageSummary(coverage),
     unguardedSignInSites,
     leakedSignInSites,
+    usesNormalLogin: false,
   };
 }
 
@@ -193,7 +209,7 @@ export async function openSignInAlerts(): Promise<SignInAlert[]> {
   }
   const alerts = await Promise.all(signInAlertsFor(withLanding, sites).map(async (alert) => ({
     site: alert.site,
-    hosts: await ungrantedOrigins(alert.hosts),
+    hosts: await dropPassThrough(await ungrantedOrigins(alert.hosts)),
   })));
   return alerts.filter((alert) => alert.hosts.length > 0);
 }

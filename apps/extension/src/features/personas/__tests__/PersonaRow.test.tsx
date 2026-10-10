@@ -32,7 +32,7 @@ describe('PersonaRow', () => {
     expect(screen.getByText('1 website · 2 tabs open')).toBeTruthy();
     // Under the name, after the description — never beside the name, where it squeezed it.
     rerender(<PersonaRow persona={persona({ description: 'Hub brand workspace' })} expanded={false} {...noop} />);
-    expect(screen.getByText('Hub brand workspace · 1 website')).toBeTruthy();
+    expect(screen.getByText('1 website · Hub brand workspace')).toBeTruthy();
   });
 
   it('hides its sessions until expanded', () => {
@@ -45,13 +45,13 @@ describe('PersonaRow', () => {
   it('opens the whole persona — the feature that justifies personas existing', () => {
     const onOpenAll = vi.fn();
     render(<PersonaRow persona={persona()} expanded {...noop} onOpenAll={onOpenAll} />);
-    fireEvent.click(screen.getByText(ACTION_HELP.openAll.label));
+    fireEvent.click(screen.getByRole('button', { name: `${ACTION_HELP.openAll.label} in Acme admin` }));
     expect(onOpenAll).toHaveBeenCalledWith('p_1');
   });
 
   it('disables open-all for a persona with no sites, rather than opening nothing', () => {
     render(<PersonaRow persona={persona({ sessions: [] })} expanded {...noop} />);
-    expect(screen.getByText(ACTION_HELP.openAll.label).closest('button')?.hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: `${ACTION_HELP.openAll.label} in Acme admin` }).hasAttribute('disabled')).toBe(true);
   });
 
   it('tells an empty persona what to do instead of showing a blank list', () => {
@@ -89,7 +89,7 @@ describe('PersonaRow', () => {
 
   it('shows a description when the persona has one', () => {
     render(<PersonaRow persona={persona({ description: 'Staging stack, admin role' })} expanded {...noop} />);
-    expect(screen.getByText('Staging stack, admin role · 1 website')).toBeTruthy();
+    expect(screen.getByText('1 website · Staging stack, admin role')).toBeTruthy();
   });
 
   it('edits name and description together, and only sends what changed', () => {

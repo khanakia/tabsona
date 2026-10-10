@@ -9,9 +9,10 @@ import { Input } from '@/ui/volt/input';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/ui/volt/dropdown-menu';
-import { StateBadge } from '@/ui/session-state';
+import { StateDot } from '@/ui/session-state';
+import { HostText } from '@/ui/HostText';
 import { IconAction, REVEAL_ON_ROW_HOVER } from '@/ui/IconAction';
-import { ActionMenuItem, WithHelp } from '@/ui/HelpCard';
+import { ActionMenuItem } from '@/ui/HelpCard';
 import { ACTION_HELP } from '@/ui/help';
 import { FullText } from '@/ui/FullText';
 import { shortAgo, shortSite } from '@/ui/format';
@@ -75,23 +76,23 @@ export function SessionRow(props: SessionRowProps) {
           <ChevronRight className={cn('size-3 transition-transform duration-150', expanded && 'rotate-90')} />
         </button>
 
-        {/* Two lines, and the ADDRESS owns the first.
-            The address is what tells two sessions apart (localhost:2165 vs :3000), so it
-            gets line 1 with only the state pill beside it, and shrinks last. The page
-            title — useful, but long and replaceable — moved to line 2, where it is the
-            first thing to be cut. With all three on one line the address was the one
-            that disappeared ("localho…"). */}
+        {/* Two lines, and the ADDRESS owns the first, edge to edge.
+            The address is what tells two sessions apart (localhost:2165 vs :3000). The
+            state is a dot before it (its word cost a third of the line), the Open action is
+            an icon after it, and a host too long for the rest is cut in the MIDDLE so the
+            registrable domain stays readable; the whole URL is in the hover card on line 2.
+            The page title moved to line 2, where it is the first thing to be cut. */}
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="min-w-0 truncate font-medium" title={s.site}>{shortSite(s.site)}</span>
-            <StateBadge state={s.state} />
+          <div className="flex min-w-0 items-center gap-1">
+            <StateDot state={s.state} />
+            <HostText text={shortSite(s.site)} className="font-medium" />
           </div>
           <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
             <FullText
               line={<span className="min-w-0 truncate tabular-nums" />}
               full={(
                 <>
-                  <span className="block font-semibold">{s.site}</span>
+                  <span className="block break-all font-semibold">{s.site}</span>
                   {s.label !== shortSite(s.site) && <span className="block">{s.label}</span>}
                   <span className="block text-muted-foreground">{meta}</span>
                 </>
@@ -101,57 +102,63 @@ export function SessionRow(props: SessionRowProps) {
               {meta}
             </FullText>
             {s.openTabCount > 0 && (
-              <span className="shrink-0 rounded bg-primary/10 px-1 text-[10px] font-semibold text-primary">
+              <span className="shrink-0 whitespace-nowrap rounded bg-primary/10 px-1 text-[10px] font-semibold tabular-nums text-primary">
                 {s.openTabCount} tab{s.openTabCount === 1 ? '' : 's'} open
               </span>
             )}
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-0.5">
-          {/* Open stays visible: it is why the row exists, and a list whose main action
-              only appears on hover is awkward on a trackpad. Everything else fades in. */}
-          <WithHelp
-            help={ACTION_HELP.openSession}
-            trigger={<Button size="xs" variant="ghost" onClick={() => props.onOpen(s.id, 'new-tab')} />}
+        {/* Open stays visible: it is why the row exists, and a list whose main action
+            only appears on hover is awkward on a trackpad. It is an icon, named for its
+            site, because the word "Open" repeated on every row bought nothing. */}
+        <IconAction
+          label={`Open ${shortSite(s.site)}`}
+          help={ACTION_HELP.openSession}
+          onClick={() => props.onOpen(s.id, 'new-tab')}
+        >
+          <ExternalLink />
+        </IconAction>
+        {/* The secondary actions overlay the row's second line while it is hovered or
+            focused instead of reserving ~50px beside the address all the time. */}
+        <div
+          className={cn(
+            'absolute bottom-0.5 right-8 flex items-center gap-0.5 rounded-md bg-muted shadow-sm ring-1 ring-border',
+            REVEAL_ON_ROW_HOVER,
+          )}
+        >
+          <IconAction
+            label={ACTION_HELP.openSessionHere.label}
+            help={ACTION_HELP.openSessionHere}
+            keys="⌘↵"
+            onClick={() => props.onOpen(s.id, 'this-tab')}
           >
-            <ExternalLink />
-            {ACTION_HELP.openSession.label}
-          </WithHelp>
-          <div className={cn('flex items-center gap-0.5', REVEAL_ON_ROW_HOVER)}>
-            <IconAction
-              label={ACTION_HELP.openSessionHere.label}
-              help={ACTION_HELP.openSessionHere}
-              keys="⌘↵"
-              onClick={() => props.onOpen(s.id, 'this-tab')}
+            <SquareArrowDownRight />
+          </IconAction>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button size="icon-sm" variant="ghost" aria-label="More actions" onClick={() => undefined} />}
             >
-              <SquareArrowDownRight />
-            </IconAction>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button size="icon-sm" variant="ghost" aria-label="More actions" onClick={() => undefined} />}
-              >
-                <MoreHorizontal />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72">
-                {props.onAnotherLogin && (
-                  <ActionMenuItem
-                    help={ACTION_HELP.anotherAccountForSite}
-                    icon={<UserPlus />}
-                    onClick={() => props.onAnotherLogin?.(s.site)}
-                  />
-                )}
-                <ActionMenuItem help={ACTION_HELP.renameSession} icon={<Pencil />} onClick={() => setExpanded(true)} />
-                <DropdownMenuSeparator />
+              <MoreHorizontal />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              {props.onAnotherLogin && (
                 <ActionMenuItem
-                  destructive
-                  help={ACTION_HELP.deleteSession}
-                  icon={<Trash2 />}
-                  onClick={() => props.onDelete(s.id)}
+                  help={ACTION_HELP.anotherAccountForSite}
+                  icon={<UserPlus />}
+                  onClick={() => props.onAnotherLogin?.(s.site)}
                 />
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+              )}
+              <ActionMenuItem help={ACTION_HELP.renameSession} icon={<Pencil />} onClick={() => setExpanded(true)} />
+              <DropdownMenuSeparator />
+              <ActionMenuItem
+                destructive
+                help={ACTION_HELP.deleteSession}
+                icon={<Trash2 />}
+                onClick={() => props.onDelete(s.id)}
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

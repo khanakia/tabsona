@@ -49,10 +49,15 @@ export const SESSION_STATE: Record<SessionState, StatePresentation> = {
   },
 };
 
-/** A state pill: dot + word, sized to sit inside a dense row. Resting on it, or tabbing
- *  to it, explains the state in a sentence — a native `title` took a second to appear and
- *  never showed for keyboard users. */
-export function StateBadge({
+/**
+ * A state DOT, nothing else: the pill's word was costing a third of the row's width, and
+ * the site name is what the row is for. The colour keeps its meaning, and the state is
+ * still announced: the dot is a focusable element named "<label>. <explanation>", and
+ * resting on it or tabbing to it opens a card with the same text.
+ *
+ * Invariant: never rely on colour alone for the state — the aria-label and the card carry it.
+ */
+export function StateDot({
   state,
   className,
 }: {
@@ -66,21 +71,27 @@ export function StateBadge({
         delay={HELP_CARD_DELAY_MS}
         render={(
           <span
-            // Focusable so the explanation is reachable without a mouse.
+            // Focusable so the explanation is reachable without a mouse. The 16px box is
+            // the hit area; the 8px dot inside it is what is drawn.
             tabIndex={0}
+            role="img"
+            aria-label={label}
             className={cn(
-              'inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-px text-[10px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              'inline-flex size-4 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               className,
             )}
-            style={{ color, borderColor: `color-mix(in oklch, ${color} 35%, transparent)`, background: `color-mix(in oklch, ${color} 10%, transparent)` }}
           />
         )}
       >
-        <span className="size-1.5 rounded-full" style={{ background: color }} />
-        {label}
+        <span
+          aria-hidden
+          className="size-2 rounded-full"
+          style={{ background: color, boxShadow: `0 0 0 2px color-mix(in oklch, ${color} 25%, transparent)` }}
+        />
       </TooltipTrigger>
       <TooltipPositioner>
         <TooltipContent className="max-w-72 border border-border bg-popover px-3 py-2.5 text-[13px] leading-normal text-popover-foreground shadow-md [&>[data-slot=tooltip-arrow]]:hidden">
+          <span className="block font-semibold" style={{ color }}>{label}</span>
           {help}
         </TooltipContent>
       </TooltipPositioner>

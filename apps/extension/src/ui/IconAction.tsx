@@ -19,7 +19,7 @@ export function IconAction(props: {
   readonly help?: ActionHelp;
   readonly onClick: () => void;
   readonly children: ReactNode;
-  readonly variant?: 'ghost' | 'outline' | 'destructive-outline';
+  readonly variant?: 'ghost' | 'outline' | 'destructive-outline' | 'default';
   readonly size?: 'icon-sm' | 'icon';
   readonly disabled?: boolean;
   readonly className?: string;

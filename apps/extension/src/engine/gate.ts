@@ -11,11 +11,13 @@ import {
 } from '@/core/gate';
 import { FORM_METHOD_POST } from '@/core/constants';
 import { siteOf } from '@/core/personas';
+import { offerFor } from '@/core/passthrough';
 import {
-  loadBindings, loadGatePending, loadLastPages, loadLibrary, loadSignInHops, recordFormHint, recordStop, setFormHint,
+  loadBindings, loadGatePending, loadLastPages, loadLibrary, loadPassThroughHosts, loadSignInHops, recordFormHint, recordStop, setFormHint,
   setGatePending, setLastPage, updateLeakWindows,
 } from './repo';
 import { ungrantedOrigins } from './permissions';
+import { addPassThroughHosts, dropPassThrough } from './passthrough';
 import { syncRules, tabIsGated } from './rules-sync';
 import { renderBadge } from './badge';
 import { tabGroupsAvailable } from './tabgroups';
@@ -32,6 +34,10 @@ function gatePageUrl(tabId: TabId): string {
  * way to a host Tabsona is not allowed on, record where it was going and show the gate
  * page in its place.
  *
+ * Why the worker swaps the page itself (`tabs.update`) instead of the rule redirecting: a
+ * DNR `redirect` to an extension page needs host access to the blocked host, which is the
+ * very thing missing here, whereas `block` works with none (core/gate.ts, probe-gate).
+ *
  * The record is written BEFORE the page is shown, so the page never asks for a tab the
  * worker knows nothing about. The url travels only as the tab id; the page reads the rest
  * from the worker, so nothing a page could be handed in a link is trusted.
@@ -44,6 +50,8 @@ async function onErrorOccurred(details: chrome.webNavigation.WebNavigationFramed
   // Allowed by now (granted between the block and this event), or blocked by someone
   // else's rule: either way not a question for the gate page.
   if ((await ungrantedOrigins([target])).length === 0) return;
+  // Chosen as a normal-login website since the block: not a question either.
+  if ((await dropPassThrough([target])).length === 0) return;
 
   // A form POST arrives here as a bare url: its body is gone and the event does not say it
   // was one. The page that held the form told the worker (noteFormSubmit), and recordStop
@@ -86,6 +94,8 @@ async function onCommitted(details: chrome.webNavigation.WebNavigationTransition
 
   if (details.frameId === 0) await setLastPage(details.tabId, details.url);
   if ((await ungrantedOrigins([origin])).length === 0) return;
+  // A website the user chose to reach with their normal login is intended, not a leak.
+  if ((await dropPassThrough([origin])).length === 0) return;
 
   if (details.frameId !== 0) {
     const site = (await loadLibrary()).sessions.find((s) => s.id === sessionId)?.site;
@@ -108,6 +118,7 @@ export async function openLeakWindow(tabId: TabId, host: Origin): Promise<void> 
  * so it opens no window; see core/gate.ts, redirectOpensLeakWindow.
  */
 export async function noteUnguardedRedirect(tabId: TabId, host: Origin, resourceType: string): Promise<void> {
+  if ((await dropPassThrough([host])).length === 0) return; // chosen, not a leak
   if (redirectOpensLeakWindow(resourceType, await tabIsGated(tabId))) await openLeakWindow(tabId, host);
 }
 
@@ -127,7 +138,7 @@ export async function gateInfo(tabId: TabId): Promise<GateInfo | null> {
   const persona = session ? lib.personas.find((p) => p.id === session.personaId) : undefined;
   if (!session || !persona) return null;
 
-  const chain = (await loadSignInHops())[session.site] ?? [];
+  const chain = await dropPassThrough((await loadSignInHops())[session.site] ?? []);
   const reason: GateReason = pending.host === session.site
     ? 'own-site'
     : chain.includes(pending.host) ? 'sign-in' : 'link';
@@ -140,8 +151,9 @@ export async function gateInfo(tabId: TabId): Promise<GateInfo | null> {
     personaName: persona.name,
     color: persona.color,
     reason,
-    hostsToAllow: await ungrantedOrigins(wanted),
+    hostsToAllow: await ungrantedOrigins(await dropPassThrough(wanted)),
     viaForm: pending.viaForm === true,
+    passThroughOffer: offerFor([pending.host], await loadPassThroughHosts()),
   };
 }
 
@@ -156,7 +168,7 @@ export async function gateInfo(tabId: TabId): Promise<GateInfo | null> {
 export async function gateContinue(tabId: TabId): Promise<boolean> {
   const pending = (await loadGatePending())[String(tabId)];
   if (!pending) return false;
-  if ((await ungrantedOrigins([pending.host])).length > 0) return false;
+  if ((await dropPassThrough(await ungrantedOrigins([pending.host]))).length > 0) return false;
   await syncRules();
   await setGatePending(tabId, null);
   if (pending.viaForm) {
@@ -170,6 +182,23 @@ export async function gateContinue(tabId: TabId): Promise<boolean> {
     return true;
   }
   await chrome.tabs.update(tabId, { url: pending.url });
+  return true;
+}
+
+/**
+ * First half of "Use my normal login here": put the stopped host (the whole Google preset,
+ * for a Google host) on the pass-through list, with its rules in force. False when nothing
+ * is waiting in the tab.
+ *
+ * Only the first half, on purpose: the caller (index.ts) must re-scope the content scripts
+ * BEFORE `gateContinue` resumes the navigation, or the page that loads next would still get
+ * the persona's storage shim on a website the user just said to leave alone.
+ */
+export async function gateListStoppedHost(tabId: TabId): Promise<boolean> {
+  const pending = (await loadGatePending())[String(tabId)];
+  if (!pending) return false;
+  const offer = offerFor([pending.host], await loadPassThroughHosts());
+  if (offer) await addPassThroughHosts(offer.hosts);
   return true;
 }
 

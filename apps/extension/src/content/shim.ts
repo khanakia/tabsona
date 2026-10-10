@@ -203,7 +203,10 @@ const LENGTH_PROP = 'length';
   const writes = new Set<Promise<void>>();
   let lastResponseAt = 0;
   let settling: Promise<void> | null = null;
-  /** What a request must wait for before it leaves, or null to send at once. */
+  /** What a request must wait for before it leaves, or null to send at once. Only fetch
+   *  and asynchronous XHR can be held (they are ours to delay); a navigation and a
+   *  synchronous XHR cannot, and a redirect's follow-up is issued by the network stack with
+   *  no step of ours in between (docs/limits.md). */
   const barrier = (): Promise<void> | null => {
     if (writes.size > 0) return Promise.all([...writes]).then(() => undefined);
     if (Date.now() - lastResponseAt >= COOKIE_BARRIER_RECENT_MS) return null;

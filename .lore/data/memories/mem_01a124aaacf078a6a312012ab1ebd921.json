@@ -1,0 +1,23 @@
+{
+  "_table": "memories",
+  "_v": 1,
+  "archived_at": null,
+  "body": "Gate design: a session block rule works on hosts without permission but a redirect to an extension page does not, so engine/gate.ts swaps the stopped tab to the gate page with tabs.update. A stopped form POST is recognised through the relay's submit notice (viaForm) and goes back to the form, never resumed as a GET. Full Google sign-in story: docs/how-it-works.md 'Signing in with Google' and docsi/research/google-signin.md section 6.",
+  "confidence": null,
+  "created_at": "2026-10-10T07:15:27.600564000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "mem_01a124aaacf078a6a312012ab1ebd921",
+  "kind": "retrieved",
+  "last_validated_at": null,
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": null,
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "tx_at": "2026-10-10T07:15:27.600589000Z",
+  "updated_at": "2026-10-10T07:15:27.600565000Z",
+  "valid_at": null,
+  "valid_until": null,
+  "validated_by_actor_id": null
+}

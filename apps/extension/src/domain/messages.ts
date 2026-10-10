@@ -5,7 +5,7 @@
 // Contracts enforced by convention fail silently; this one does not.
 
 import type {
-  LayerCoverage, PersonaId, PersonaView, SessionId, Site, TabId,
+  LayerCoverage, PassThroughOffer, PersonaId, PersonaView, SessionId, Site, TabId,
 } from './types';
 
 export type Request =
@@ -68,6 +68,13 @@ export type Request =
   | { readonly op: 'gateContinue'; readonly tabId: TabId }
   /** Open the stopped url in an ordinary tab and put the persona tab back where it was. */
   | { readonly op: 'gateOpenNormally'; readonly tabId: TabId }
+  /** Use the browser's own login on the stopped website (the Google preset for a Google
+   *  host), then resume the navigation. No permission is involved, so no click rule. */
+  | { readonly op: 'gateUsePassThrough'; readonly tabId: TabId }
+  /** Add websites (any shape the user typed; the worker normalises) to the "use my normal
+   *  login" list. */
+  | { readonly op: 'passThroughAdd'; readonly hosts: readonly string[] }
+  | { readonly op: 'passThroughRemove'; readonly host: string }
   /** Page script wrote `line` with `document.cookie` at `url`. Sent by the badge script on
    *  the shim's behalf; the reply means the cookie is stored AND its rule is installed. */
   | { readonly op: 'cookieWrite'; readonly url: string; readonly line: string }
@@ -103,6 +110,14 @@ export const BADGE_HIDE_SECONDS_DEFAULT = 5;
  */
 export type OptionsSection = 'personas' | 'sites' | 'settings' | 'coverage' | 'data';
 export const OPTIONS_SECTIONS: readonly OptionsSection[] = ['personas', 'sites', 'settings', 'coverage', 'data'];
+
+/**
+ * The cards of the Settings tab, in page order — also the entries of its left-hand nav.
+ * A closed set so the nav, the cards and the deep link (`#settings/badge`) cannot drift
+ * apart: adding a card without a nav entry fails to compile where the maps are keyed.
+ */
+export type SettingsGroup = 'websites' | 'normal-login' | 'badge' | 'titles' | 'tabs';
+export const SETTINGS_GROUPS: readonly SettingsGroup[] = ['websites', 'normal-login', 'badge', 'titles', 'tabs'];
 
 /**
  * Where the in-page persona badge sits.
@@ -243,6 +258,10 @@ export interface TabStatus {
    *  them. The login that came back was NOT saved, and "Start over signed out" clears
    *  what is left. Empty for every session that never leaked. */
   readonly leakedSignInSites: readonly string[];
+  /** The tab is on a website the user chose to reach with their normal browser login
+   *  (core/passthrough.ts). Nothing is kept separate there, by choice, so the surfaces say
+   *  "uses your normal login" instead of "isolated". */
+  readonly usesNormalLogin: boolean;
 }
 
 /**
@@ -286,6 +305,10 @@ export interface GateInfo {
    *  tab back to the page holding the form so the user presses its button again, and
    *  "Open in a normal tab" is not offered (it would send the provider a bare GET). */
   readonly viaForm: boolean;
+  /** Offered when the stopped website could be reached with the browser's own login: the
+   *  Google preset for a Google host, otherwise the one host. Null when it already is on
+   *  the list. Picking it adds `hosts` to the list and resumes the navigation. */
+  readonly passThroughOffer: PassThroughOffer | null;
 }
 
 export interface AppState {
@@ -300,6 +323,8 @@ export interface AppState {
    *  true no website needs allowing one by one, so nothing offers it again. */
   readonly allSitesAllowed: boolean;
   readonly settings: Settings;
+  /** The websites reached with the browser's own login even from a persona tab, sorted. */
+  readonly passThroughHosts: readonly string[];
 }
 
 export interface OriginCoverage {

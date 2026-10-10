@@ -1,8 +1,8 @@
 // Pure: turn whatever is in storage into a valid Settings object.
 
 import {
-  BADGE_CORNERS, BADGE_HIDE_SECONDS_MAX, BADGE_HIDE_SECONDS_MIN, BADGE_STYLES, DEFAULT_SETTINGS, OPTIONS_SECTIONS,
-  type BadgeCorner, type BadgeStyle, type OptionsSection, type Settings, type SettingKey,
+  BADGE_CORNERS, BADGE_HIDE_SECONDS_MAX, BADGE_HIDE_SECONDS_MIN, BADGE_STYLES, DEFAULT_SETTINGS, OPTIONS_SECTIONS, SETTINGS_GROUPS,
+  type BadgeCorner, type BadgeStyle, type OptionsSection, type Settings, type SettingsGroup, type SettingKey,
 } from '@/domain/messages';
 
 /** Narrow an untrusted value to a corner. */
@@ -26,10 +26,39 @@ export function isOptionsSection(value: unknown): value is OptionsSection {
   return typeof value === 'string' && OPTIONS_SECTIONS.some((s) => s === value);
 }
 
-/** The library section a URL hash names (`#settings`), or the first section otherwise. */
+/** Separates the section from a card inside it in a URL hash: `#settings/badge`. */
+const HASH_GROUP_SEPARATOR = '/';
+
+/** Split `#settings/badge` into its two parts; either may be empty. */
+function hashParts(hash: string): readonly [string, string] {
+  const [section = '', group = ''] = hash.replace(/^#/, '').split(HASH_GROUP_SEPARATOR);
+  return [section, group];
+}
+
+/**
+ * The library section a URL hash names (`#settings`, or `#settings/badge`), or the first
+ * section otherwise. A card suffix never changes the section, so old `#settings` links
+ * keep working unchanged.
+ */
 export function sectionFromHash(hash: string): OptionsSection {
-  const name = hash.replace(/^#/, '');
+  const [name] = hashParts(hash);
   return isOptionsSection(name) ? name : 'personas';
+}
+
+/** Narrow an untrusted value to a Settings card. */
+export function isSettingsGroup(value: unknown): value is SettingsGroup {
+  return typeof value === 'string' && SETTINGS_GROUPS.some((g) => g === value);
+}
+
+/** The Settings card a hash names (`#settings/badge`), or null for a bare or unknown one. */
+export function settingsGroupFromHash(hash: string): SettingsGroup | null {
+  const [section, group] = hashParts(hash);
+  return section === 'settings' && isSettingsGroup(group) ? group : null;
+}
+
+/** The hash that opens `section`, or one card of Settings: the inverse of the two readers above. */
+export function hashFor(section: OptionsSection, group?: SettingsGroup): string {
+  return group !== undefined && section === 'settings' ? `#${section}${HASH_GROUP_SEPARATOR}${group}` : `#${section}`;
 }
 
 /**

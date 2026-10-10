@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  computeCoverage, coverageSummary, EMPTY_OBSERVATIONS, shimFactsFrom, worstStatus,
+  computeCoverage, coverageSummary, EMPTY_OBSERVATIONS, passThroughCoverage, SHARED_SUMMARY, shimFactsFrom, worstStatus,
 } from '../coverage';
 import type { StateLayer } from '@/domain/types';
 
@@ -135,5 +135,28 @@ describe('shimFactsFrom', () => {
     expect(shimFactsFrom(null)).toEqual(none);
     expect(shimFactsFrom('ready')).toEqual(none);
     expect(shimFactsFrom(undefined)).toEqual(none);
+  });
+});
+
+describe('a website on the "use my normal login" list', () => {
+  it('is reported as shared by choice: never isolated, never a leak', () => {
+    const cov = passThroughCoverage();
+    expect(cov).toHaveLength(1);
+    expect(cov[0]?.status).toBe('shared');
+    expect(worstStatus(cov)).toBe('shared');
+    expect(coverageSummary(cov)).toBe(SHARED_SUMMARY);
+    expect(coverageSummary(cov)).not.toContain('isolated');
+    expect(coverageSummary(cov)).not.toContain('leaking');
+  });
+
+  it('ranks below a real leak or unknown, above plain covered', () => {
+    const shared = { layer: 'normalLogin', status: 'shared', detail: '' } as const;
+    expect(worstStatus([shared, { layer: 'cookies', status: 'leaking', detail: '' }])).toBe('leaking');
+    expect(worstStatus([shared, { layer: 'cookies', status: 'unknown', detail: '' }])).toBe('unknown');
+    expect(worstStatus([shared, { layer: 'cookies', status: 'covered', detail: '' }])).toBe('shared');
+  });
+
+  it('an ordinary origin never reports the normalLogin layer', () => {
+    expect(computeCoverage('cookie+storage', EMPTY_OBSERVATIONS).map((c) => c.layer)).not.toContain('normalLogin');
   });
 });

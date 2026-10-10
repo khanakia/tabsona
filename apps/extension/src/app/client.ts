@@ -70,6 +70,11 @@ export const client = {
   gateContinue: (tabId: TabId) => send({ op: 'gateContinue', tabId }).then(errorOf),
   /** Open the stopped url in an ordinary tab; the persona tab goes back where it was. */
   gateOpenNormally: (tabId: TabId) => send({ op: 'gateOpenNormally', tabId }).then(errorOf),
+  /** Use the browser's own login on the stopped website (Google preset for Google), then resume. */
+  gateUsePassThrough: (tabId: TabId) => send({ op: 'gateUsePassThrough', tabId }).then(errorOf),
+  /** Add websites to the "use my normal login" list. Needs no permission, so no click rule. */
+  passThroughAdd: (hosts: readonly string[]) => send({ op: 'passThroughAdd', hosts }).then(errorOf),
+  passThroughRemove: (host: string) => send({ op: 'passThroughRemove', host }).then(errorOf),
   /** Clear a leaked sign-in and sign the session's tabs in again, through the gate. */
   startOver: (sessionId: SessionId) => send({ op: 'startOver', sessionId }).then(errorOf),
 

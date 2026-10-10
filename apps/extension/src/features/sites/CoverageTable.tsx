@@ -14,6 +14,7 @@ const STATUS_COLOR: Record<CoverageStatus, string> = {
   leaking: 'var(--state-expired)',
   unknown: 'var(--state-empty)',
   'not-applicable': 'var(--muted-foreground)',
+  shared: 'var(--muted-foreground)',
 };
 
 export function CoverageTable(props: { readonly report: readonly OriginCoverage[] }) {

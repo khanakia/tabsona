@@ -25,7 +25,7 @@ const tab = (over: Partial<TabStatus> = {}): TabStatus => ({
   tabId: 7, url: 'https://sync.localhost/', site: 'https://sync.localhost',
   isWebPage: true, siteAllowed: true, sessionId: null, personaId: null,
   personaName: null, color: null, isEmpty: false, coverage: [], summary: 'not isolated',
-  unguardedSignInSites: [], leakedSignInSites: [], ...over,
+  unguardedSignInSites: [], leakedSignInSites: [], usesNormalLogin: false, ...over,
 });
 
 const noop = {
@@ -136,7 +136,8 @@ describe('CurrentTabBar — a signed-in PLAIN tab', () => {
 describe('CurrentTabBar — other states', () => {
   it('offers the grant, and nothing else, on a site that is not allowed yet', () => {
     render(<CurrentTabBar tab={tab({ siteAllowed: false })} personas={[persona()]} {...noop} />);
-    expect(screen.getByText(ACTION_HELP.allowSite.label)).toBeTruthy();
+    // The button reads "Allow"; its accessible name carries the full meaning and the site.
+    expect(screen.getByRole('button', { name: `${ACTION_HELP.allowSite.label}: sync.localhost` })).toBeTruthy();
     expect(screen.queryByText(ACTION_HELP.addToPersona.label)).toBeNull();
   });
 
@@ -214,6 +215,12 @@ describe('CurrentTabBar — other states', () => {
     expect(screen.getByText(/api\.workos\.com\) · login not saved/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: ACTION_HELP.startOver.label }));
     expect(onStartOver).toHaveBeenCalledWith('s_1');
+  });
+
+  it('on a website the user chose to reach with their normal login, says so and never "Separate"', () => {
+    render(<CurrentTabBar tab={inPersona({ usesNormalLogin: true, summary: 'uses your normal login (your choice)' })} personas={[persona()]} {...noop} />);
+    expect(screen.getByText('Uses your normal login')).toBeTruthy();
+    expect(screen.queryByText('Separate')).toBeNull();
   });
 
   it('labels every footer action with a word, and routes save and leave', () => {

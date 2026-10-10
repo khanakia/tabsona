@@ -7,7 +7,10 @@ import { DEFAULT_SETTINGS, type Settings } from '@/domain/messages';
 
 /** No module mocks: the panel renders from a plain settings object. */
 /** The "Allow on all sites" props, off and inert unless a test says otherwise. */
-const allSites = { allSitesAllowed: false, onAllowAllSites: () => undefined, onRemoveAllSites: () => undefined };
+const allSites = {
+  allSitesAllowed: false, onAllowAllSites: () => undefined, onRemoveAllSites: () => undefined,
+  passThroughHosts: [], onAddPassThrough: () => undefined, onRemovePassThrough: () => undefined,
+};
 
 const renderPanel = (over: Partial<Settings> = {}, onChange = vi.fn()) => {
   render(<SettingsPanel settings={{ ...DEFAULT_SETTINGS, ...over }} onChange={onChange} onForgetDragged={() => undefined} sample={{ name: 'Consultant', color: '#10b981' }} {...allSites} />);
@@ -17,7 +20,37 @@ const renderPanel = (over: Partial<Settings> = {}, onChange = vi.fn()) => {
 describe('SettingsPanel', () => {
   it('groups settings by what they affect', () => {
     renderPanel();
-    for (const title of ['Websites', 'Badge on pages', 'Page titles', 'Tabs']) expect(screen.getByRole('region', { name: title })).toBeTruthy();
+    for (const title of ['Websites', 'Use my normal login on', 'Badge on pages', 'Page titles', 'Tabs']) expect(screen.getByRole('region', { name: title })).toBeTruthy();
+  });
+
+  it('has a nav entry for every card, in order, and highlights the first by default', () => {
+    renderPanel();
+    const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+    const buttons = within(nav).getAllByRole('button');
+    expect(buttons.map((b) => b.textContent)).toEqual(['Websites', 'Use my normal login on', 'Badge on pages', 'Page titles', 'Tabs']);
+    expect(buttons[0]?.getAttribute('aria-current')).toBe('true');
+    expect(buttons.filter((b) => b.getAttribute('aria-current') === 'true')).toHaveLength(1);
+  });
+
+  it('a nav click highlights that card and reports it to the host', () => {
+    const onGroupSelect = vi.fn();
+    render(<SettingsPanel settings={DEFAULT_SETTINGS} onChange={() => undefined} onForgetDragged={() => undefined} sample={{ name: 'Consultant', color: '#10b981' }} {...allSites} onGroupSelect={onGroupSelect} />);
+    const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+    fireEvent.click(within(nav).getByRole('button', { name: 'Page titles' }));
+    expect(onGroupSelect).toHaveBeenCalledWith('titles');
+    expect(within(nav).getByRole('button', { name: 'Page titles' }).getAttribute('aria-current')).toBe('true');
+    expect(within(nav).getByRole('button', { name: 'Websites' }).getAttribute('aria-current')).toBeNull();
+  });
+
+  it('starts on the card a deep link names', () => {
+    render(<SettingsPanel settings={DEFAULT_SETTINGS} onChange={() => undefined} onForgetDragged={() => undefined} sample={{ name: 'Consultant', color: '#10b981' }} {...allSites} focusGroup="badge" />);
+    const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+    expect(within(nav).getByRole('button', { name: 'Badge on pages' }).getAttribute('aria-current')).toBe('true');
+  });
+
+  it('gives each card an id the nav can scroll to', () => {
+    renderPanel();
+    for (const g of ['websites', 'normal-login', 'badge', 'titles', 'tabs']) expect(document.getElementById(`settings-${g}`)).not.toBeNull();
   });
 
   it('shows the current corner and style as selected', () => {

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { GatePanel, gateWording } from '../GatePanel';
+import { GatePanel, gateWording, normalLoginWording } from '../GatePanel';
 import { ACTION_HELP } from '@/ui/help';
 import type { GateInfo } from '@/domain/messages';
 
@@ -19,10 +19,11 @@ const base: GateInfo = {
   reason: 'sign-in',
   hostsToAllow: ['https://api.workos.com'],
   viaForm: false,
+  passThroughOffer: null,
 };
 
 function renderGate(info: GateInfo, error: string | null = null) {
-  const spies = { onAllowAndContinue: vi.fn(), onAllowAllSites: vi.fn(), onOpenNormally: vi.fn() };
+  const spies = { onAllowAndContinue: vi.fn(), onAllowAllSites: vi.fn(), onOpenNormally: vi.fn(), onUseNormalLogin: vi.fn() };
   render(<GatePanel info={info} error={error} {...spies} />);
   return spies;
 }
@@ -114,5 +115,49 @@ describe('a stopped form POST — cannot be resent, so the page says what happen
   it('a plain stop still offers both', () => {
     renderGate(base);
     expect(screen.getByRole('button', { name: ACTION_HELP.openNormally.label })).toBeTruthy();
+  });
+});
+
+describe('"use my normal login" on the gate', () => {
+  const google: GateInfo = {
+    ...base,
+    host: 'https://accounts.google.com',
+    url: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=x',
+    hostsToAllow: ['https://accounts.google.com'],
+    passThroughOffer: { kind: 'google', hosts: ['accounts.google.com', 'accounts.youtube.com'] },
+  };
+
+  it('is absent when nothing is offered', () => {
+    renderGate(base);
+    expect(screen.queryByRole('button', { name: /normal (Google )?login/i })).toBeNull();
+    expect(normalLoginWording(base)).toBeNull();
+  });
+
+  it('Google: says Google lets you pick the account and the app login stays separate, and the button reports the click', () => {
+    const spies = renderGate(google);
+    const wording = normalLoginWording(google);
+    expect(wording?.button).toBe(ACTION_HELP.useNormalGoogleLogin.label);
+    expect(wording?.line).toContain('Google lets you pick the account');
+    expect(wording?.line).toContain('staging-app.example.com’s own login stays separate for “s2”');
+    expect(screen.getByText(/Google lets you pick the account/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: ACTION_HELP.useNormalGoogleLogin.label }));
+    expect(spies.onUseNormalLogin).toHaveBeenCalledTimes(1);
+    expect(spies.onAllowAndContinue).not.toHaveBeenCalled();
+  });
+
+  it('any other website names itself and says what it then sees', () => {
+    const info: GateInfo = { ...base, passThroughOffer: { kind: 'host', hosts: ['api.workos.com'] } };
+    renderGate(info);
+    const wording = normalLoginWording(info);
+    expect(wording?.button).toBe('Use my normal login on api.workos.com');
+    expect(wording?.line).toContain('shared with your other tabs');
+    expect(screen.getByRole('button', { name: 'Use my normal login on api.workos.com' })).toBeTruthy();
+  });
+
+  it('keeps the three existing ways out beside it', () => {
+    renderGate(google);
+    expect(screen.getByRole('button', { name: ACTION_HELP.allowAndContinue.label })).toBeTruthy();
+    expect(screen.getByRole('button', { name: ACTION_HELP.openNormally.label })).toBeTruthy();
+    expect(screen.getByRole('button', { name: ACTION_HELP.allowAllSites.label })).toBeTruthy();
   });
 });
