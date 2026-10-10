@@ -80,7 +80,7 @@ export function StateBadge({
         {label}
       </TooltipTrigger>
       <TooltipPositioner>
-        <TooltipContent className="max-w-56 border border-border bg-popover px-2.5 py-1.5 text-[11px] leading-snug text-popover-foreground shadow-md [&>[data-slot=tooltip-arrow]]:hidden">
+        <TooltipContent className="max-w-72 border border-border bg-popover px-3 py-2.5 text-[13px] leading-normal text-popover-foreground shadow-md [&>[data-slot=tooltip-arrow]]:hidden">
           {help}
         </TooltipContent>
       </TooltipPositioner>

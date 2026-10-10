@@ -30,7 +30,7 @@ export function HelpCardBody({ help, titled = false }: {
 function Gotcha({ text }: { readonly text: string }) {
   return (
     <p className="flex items-start gap-1 text-(--caution)">
-      <TriangleAlert className="mt-px size-3 shrink-0" />
+      <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
       <span>{text}</span>
     </p>
   );
@@ -55,7 +55,7 @@ export function WithHelp(props: {
         {props.children}
       </TooltipTrigger>
       <TooltipPositioner>
-        <TooltipContent className="max-w-64 border border-border bg-popover px-2.5 py-2 text-[11px] leading-snug text-popover-foreground shadow-md [&>[data-slot=tooltip-arrow]]:hidden">
+        <TooltipContent className="max-w-[min(20rem,calc(100vw-1rem))] border border-border bg-popover px-3 py-2.5 text-[13px] leading-normal text-popover-foreground shadow-md [&>[data-slot=tooltip-arrow]]:hidden">
           <HelpCardBody help={props.help} titled={props.titled ?? false} />
         </TooltipContent>
       </TooltipPositioner>
@@ -92,10 +92,10 @@ export function ActionMenuItem(props: {
       <span className="min-w-0 space-y-0.5">
         <span className="block font-medium">{props.label ?? props.help.label}</span>
         {!props.compact && (
-          <span className="block text-[11px] leading-snug text-muted-foreground">{props.help.what}</span>
+          <span className="block text-xs leading-snug text-muted-foreground">{props.help.what}</span>
         )}
         {!props.compact && props.help.gotcha && (
-          <span className="block text-[11px] leading-snug text-(--caution)">{props.help.gotcha}</span>
+          <span className="block text-xs leading-snug text-(--caution)">{props.help.gotcha}</span>
         )}
       </span>
     </DropdownMenuItem>

@@ -1,0 +1,11 @@
+{
+  "_table": "comments",
+  "_v": 1,
+  "body": "User (verbatim): also allwoig wsite shoud e difnet hat Add Site it means it will be added as tab instead i want to allwo thse sites not to add to tab lol. Asked agent for an Allowed sites list (grant/remove without adding a site/tab).",
+  "created_at": "2026-10-09T12:12:18.591182000Z",
+  "created_by_actor_id": null,
+  "entity_id": "tsk_01a12074f9e37474b762abe67088e6f6",
+  "entity_table": "tasks",
+  "id": "cmt_01a12094171f7311818aa115e21dbd0e",
+  "updated_at": "2026-10-09T12:12:18.591183000Z"
+}

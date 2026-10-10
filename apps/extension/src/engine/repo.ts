@@ -9,10 +9,14 @@ import {
 import {
   SCHEMA_VERSION, STORAGE_KEY_BINDINGS, STORAGE_KEY_PERSONAS,
   STORAGE_KEY_SCHEMA, STORAGE_KEY_SESSIONS, STORAGE_KEY_SETTINGS, STORAGE_KEY_BADGE_PLACEMENTS,
+  STORAGE_KEY_SIGNIN_CHAINS, STORAGE_KEY_FORM_HINTS, STORAGE_KEY_GATE_PENDING, STORAGE_KEY_LAST_PAGES, STORAGE_KEY_LEAK_WINDOWS,
 } from '@/core/constants';
+import { withHop, type SignInHops } from '@/core/signin';
+import { hintExplainsStop } from '@/core/gate';
+import type { FormHint, FormHints, GatePending, GatePendings, LeakWindows } from '@/core/gate';
 import { normalizePlacements, type BadgePlacement, type BadgePlacements } from '@/core/placement';
 import { createPersona, createSession, siteOf } from '@/core/personas';
-import type { Persona, Session, SessionId, TabBindings } from '@/domain/types';
+import type { Origin, Persona, Session, SessionId, TabBindings, TabId } from '@/domain/types';
 
 /**
  * Serialize every read-modify-write.
@@ -98,6 +102,120 @@ export async function loadBindings(): Promise<TabBindings> {
 
 export async function saveBindings(bindings: TabBindings): Promise<void> {
   await chrome.storage.session.set({ [STORAGE_KEY_BINDINGS]: bindings });
+}
+
+/** Sign-in hosts seen per site, kept across browser runs. See core/signin.ts. */
+export async function loadSignInHops(): Promise<SignInHops> {
+  const got = await chrome.storage.local.get(STORAGE_KEY_SIGNIN_CHAINS);
+  return (got[STORAGE_KEY_SIGNIN_CHAINS] as SignInHops | undefined) ?? {};
+}
+
+/** Record that `site` sent a persona tab to `target`. Under the lock, so two redirects
+ *  landing together cannot drop one. Returns whether anything new was recorded, so the
+ *  caller redraws the badge only when there is something new to say. */
+export async function noteSignInHop(site: Origin, target: Origin): Promise<boolean> {
+  return withLock(async () => {
+    const before = await loadSignInHops();
+    const after = withHop(before, site, target);
+    if (after === before) return false;
+    await chrome.storage.local.set({ [STORAGE_KEY_SIGNIN_CHAINS]: after });
+    return true;
+  });
+}
+
+/** Navigations the gate stopped, by tab id. See core/gate.ts. */
+export async function loadGatePending(): Promise<GatePendings> {
+  const got = await chrome.storage.session.get(STORAGE_KEY_GATE_PENDING);
+  return (got[STORAGE_KEY_GATE_PENDING] as GatePendings | undefined) ?? {};
+}
+
+/** Record (pending) or clear (null) the navigation the gate stopped in `tabId`. */
+export async function setGatePending(tabId: TabId, pending: GatePending | null): Promise<void> {
+  await withLock(async () => {
+    const next: Record<string, GatePending> = { ...(await loadGatePending()) };
+    if (pending) next[String(tabId)] = pending; else delete next[String(tabId)];
+    await chrome.storage.session.set({ [STORAGE_KEY_GATE_PENDING]: next });
+  });
+}
+
+/**
+ * Record a stopped navigation, and decide ATOMICALLY whether it was a form POST.
+ *
+ * The form notice (from the page) and the stop (from the network) arrive in either order.
+ * Each used to read the other's record and then write its own in separate steps, so both
+ * could read "nothing there" before either wrote, and the POST was resumed as a GET. Both
+ * halves now run inside one lock: the later arrival always sees the earlier one.
+ */
+export async function recordStop(tabId: TabId, base: Omit<GatePending, 'viaForm'>): Promise<GatePending> {
+  return withLock(async () => {
+    const hints: Record<string, FormHint> = { ...(await loadFormHints()) };
+    const viaForm = hintExplainsStop(hints[String(tabId)], base.url, base.at);
+    const pending: GatePending = viaForm ? { ...base, viaForm } : base;
+    const all: Record<string, GatePending> = { ...(await loadGatePending()), [String(tabId)]: pending };
+    delete hints[String(tabId)];
+    await chrome.storage.session.set({ [STORAGE_KEY_GATE_PENDING]: all, [STORAGE_KEY_FORM_HINTS]: hints });
+    return pending;
+  });
+}
+
+/** Record a form POST the page just submitted; when its stop was already recorded, mark
+ *  that stop as the POST instead of keeping a hint nobody will read. See `recordStop`. */
+export async function recordFormHint(tabId: TabId, hint: FormHint): Promise<void> {
+  await withLock(async () => {
+    const pendings: Record<string, GatePending> = { ...(await loadGatePending()) };
+    const stopped = pendings[String(tabId)];
+    if (stopped && !stopped.viaForm && hintExplainsStop(hint, stopped.url, hint.at)) {
+      pendings[String(tabId)] = { ...stopped, viaForm: true };
+      await chrome.storage.session.set({ [STORAGE_KEY_GATE_PENDING]: pendings });
+      return;
+    }
+    const hints: Record<string, FormHint> = { ...(await loadFormHints()), [String(tabId)]: hint };
+    await chrome.storage.session.set({ [STORAGE_KEY_FORM_HINTS]: hints });
+  });
+}
+
+/** The last form POST each bound tab submitted, by tab id. See core/gate.ts, `FormHint`. */
+export async function loadFormHints(): Promise<FormHints> {
+  const got = await chrome.storage.session.get(STORAGE_KEY_FORM_HINTS);
+  return (got[STORAGE_KEY_FORM_HINTS] as FormHints | undefined) ?? {};
+}
+
+/** Record (hint) or clear (null) the form POST `tabId` just submitted. */
+export async function setFormHint(tabId: TabId, hint: FormHint | null): Promise<void> {
+  await withLock(async () => {
+    const next: Record<string, FormHint> = { ...(await loadFormHints()) };
+    if (hint) next[String(tabId)] = hint; else delete next[String(tabId)];
+    await chrome.storage.session.set({ [STORAGE_KEY_FORM_HINTS]: next });
+  });
+}
+
+/** The last http(s) page each bound tab committed, by tab id. */
+export async function loadLastPages(): Promise<Readonly<Record<string, string>>> {
+  const got = await chrome.storage.session.get(STORAGE_KEY_LAST_PAGES);
+  return (got[STORAGE_KEY_LAST_PAGES] as Record<string, string> | undefined) ?? {};
+}
+
+/** Remember (url) or forget (null) the page `tabId` is on. */
+export async function setLastPage(tabId: TabId, url: string | null): Promise<void> {
+  await withLock(async () => {
+    const next: Record<string, string> = { ...(await loadLastPages()) };
+    if (url) next[String(tabId)] = url; else delete next[String(tabId)];
+    await chrome.storage.session.set({ [STORAGE_KEY_LAST_PAGES]: next });
+  });
+}
+
+/** Open leak windows by tab id. See core/gate.ts. */
+export async function loadLeakWindows(): Promise<LeakWindows> {
+  const got = await chrome.storage.session.get(STORAGE_KEY_LEAK_WINDOWS);
+  return (got[STORAGE_KEY_LEAK_WINDOWS] as LeakWindows | undefined) ?? {};
+}
+
+/** Read-modify-write the leak windows under the lock. */
+export async function updateLeakWindows(fn: (windows: LeakWindows) => LeakWindows): Promise<void> {
+  await withLock(async () => {
+    const next = fn(await loadLeakWindows());
+    await chrome.storage.session.set({ [STORAGE_KEY_LEAK_WINDOWS]: next });
+  });
 }
 
 /** Settings with every field validated — see core/settings.ts for why per field. */

@@ -21,6 +21,7 @@ export const LAYER_PLAIN: Readonly<Record<StateLayer, string>> = {
   serviceWorker: 'background worker',
   sharedWorker: 'shared background worker',
   crossOriginFrames: 'content embedded from other websites',
+  signInSites: 'sign-in through another website',
 };
 
 /**
@@ -34,7 +35,9 @@ export type ActionId =
   | 'openSession' | 'openSessionHere' | 'anotherAccountForSite' | 'renameSession' | 'deleteSession'
   | 'allowSite' | 'addToPersona' | 'useTabSignedOut' | 'newPersonaFromLogin' | 'moveLogin' | 'copyLogin'
   | 'anotherAccountHere' | 'addSiteToPersona' | 'anotherAccountNewPersona'
-  | 'saveNow' | 'leavePersona';
+  | 'saveNow' | 'leavePersona' | 'allowSignInSite' | 'allowAllSignInSites' | 'allowSiteOnly'
+  | 'allowAllSites' | 'removeAllSites' | 'chooseSitesMyself'
+  | 'allowAndContinue' | 'openNormally' | 'startOver';
 
 /**
  * One action's explanation.
@@ -106,7 +109,7 @@ export const ACTION_HELP: Readonly<Record<ActionId, ActionHelp>> = {
   deletePersona: {
     label: 'Delete persona',
     what: 'Deletes this persona and every login saved in it.',
-    touches: 'Its open tabs go back to your normal browser login. Websites are not signed out.',
+    touches: 'Its open tabs reload on your normal browser login. Websites are not signed out.',
     gotcha: 'This cannot be undone.',
   },
   openSession: {
@@ -132,8 +135,54 @@ export const ACTION_HELP: Readonly<Record<ActionId, ActionHelp>> = {
   deleteSession: {
     label: 'Forget this login',
     what: 'Removes this saved login from the persona.',
-    touches: 'The website is not signed out. Open tabs using it go back to your normal browser login.',
+    touches: 'The website is not signed out. Open tabs using it reload on your normal browser login.',
     gotcha: 'To use it again you will have to sign in again.',
+  },
+  allowSignInSite: {
+    label: 'Allow',
+    what: 'This website signs you in through another website. Allowing that one lets Tabsona keep its login separate too.',
+    touches: 'Until then, a persona tab stops before it visits that website and asks you there, so it never arrives signed in as you.',
+  },
+  allowAllSignInSites: {
+    label: 'Allow all',
+    what: 'Chrome asks once for every sign-in website listed here. Allowing only grants Tabsona access: no tab opens and nothing is added to a persona.',
+    touches: 'Next time a persona signs in to this site, it goes straight through. A website the sign-in has not reached yet is asked about in the tab, when the persona gets there.',
+  },
+  allowSiteOnly: {
+    label: 'Allow a website',
+    what: 'Gives Tabsona access to a website without opening it or adding it to a persona — for a sign-in website (an SSO provider) that a persona’s site redirects through.',
+    touches: 'Chrome asks for your permission. Nothing else changes until a persona tab visits that website.',
+  },
+  allowAndContinue: {
+    label: 'Allow and continue',
+    what: 'Chrome asks for access to the website(s) listed, then this tab carries on to exactly where it was going, now with the persona’s own login there.',
+    touches: 'Only grants Tabsona access: tabs that are not in a persona keep your normal browser login on that website.',
+  },
+  openNormally: {
+    label: 'Open in a normal tab',
+    what: 'Opens the website in a new ordinary tab, signed in as you, and puts this persona tab back on the page it was on.',
+    touches: 'Nothing is allowed and the persona is unchanged. The new tab is not part of any persona.',
+  },
+  startOver: {
+    label: 'Start over signed out',
+    what: 'Clears this persona’s login and saved page data for the site, then reloads its tabs signed out so you can sign in again — this time Tabsona asks before any website it is not allowed on.',
+    touches: 'Your normal browser login and every other persona are untouched.',
+  },
+  allowAllSites: {
+    label: 'Allow on all sites',
+    what: 'Chrome asks once to let Tabsona work on every website. From then on a persona keeps its login separate wherever its tabs go, including the sign-in websites an app sends you through, with no prompt per website.',
+    touches: 'Tabs that are not in a persona do not change: they keep your normal browser login everywhere. A persona tab, though, never sends your normal login to ANY website, so a Google, GitHub or other link it follows starts signed out in that tab.',
+    gotcha: 'Chrome words it as “read and change all your data on all websites”. Tabsona sends nothing anywhere and leaves tabs outside a persona alone: its page script loads there but changes nothing. You can remove it in Settings at any time.',
+  },
+  removeAllSites: {
+    label: 'Remove',
+    what: 'Takes back “all websites”. Tabsona then works only on the websites you allowed one by one, which stay allowed.',
+    touches: 'A persona tab that is about to visit a website you have not allowed stops and asks you first, so nothing is sent as you. The tab shows a question page with a button to allow it and carry on.',
+  },
+  chooseSitesMyself: {
+    label: 'I’ll choose sites myself',
+    what: 'Allow websites only as they come up. When a persona tab is about to visit a website you have not allowed, it stops and asks you, right in that tab, before anything is sent.',
+    touches: 'Nothing is allowed yet. Each question has Allow and continue (it remembers a sign-in that passes through several websites and asks for all of them at once), Open in a normal tab, and Allow on all sites. This question is not asked again; the choice stays in Settings.',
   },
   allowSite: {
     label: 'Allow this website',
@@ -284,9 +333,28 @@ export function confirmReplaceLogin(personaName: string, site: string): ConfirmR
 
 /** The library page's sections and settings groups that carry an ⓘ. A closed set, so a
  *  section added to the page without an explanation fails to compile where it is used. */
+/**
+ * What "not separated" means on a sign-in website, in full — the popover behind the
+ * short line, which a narrow popup truncated to "not sep…" with no way to read the rest.
+ */
+export const SIGN_IN_NOT_SEPARATED: ActionHelp = {
+  label: 'Sign-in not separated',
+  what: 'This persona’s website sends you to another website to sign in (an SSO provider such as WorkOS, Auth0 or Google). Tabsona is not allowed on that website, so it cannot keep the persona’s login there apart from yours.',
+  touches: 'A persona tab stops before it goes there and asks you in the tab. This list is the fallback for what that stop cannot catch: a sign-in that happens inside the page (a frame or a background request) uses your normal login on that website.',
+  gotcha: 'Allow these websites (Allow only grants access; it opens no tab). A login that already came back through one is not saved: the persona offers Start over signed out.',
+};
+
+/** The current-tab warning for a session whose sign-in went through an unguarded website:
+ *  the login was refused, and the persona is not signed in as itself until it starts over. */
+export const SIGN_IN_LEAKED: ActionHelp = {
+  label: 'Signed in through an unprotected website',
+  what: 'This persona’s sign-in passed through a website Tabsona was not allowed on, which may have signed it in as your normal browser login. Tabsona did not save that login.',
+  touches: 'Start over signs this persona out on the site and lets it sign in again, stopping before any website Tabsona is not allowed on.',
+};
+
 export type ExplainId =
   | 'personas' | 'sites' | 'coverage' | 'data'
-  | 'settingsBadge' | 'settingsTitles' | 'settingsTabs';
+  | 'settingsBadge' | 'settingsTitles' | 'settingsTabs' | 'settingsSites' | 'welcome';
 
 /**
  * What each part of the library page is for, in the same three-question shape as
@@ -301,7 +369,7 @@ export const EXPLAIN: Readonly<Record<ExplainId, ActionHelp>> = {
   },
   sites: {
     label: 'Allowed websites',
-    what: 'Tabsona only works on websites you allow. Allowing happens from the popup, where Chrome shows its own prompt, so it always takes your click.',
+    what: 'Tabsona only works on websites you allow: every website at once (Settings → Allow on all sites), or one by one from the popup or the box below. Chrome shows its own prompt each time, so it always takes your click.',
     touches: 'Removing a website here stops Tabsona working there. Saved logins for it are kept.',
   },
   coverage: {
@@ -326,9 +394,21 @@ export const EXPLAIN: Readonly<Record<ExplainId, ActionHelp>> = {
     what: 'Puts the persona’s coloured heart in front of each tab’s title, so the tab strip shows whose tab is whose even when the badge is hidden.',
     touches: 'Only the tab title changes. Nothing is sent to the website.',
   },
+  settingsSites: {
+    label: 'Websites',
+    what: 'Where Tabsona may work. “Allow on all sites” covers every website with one Chrome prompt, so an app that signs in through other websites (WorkOS, Auth0, Google) is separated end to end. Without it, you allow websites one by one.',
+    touches: 'With it on, a persona tab never sends your normal browser login to ANY website, including Google or GitHub pages it goes to: each starts signed out in that tab. Tabs outside a persona are not changed.',
+    gotcha: 'Removing it keeps every website you allowed one by one.',
+  },
+  welcome: {
+    label: 'Let Tabsona keep logins separate on every website?',
+    what: 'Many apps sign you in through another website (WorkOS, Auth0, Google). Tabsona can only keep a persona’s login separate on websites Chrome lets it touch, so allowing every website once means a persona never comes back signed in as you through one of them.',
+    touches: 'Tabs outside a persona keep your normal login everywhere. Inside a persona tab, every website starts signed out, so a Google or GitHub link there asks you to sign in again.',
+    gotcha: 'Prefer to decide per website? Choose sites yourself: the popup asks when an app’s sign-in needs another website. Either way, Settings can change it later.',
+  },
   settingsTabs: {
     label: 'Tabs',
-    what: 'How a persona’s tabs are arranged when you open it: in a Chrome tab group in its colour, and optionally in a window of their own.',
+    what: 'How a persona’s tabs are arranged. With “Open tabs in a tab group” on, every way a tab joins a persona (Open all, opening one site, another login, adding a site, using this tab or moving its login) puts it in that persona’s Chrome tab group, joining the one already open in the window. Off, tabs open individually. Optionally, Open all uses a window of its own.',
     touches: 'Arrangement only. Logins are not affected.',
   },
 };

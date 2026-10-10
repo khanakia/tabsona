@@ -11,7 +11,7 @@ Give each tab its own login session. Save, open and reuse a whole set of signed-
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-281%20unit%20%2B%2028%20script%20%2B%2012%20e2e-success.svg)](#verify-it-yourself)
+[![Tests](https://img.shields.io/badge/tests-435%20unit%20%2B%2028%20script%20%2B%2013%20e2e-success.svg)](#verify-it-yourself)
 
 [How it works](docs/how-it-works.md) · [Limits](docs/limits.md) · [Privacy](https://khanakia.github.io/tabsona/privacy.html) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
@@ -39,7 +39,7 @@ Client X                    1 site   ▶ Open all
   sync.localhost   ● Signed in   4 cookies · 3d
 ```
 
-One click on **Open all** and the whole scenario opens: three tabs, three apps, the right identity in each, grouped in a native Chrome tab group.
+One click on **Open all** and the whole scenario opens: three tabs, three apps, the right identity in each, grouped in a native Chrome tab group. Tabs you open one at a time join that same group; switch off **Open tabs in a tab group** in Settings to open them individually.
 
 ### Screenshots
 
@@ -72,7 +72,7 @@ task package          # build, validate, then dist/tabsona-<version>.zip
 ## Getting started
 
 1. Open your app and sign in normally.
-2. Open the popup (<kbd>⌘⇧S</kbd> / <kbd>Ctrl+Shift+S</kbd>) → **Allow this website** → confirm in Chrome's dialog. Nothing can be isolated until you do; that is Chrome's security model, not a step that can be skipped for you.
+2. Give Tabsona access: on the welcome page that opens on install, **Allow on all sites** (one Chrome prompt for every website), or **I'll choose sites myself** and then, in the popup on your app, **Allow this website** → confirm in Chrome's dialog. Nothing can be isolated until you do; that is Chrome's security model, not a step that can be skipped for you. See [Site access](#site-access) for the trade-off.
 3. **+** → type a persona name → <kbd>Enter</kbd>.
 4. **Add to persona** → **Move my login** → your persona.
 5. Sign in as the next role and file it into a second persona.
@@ -130,26 +130,36 @@ No `chrome.debugger`, so no "being debugged" bar and DevTools keeps working.
 
 **[Read the full explanation →](docs/how-it-works.md)** — with diagrams, the exact matching rules, and live output from a real run.
 
+## Site access
+
+The manifest declares no host permissions; `*://*/*` is only *optional*, so Tabsona can touch no website until you grant it through Chrome's own prompt. Two ways, asked once on the welcome page and changeable any time in **Settings → Websites**:
+
+- **Allow on all sites.** One prompt covers every website. A persona whose app signs in through other hosts (WorkOS, Auth0, Google) is separated end to end, with no prompt per host. The trade-off: a persona tab never sends your normal browser login to *any* website, so a Google or GitHub page it goes to starts signed out in that tab. Tabs outside a persona are not changed. Chrome describes it as "read and change all your data on all websites"; Tabsona sends nothing anywhere.
+- **Choose sites yourself.** Allow each website from the popup (**Allow this website**) or **Library → Sites → Allow a website**. When a persona tab is about to visit a website you have not allowed, it **stops before anything is sent** and shows a page right in that tab: "*app* signs you in through *host*" with **Allow and continue** (one click, straight on to where it was going; a sign-in chain you have seen before is one prompt for all its websites), **Open in a normal tab**, or **Allow on all sites**. A login that still slipped through is never saved: the persona is marked, with **Start over signed out**.
+
+Removing **Allow on all sites** keeps every website you allowed one by one.
+
 ## Verify it yourself
 
 ```bash
 task check
 ```
 
-A full-history secret scan, type-check, 281 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and twelve end-to-end suites driving the **built extension** in a real Chrome.
+A full-history secret scan, type-check, 435 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and thirteen end-to-end suites driving the **built extension** in a real Chrome.
 
 | Task | Proves |
 |---|---|
 | `e2e:isolation` | two personas at once · storage isolated · save → wipe origin → restore · badge honest |
-| `e2e:persona` | opening a persona opens every site with its own identity, in a named tab group |
+| `e2e:persona` | opening a persona opens every site with its own identity, in one named tab group · single opens join it · setting off leaves tabs ungrouped |
 | `e2e:capture` | copying an ordinary tab's login leaves the browser's own jar alone |
 | `e2e:move` | moving a login empties the browser's jar |
-| `e2e:flows` | all four ways to build a session, and what each does to a plain tab |
+| `e2e:flows` | all four ways to build a session, and what each does to a plain tab, and to its tab group |
 | `e2e:twologins` | a second persona takes a fresh session for a site another already holds |
 | `e2e:tabs` | open-in-this-tab moves every layer · a blank new tab never joins a persona |
 | `e2e:boot` | concurrent worker boots never duplicate a content script |
 | `e2e:migrate` | upgrading from older data keeps every login and boots clean |
 | `e2e:cookieonly` | a cookie-only app that redirects signed-out users opens signed in · its cookie reaches no other host |
+| `e2e:signin` | with only the app allowed, a sign-in through a chain of providers is stopped by the gate before it leaves (gate page, refused/declined continue, open in a normal tab, link to another host, unbound tab untouched, remembered chain, resume) and a leaked login is never saved · whole chain allowed, each persona signs in as its own user · a forgotten login's open tab is released and re-adding the site opens signed out · with only **Allow on all sites** granted, a persona opens signed out, signs in as its own user, and no alert or host prompt appears |
 | `e2e:storage` | two personas on one origin stay apart on a cookie, a localStorage and an IndexedDB login, each against a plain-tab control |
 | `e2e:badge` | the in-page badge: bottom-left by default, click shrinks, drag moves it per site and survives reload, double-click resets · the title carries the persona colour and follows a recolour · the tab group recolours · a plain tab gets neither |
 

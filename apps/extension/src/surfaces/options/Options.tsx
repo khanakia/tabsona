@@ -9,7 +9,8 @@ import { client } from '@/app/client';
 import { useLibrary } from '@/app/useLibrary';
 import { PersonaRow } from '@/features/personas';
 import { CoverageTable, SiteList } from '@/features/sites';
-import { SettingsPanel } from '@/features/settings';
+import { SignInSitesSection } from '@/features/signin';
+import { AllSitesWelcome, SettingsPanel } from '@/features/settings';
 import { isOptionsSection, sectionFromHash } from '@/core/settings';
 import { PERSONA_PALETTE } from '@/core/constants';
 import { ConfirmDialog } from '@/ui/ConfirmDialog';
@@ -67,6 +68,14 @@ export function Options() {
 
   const sessionCount = state.personas.reduce((n, p) => n + p.sessions.length, 0);
 
+  // Straight from the click: Chrome rejects permissions.request without a user gesture.
+  const allowAllSites = () => {
+    void client.grantAllSites().then((ok) => {
+      if (!ok) setFeedback({ tone: 'warn', text: 'Chrome did not allow every website. Nothing changed.' });
+      return refresh();
+    });
+  };
+
   return (
     <div className="mx-auto max-w-5xl px-6 py-6">
       <header className="mb-4 flex items-baseline gap-3">
@@ -74,7 +83,9 @@ export function Options() {
         <p className="text-xs text-muted-foreground">
           {state.personas.length} persona{state.personas.length === 1 ? '' : 's'} ·
           {' '}{sessionCount} saved login{sessionCount === 1 ? '' : 's'} ·
-          {' '}{state.allowedOrigins.length} allowed site{state.allowedOrigins.length === 1 ? '' : 's'}
+          {' '}{state.allSitesAllowed
+            ? 'allowed on every website'
+            : `${state.allowedOrigins.length} allowed site${state.allowedOrigins.length === 1 ? '' : 's'}`}
         </p>
       </header>
 
@@ -84,6 +95,16 @@ export function Options() {
           text={feedback.text}
           onDismiss={() => setFeedback(null)}
           className="mb-3 rounded-md border border-border"
+        />
+      )}
+
+      {/* First run: asked once. Gone as soon as every website is allowed (live from
+          Chrome) or the user picks "I'll choose sites myself" (a stored setting). */}
+      {!state.settings.chooseSitesMyself && (
+        <AllSitesWelcome
+          allowed={state.allSitesAllowed}
+          onAllow={allowAllSites}
+          onDecline={() => void run(() => client.updateSettings({ chooseSitesMyself: true }))}
         />
       )}
 
@@ -177,9 +198,14 @@ export function Options() {
 
         <TabsContent value="sites" className="mt-4 max-w-2xl space-y-4">
           <SectionIntro help={EXPLAIN.sites} />
+          <SignInSitesSection
+            alerts={state.signInAlerts}
+            onAllow={(origins) => void client.grantOrigins(origins).then(refresh)}
+          />
           <SiteList
             allowedOrigins={state.allowedOrigins}
             onRevoke={(pattern) => void client.revokeOrigin(pattern).then(refresh)}
+            onAllow={(origin) => void client.grantOrigin(origin).then(refresh)}
           />
         </TabsContent>
 
@@ -189,6 +215,9 @@ export function Options() {
             onChange={(patch) => void run(() => client.updateSettings(patch))}
             onForgetDragged={() => void run(() => client.resetBadgePlacements(), 'Every badge is back in its corner.')}
             sample={state.personas[0] ?? { name: 'Your persona', color: PERSONA_PALETTE[0].hex }}
+            allSitesAllowed={state.allSitesAllowed}
+            onAllowAllSites={allowAllSites}
+            onRemoveAllSites={() => void client.revokeAllSites().then(refresh)}
           />
         </TabsContent>
 

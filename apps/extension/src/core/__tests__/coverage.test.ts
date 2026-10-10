@@ -72,6 +72,20 @@ describe('computeCoverage', () => {
       expect(c.detail.length).toBeGreaterThan(0);
     }
   });
+
+  it('reports a sign-in website without permission as leaking, naming its host', () => {
+    // Observed, not guessed: the per-tab rules do not apply on a host the extension may
+    // not touch, so the browser's own login there is what the tab uses.
+    const cov = computeCoverage('cookie+storage', { ...EMPTY_OBSERVATIONS, unguardedSignInSites: ['https://api.workos.com'] });
+    const layer = cov.find((c) => c.layer === 'signInSites');
+    expect(layer?.status).toBe('leaking');
+    expect(layer?.detail).toContain('api.workos.com');
+    expect(coverageSummary(cov)).toContain('signInSites');
+  });
+
+  it('says nothing about sign-in websites when none was seen', () => {
+    expect(statusOf(computeCoverage('cookie+storage', EMPTY_OBSERVATIONS), 'signInSites')).toBe('not-applicable');
+  });
 });
 
 describe('worstStatus', () => {

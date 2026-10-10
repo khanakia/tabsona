@@ -47,9 +47,20 @@ const plan = [
   { url: PORT_B, host: HOST_B, user: 'bob' },
 ];
 
+// Which Chrome group a site's tab sits in, as { groupId, title } (title null = no group).
+const groupOfHost = async (host) => JSON.parse(await chrome.swSession.eval(
+  `chrome.tabs.query({}).then(async ts => {
+     const t = ts.find(x => x.url && x.url.includes(${JSON.stringify(host)}));
+     if (!t || t.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE) return JSON.stringify({ groupId: -1, title: null });
+     const g = await chrome.tabGroups.get(t.groupId);
+     return JSON.stringify({ groupId: t.groupId, title: g.title });
+   })`) ?? '{}');
+
 for (const step of plan) {
   const before = await pageIds(chrome);
   await chrome.op(`addSite(${JSON.stringify(personaId)}, ${JSON.stringify(step.url)})`);
+  // A single-tab open must group too — the regression was that only "open all" did.
+  step.group = await groupOfHost(step.host);
   const target = await claimNewTab(chrome, before, step.host);
   const page = await attach(target);
   await waitFor(page, formReady, `${step.host}: login form`);
@@ -94,11 +105,21 @@ const groups = await chrome.swSession.eval(
   `chrome.tabGroups ? chrome.tabGroups.query({}).then(g => JSON.stringify(g.map(x => x.title))) : '[]'`);
 const grouped = JSON.parse(groups ?? '[]');
 
+// The OFF switch: with "Open tabs in a tab group" off, a tab a persona opens stays
+// ungrouped. Checked by the tab id addSite returns, since this host is already open.
+await chrome.op('updateSettings({ useTabGroups: false })');
+const soloId = await chrome.op('newPersona("Solo")');
+const soloTab = await chrome.op(`addSite(${JSON.stringify(soloId)}, ${JSON.stringify(PORT_A)})`);
+const soloGroup = Number(await chrome.swSession.eval(`chrome.tabs.get(${Number(soloTab)}).then(t => t.groupId)`));
+await chrome.op('updateSettings({ useTabGroups: true })');
+
 await chrome.kill();
 
 console.log(`\npersona held ${siteCount} sites; openPersona reported ${opened} tabs`);
 seen.forEach((s) => console.log(`   ${s.url.replace(/#.*$/, '').padEnd(34)} ${s.who}`));
 console.log(`   chrome tab groups: ${JSON.stringify(grouped)}`);
+plan.forEach((s) => console.log(`   addSite ${s.host} -> group ${JSON.stringify(s.group)}`));
+console.log(`   with tab groups off, addSite tab ${soloTab} -> group ${soloGroup}`);
 
 const everyTabSignedIn = seen.length > 0 && seen.every((s) => s.who !== null);
 const identitiesMatchSites = seen.length === 2
@@ -111,5 +132,13 @@ const pass = report('open a persona', [
   ['every opened tab is signed in', everyTabSignedIn],
   ['each site kept its own identity', identitiesMatchSites, seen.map((s) => s.who).join(' / ')],
   ['tabs joined a named Chrome group', grouped.includes('Acme admin'), JSON.stringify(grouped)],
+  ['open-all made exactly one group for the persona',
+    grouped.filter((t) => t === 'Acme admin').length === 1, JSON.stringify(grouped)],
+  ['a single added site opens in the persona\'s group',
+    plan[0].group?.title === 'Acme admin', JSON.stringify(plan[0].group)],
+  ['a second site joins that same group, not a new one',
+    plan[1].group?.groupId === plan[0].group?.groupId && plan[1].group?.groupId !== -1,
+    `${plan[0].group?.groupId} / ${plan[1].group?.groupId}`],
+  ['with the setting off, a tab opens ungrouped', soloGroup === -1, String(soloGroup)],
 ]);
 process.exit(pass ? 0 : 1);

@@ -57,8 +57,10 @@ export function pickApp(name = process.env.APP ?? 'fixture') {
   return { ...app, name, host: new URL(app.url).host, origin: new URL(app.url).origin };
 }
 
-export async function startChrome(port) {
-  const chrome = await launchChrome({ port, extensionPath: EXT, ignoreCertErrors: true });
+/** `extensionPath` defaults to the built extension; a suite passes a copy only when it
+ *  needs a different grant set in the same run (see e2e-signin.mjs). */
+export async function startChrome(port, extensionPath = EXT) {
+  const chrome = await launchChrome({ port, extensionPath, ignoreCertErrors: true });
   if (!chrome.swSession) {
     console.error('extension service worker not found — did you build?');
     await chrome.kill();

@@ -1,0 +1,11 @@
+{
+  "_table": "comments",
+  "_v": 1,
+  "body": "User added (verbatim): il removig it from forget this login. Screenshot: popup row menu 'Forget this login' (Removes this saved login from the persona. To use it again you will have to sign in again.); the row showed Signed in · 1 tab open.",
+  "created_at": "2026-10-09T11:38:41.304496000Z",
+  "created_by_actor_id": null,
+  "entity_id": "tsk_01a12074f9e37474b762abe67088e6f6",
+  "entity_table": "tasks",
+  "id": "cmt_01a120754f1877ef948adf50036dea6b",
+  "updated_at": "2026-10-09T11:38:41.304496000Z"
+}

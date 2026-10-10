@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyCookies, cookieKey, domainMatches, domainsOf, isExpired,
+  applyCookies, cookieKey, defaultCookiePath, domainMatches, domainsOf, isExpired, pageCookieString, pageVisibleCookies, parseDocumentCookie,
   parseSetCookie, pathMatches, serializeCookieHeader,
 } from '../cookies';
 import type { CookieRecord } from '@/domain/types';
@@ -187,5 +187,49 @@ describe('domainsOf', () => {
   it('lists each distinct domain once, sorted', () => {
     expect(domainsOf([base({ domain: 'b.test' }), base({ domain: 'a.test' }), base({ domain: 'A.test' })]))
       .toEqual(['a.test', 'b.test']);
+  });
+});
+
+describe('document.cookie writes', () => {
+  const url = 'https://accounts.example.com/signin/v3/identifier?x=1';
+
+  it('defaults the path to the page directory, never to "/" unless the page is at the root', () => {
+    expect(defaultCookiePath('/signin/v3/identifier')).toBe('/signin/v3');
+    expect(defaultCookiePath('/page')).toBe('/');
+    expect(defaultCookiePath('/')).toBe('/');
+    expect(parseDocumentCookie('t=1', url)?.path).toBe('/signin/v3');
+    expect(parseDocumentCookie('t=1; Path=/', url)?.path).toBe('/');
+  });
+
+  it('can never set HttpOnly from script', () => {
+    expect(parseDocumentCookie('t=1; HttpOnly', url)?.httpOnly).toBe(false);
+  });
+
+  it('rejects a Domain that is not the page\'s own host or a parent of it', () => {
+    expect(parseDocumentCookie('t=1; Domain=example.com', url)?.domain).toBe('example.com');
+    expect(parseDocumentCookie('t=1; Domain=other.com', url)).toBeNull();
+    expect(parseDocumentCookie('t=1; Domain=ample.com', url)).toBeNull();
+  });
+
+  it('rejects Secure from an insecure page, but accepts it on localhost', () => {
+    expect(parseDocumentCookie('t=1; Secure', 'http://app.example.com/')).toBeNull();
+    expect(parseDocumentCookie('t=1; Secure', 'http://localhost:8790/')?.secure).toBe(true);
+  });
+
+  it('an expiry in the past is a delete (empty value) that applyCookies then drops', () => {
+    const jar = [base({ name: 't', value: '1', domain: 'accounts.example.com', path: '/' })];
+    const del = parseDocumentCookie('t=1; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT', url);
+    expect(del?.value).toBe('');
+    expect(applyCookies(jar, del ? [del] : [])).toEqual([]);
+  });
+
+  it('withholds HttpOnly cookies from the page and honours path and host like a request would', () => {
+    const jar = [
+      base({ name: 'sid', value: 's', domain: 'accounts.example.com', httpOnly: true }),
+      base({ name: 'js', value: '1', domain: 'accounts.example.com' }),
+      base({ name: 'deep', value: '2', domain: 'accounts.example.com', path: '/nope' }),
+    ];
+    expect(pageCookieString(jar, url)).toBe('js=1');
+    expect(pageVisibleCookies(jar).map((c) => c.name)).toEqual(['js', 'deep']);
   });
 });

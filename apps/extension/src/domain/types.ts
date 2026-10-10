@@ -69,6 +69,22 @@ export interface Session {
   bearerToken: string | null;
   savedAt: number;
   lastUsedAt: number;
+  /**
+   * Set when this session's tab signed in while it was passing through a website Tabsona
+   * is not allowed on: the login that came back may be the BROWSER's user, so what was
+   * captured in that window was NOT saved (core/gate.ts, `leakWindowFor`). Cleared by
+   * "Start over signed out". Absent on every session written before 0.4, which is the
+   * right reading: nothing was ever marked.
+   */
+  leakedThrough?: LeakedSignIn;
+}
+
+/** A sign-in that went through unguarded websites, as recorded on its session. */
+export interface LeakedSignIn {
+  /** The websites Tabsona was not allowed on, sorted. Never empty. */
+  readonly hosts: readonly Origin[];
+  /** When the leaked login was refused, epoch ms. */
+  readonly at: number;
 }
 
 /** Who you are across a set of apps. The unit a user actually thinks in. */
@@ -102,7 +118,10 @@ export type CoverageStatus = 'covered' | 'leaking' | 'unknown' | 'not-applicable
 
 export type StateLayer =
   | 'cookies' | 'localStorage' | 'sessionStorage' | 'indexedDB'
-  | 'serviceWorker' | 'sharedWorker' | 'crossOriginFrames';
+  | 'serviceWorker' | 'sharedWorker' | 'crossOriginFrames'
+  /** Sign-in through ANOTHER website (an SSO provider) the extension holds no permission
+   *  for. Header rules never apply there, so that hop uses the browser's own login. */
+  | 'signInSites';
 
 /** What the badge renders. Coverage is DATA, never prose in a comment: a tool that
  *  looks isolated while leaking turns every later bug into a question about whether
@@ -141,6 +160,19 @@ export interface TabRule {
    *  reaches the browser's own jar — see core/rules.ts for why that matters. */
   readonly responseHeaders: readonly HeaderEdit[];
 }
+
+/**
+ * One rule of the sign-in gate (core/gate.ts), in the domain's own terms.
+ *
+ * - `block`: every http(s) top-level navigation of ONE bound tab. Needs no host
+ *   permission, which is the whole point: it is the only rule that can act on a host
+ *   Tabsona is not allowed on.
+ * - `allow`: top-level navigations of the bound tabs to one granted pattern, so the
+ *   persona's own sites (and every host the user allowed) still load.
+ */
+export type GateRule =
+  | { readonly kind: 'block'; readonly id: number; readonly tabId: TabId; readonly urlFilter: string }
+  | { readonly kind: 'allow'; readonly id: number; readonly tabIds: readonly TabId[]; readonly urlRegex: string };
 
 // --- view projections -------------------------------------------------------
 

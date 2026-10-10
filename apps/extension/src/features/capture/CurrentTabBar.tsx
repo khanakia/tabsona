@@ -9,10 +9,10 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/ui/volt/dropdown-menu';
 import { ActionMenuItem, WithHelp } from '@/ui/HelpCard';
-import { ACTION_HELP, isolationHelp, type ActionHelp } from '@/ui/help';
+import { ACTION_HELP, SIGN_IN_LEAKED, SIGN_IN_NOT_SEPARATED, isolationHelp, type ActionHelp } from '@/ui/help';
 import { shortSite } from '@/ui/format';
 import type { TabStatus } from '@/domain/messages';
-import type { PersonaId, PersonaView } from '@/domain/types';
+import type { PersonaId, PersonaView, SessionId } from '@/domain/types';
 
 /**
  * The popup footer: what the current tab is, and what you can do with it.
@@ -38,6 +38,9 @@ export interface CurrentTabBarProps {
   /** Give an EXISTING persona a fresh, signed-out session for this site. The missing
    *  half of "in group 2 I want a new session for site1.com". */
   readonly onAddToPersona: (personaId: PersonaId, site: string) => void;
+  /** Clear a leaked sign-in (TabStatus.leakedSignInSites) and sign in again, through the
+   *  gate. Offered only on a tab whose session leaked. */
+  readonly onStartOver: (sessionId: SessionId) => void;
 }
 
 export function CurrentTabBar(props: CurrentTabBarProps) {
@@ -107,6 +110,54 @@ export function CurrentTabBar(props: CurrentTabBarProps) {
             {status.label}
           </WithHelp>
         </Row>
+        {/* One row per sign-in website Tabsona may not touch: the leak that made a fresh
+            persona tab arrive signed in as the browser's user. Allowing it is the fix,
+            so the button sits next to the warning rather than in the library. */}
+        {t.unguardedSignInSites.map((origin) => (
+          <Row key={origin}>
+            <ShieldAlert className="size-3.5 shrink-0" style={{ color: 'var(--state-expired)' }} />
+            {/* Wraps instead of truncating — it was cut to "not sep…" — and explains
+                itself on hover or focus, because "not separated" alone said nothing. */}
+            <WithHelp
+              help={SIGN_IN_NOT_SEPARATED}
+              titled
+              trigger={<span tabIndex={0} className="min-w-0 flex-1 break-words" />}
+            >
+              <span className="text-muted-foreground">Signs in through </span>
+              <span className="font-medium">{shortSite(origin)}</span>
+              <span className="text-muted-foreground"> · not separated</span>
+            </WithHelp>
+            <WithHelp
+              help={ACTION_HELP.allowSignInSite}
+              trigger={<Button size="xs" onClick={() => props.onAllowSite(origin)} />}
+            >
+              {`${ACTION_HELP.allowSignInSite.label} ${shortSite(origin)}`}
+            </WithHelp>
+          </Row>
+        ))}
+        {/* A sign-in that already went through an unguarded website. Its login was NOT
+            saved (engine/capture.ts); starting over is the way back, so it sits here. */}
+        {t.leakedSignInSites.length > 0 && (
+          <Row>
+            <ShieldAlert className="size-3.5 shrink-0" style={{ color: 'var(--state-expired)' }} />
+            <WithHelp
+              help={SIGN_IN_LEAKED}
+              titled
+              trigger={<span tabIndex={0} className="min-w-0 flex-1 break-words" />}
+            >
+              <span className="font-medium">{SIGN_IN_LEAKED.label}</span>
+              <span className="text-muted-foreground">
+                {` (${t.leakedSignInSites.map(shortSite).join(', ')}) · login not saved`}
+              </span>
+            </WithHelp>
+            <WithHelp
+              help={ACTION_HELP.startOver}
+              trigger={<Button size="xs" variant="destructive" onClick={() => t.sessionId && props.onStartOver(t.sessionId)} />}
+            >
+              {ACTION_HELP.startOver.label}
+            </WithHelp>
+          </Row>
+        )}
         <Row>
           {/* Offered right here because "I want another account on this site" occurs to
               people while they are looking at the first one. */}

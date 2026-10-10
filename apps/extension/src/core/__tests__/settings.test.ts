@@ -31,6 +31,13 @@ describe('normalizeSettings', () => {
     expect(normalizeSettings({ useTabGroups: false })).toEqual({ ...DEFAULT_SETTINGS, useTabGroups: false });
   });
 
+  it('remembers "I’ll choose sites myself", so the first-run welcome is not shown again', () => {
+    expect(DEFAULT_SETTINGS.chooseSitesMyself).toBe(false);
+    expect(normalizeSettings({ chooseSitesMyself: true }).chooseSitesMyself).toBe(true);
+    // Not a stray storage key: a non-boolean falls back like every other flag.
+    expect(normalizeSettings({ chooseSitesMyself: 'yes' }).chooseSitesMyself).toBe(false);
+  });
+
   it('falls back per field, so one bad value never resets the others', () => {
     const s = normalizeSettings({ openPersonaInNewWindow: true, showPageBadge: 'no', badgePosition: 'middle' });
     expect(s.openPersonaInNewWindow).toBe(true);

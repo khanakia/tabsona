@@ -2,28 +2,32 @@
 // sibling engine module. Nothing here holds state: MV3 tears this worker down at will,
 // so state lives in chrome.storage behind the lock in ./repo.
 
-import { registerCapture } from './capture';
-import { grantedOriginPatterns } from './permissions';
+import { registerCapture, whenCapturesSettled } from './capture';
+import { pageWroteCookie } from './pagecookies';
+import { forgetGateTab, gateContinue, gateInfo, gateOpenNormally, noteFormSubmit, openLeakWindow, registerGate } from './gate';
+import { accessPatterns } from './permissions';
 import { syncRules } from './rules-sync';
 import { renderAllBadges, renderBadge, statusForTab } from './badge';
 import { captureTabStorage } from './storage';
 import { shimFactsFrom } from '@/core/coverage';
 import { noteShimReady } from './observations';
 import {
-  clearBadgePlacements, loadBindings, loadLibrary, migrateFromV1, saveBindings, setBadgePlacement, setSetting,
+  clearBadgePlacements, loadBindings, loadLibrary, migrateFromV1, saveBindings, setBadgePlacement, setGatePending, setSetting,
   updateSettings, withLock,
 } from './repo';
 import { placementFrom } from '@/core/placement';
+import { OPTIONS_PAGE_PATH } from '@/core/constants';
 import { siteOf } from '@/core/personas';
 import {
   addSite, anotherLoginForSite, coverageReport, deletePersona, deleteSession, duplicatePersona, exportData,
   getState, importData, moveSession, newPersona, openPersona, openSession,
-  renameSession, saveCurrentTab, startPeriodicCapture, unbindTab, updatePersona, useTabIn, type PersonaPatch,
+  renameSession, saveCurrentTab, startOver, startPeriodicCapture, unbindTab, updatePersona, useTabIn, type PersonaPatch,
 } from './service';
 import type { Request, Response } from '@/domain/messages';
 
 const SHIM_SCRIPT_ID = 'tabsona-shim';
 const BADGE_SCRIPT_ID = 'tabsona-badge';
+const RELAY_SCRIPT_ID = 'tabsona-relay';
 
 /**
  * Register the content scripts for exactly the origins currently granted.
@@ -46,12 +50,12 @@ function registerContentScripts(): Promise<void> {
 }
 
 async function doRegisterContentScripts(): Promise<void> {
-  const matches = await grantedOriginPatterns();
+  const matches = await accessPatterns();
 
   // Unregister by what is ACTUALLY registered, not by the ids we expect, so an id left
   // behind by an older build is cleaned up too.
   const existing = await chrome.scripting.getRegisteredContentScripts().catch(() => []);
-  const ours = existing.map((s) => s.id).filter((id) => id === SHIM_SCRIPT_ID || id === BADGE_SCRIPT_ID);
+  const ours = existing.map((s) => s.id).filter((id) => id === SHIM_SCRIPT_ID || id === BADGE_SCRIPT_ID || id === RELAY_SCRIPT_ID);
   if (ours.length > 0) {
     await chrome.scripting.unregisterContentScripts({ ids: ours }).catch(() => undefined);
   }
@@ -63,6 +67,13 @@ async function doRegisterContentScripts(): Promise<void> {
       // script reads it. A content script in the isolated world cannot.
       id: SHIM_SCRIPT_ID, js: ['shim.js'], matches,
       runAt: 'document_start', world: 'MAIN', allFrames: true,
+    },
+    {
+      // Carries the shim's cookie writes and barrier questions to the worker. Its own
+      // script, at document_start in every frame: see content/relay.ts for why the badge
+      // (document_idle, top frame) cannot do it.
+      id: RELAY_SCRIPT_ID, js: ['relay.js'], matches,
+      runAt: 'document_start', world: 'ISOLATED', allFrames: true,
     },
     {
       // The badge lives in the ISOLATED world: it needs chrome.runtime, and page code
@@ -79,7 +90,7 @@ async function doRegisterContentScripts(): Promise<void> {
     // no in-process lock can prevent. Recover rather than leave the shim unregistered.
     if (!String(e).includes('Duplicate script ID')) throw e;
     await chrome.scripting
-      .unregisterContentScripts({ ids: [SHIM_SCRIPT_ID, BADGE_SCRIPT_ID] })
+      .unregisterContentScripts({ ids: [SHIM_SCRIPT_ID, BADGE_SCRIPT_ID, RELAY_SCRIPT_ID] })
       .catch(() => undefined);
     await chrome.scripting.registerContentScripts(scripts);
   }
@@ -118,16 +129,35 @@ function startCaptureTimerOnce(): void {
 
 void boot();
 startCaptureTimerOnce();
+// In the module body, like every listener: a worker woken by a navigation event must
+// already have it, or the stopped tab is left on Chrome's "blocked" page.
+registerGate();
 
-chrome.runtime.onInstalled.addListener(() => void boot());
+chrome.runtime.onInstalled.addListener((details) => {
+  void boot();
+  // First install only, never on an update or a reload: the library page opens on its
+  // welcome card, which asks once whether to allow every website. An update must not
+  // put a page in front of someone who already set Tabsona up.
+  if (details.reason === chrome.runtime.OnInstalledReason.INSTALL) {
+    void chrome.tabs.create({ url: chrome.runtime.getURL(`${OPTIONS_PAGE_PATH}#personas`) });
+  }
+});
 chrome.runtime.onStartup.addListener(() => void boot());
 // Origins are granted at runtime, so BOTH the capture listener and the content scripts
 // must be re-scoped the moment that happens — otherwise a site the user just allowed
 // stays silently un-isolated until the next browser restart.
-chrome.permissions.onAdded.addListener(() => void boot());
-chrome.permissions.onRemoved.addListener(() => void boot());
+//
+// The per-tab rules are not rebuilt here (boot() does re-sync them anyway): the strip
+// rule names no host, and Chrome checks host access as it matches each request, so an
+// open persona tab should be covered on its next request to a newly allowed host — from
+// Chrome's documented behaviour; a runtime grant needs a human click, so no suite
+// observes it. What certainly goes stale is what the badges say, so they are redrawn —
+// otherwise a tab keeps showing "!" for a sign-in host the user has just allowed.
+chrome.permissions.onAdded.addListener(() => void boot().then(renderAllBadges));
+chrome.permissions.onRemoved.addListener(() => void boot().then(renderAllBadges));
 
 chrome.tabs.onRemoved.addListener((tabId) => {
+  void forgetGateTab(tabId);
   void (async () => {
     const bindings = await loadBindings();
     if (!(String(tabId) in bindings)) return;
@@ -202,7 +232,7 @@ chrome.tabs.onActivated.addListener(({ tabId }) => void renderBadge(tabId));
 
 /** One-way notices from content scripts. Handled by their own listener below, so the
  *  request/response listener must not answer them with an "unknown op" error. */
-const NOTICE_OPS: ReadonlySet<string> = new Set(['shimReady', 'badgeMoved', 'badgeReset']);
+const NOTICE_OPS: ReadonlySet<string> = new Set(['shimReady', 'badgeMoved', 'badgeReset', 'formSubmit']);
 
 chrome.runtime.onMessage.addListener((raw, sender, respond: (r: Response) => void) => {
   const op = typeof raw === 'object' && raw !== null ? (raw as { op?: unknown }).op : undefined;
@@ -249,6 +279,21 @@ chrome.runtime.onMessage.addListener((raw, sender, respond: (r: Response) => voi
         case 'setBadgePosition': await updateSettings({ badgePosition: msg.position }); await renderAllBadges(); respond({ ok: true }); break;
         case 'resetBadgePlacements': await clearBadgePlacements(); await renderAllBadges(); respond({ ok: true }); break;
         case 'updateSettings': await updateSettings(msg.patch); await renderAllBadges(); respond({ ok: true }); break;
+        case 'gateInfo': respond({ ok: true, gate: await gateInfo(msg.tabId) }); break;
+        case 'gateContinue':
+          respond(await gateContinue(msg.tabId)
+            ? { ok: true }
+            : { ok: false, error: 'Tabsona is still not allowed on that website, so the tab stayed here.' });
+          break;
+        case 'cookieWrite':
+          await pageWroteCookie(sender.tab?.id ?? -1, sender.url, msg.url, msg.line);
+          respond({ ok: true });
+          break;
+        case 'cookieSettle': await whenCapturesSettled(); respond({ ok: true }); break;
+        case 'gateOpenNormally':
+          respond(await gateOpenNormally(msg.tabId) ? { ok: true } : { ok: false, error: 'nothing is waiting in that tab' });
+          break;
+        case 'startOver': await startOver(msg.sessionId); respond({ ok: true }); break;
         default: {
           // Exhaustiveness: an op added without a handler fails to compile.
           const never: never = msg;
@@ -268,7 +313,10 @@ chrome.runtime.onMessage.addListener((raw, sender) => {
   const msg = typeof raw === 'object' && raw !== null ? (raw as { op?: unknown; origin?: unknown }) : null;
   if (typeof msg?.origin !== 'string' || !msg.origin) return;
   const origin = msg.origin;
-  if (msg.op === 'shimReady') {
+  if (msg.op === 'formSubmit') {
+    const form = raw as { action?: unknown; method?: unknown };
+    if (sender.tab?.id !== undefined) void noteFormSubmit(sender.tab.id, form.action, form.method);
+  } else if (msg.op === 'shimReady') {
     noteShimReady(origin, shimFactsFrom(raw));
     if (sender.tab?.id !== undefined) void renderBadge(sender.tab.id);
   } else if (msg.op === 'badgeMoved') {
@@ -289,5 +337,9 @@ Object.assign(globalThis, {
     moveSession, unbindTab, statusForTab, captureTabStorage, syncRules, anotherLoginForSite, useTabIn,
     coverageReport, exportData, importData,
     boot, registerContentScripts, updateSettings, renderAllBadges,
+    gateInfo, gateContinue, gateOpenNormally, startOver,
+    // E2E seams for states a headless run cannot reach honestly: a stopped tab whose host
+    // Chrome's permission dialog (a human click) would then allow, and a leak window.
+    setGatePending, openLeakWindow,
   },
 });

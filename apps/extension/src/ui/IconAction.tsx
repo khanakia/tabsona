@@ -46,7 +46,7 @@ export function IconAction(props: {
       <TooltipPositioner>
         {props.help
           ? (
-            <TooltipContent className="max-w-64 border border-border bg-popover px-2.5 py-2 text-[11px] leading-snug text-popover-foreground shadow-md [&>[data-slot=tooltip-arrow]]:hidden">
+            <TooltipContent className="max-w-[min(20rem,calc(100vw-1rem))] border border-border bg-popover px-3 py-2.5 text-[13px] leading-normal text-popover-foreground shadow-md [&>[data-slot=tooltip-arrow]]:hidden">
               <HelpCardBody help={props.help} titled />
               {props.keys && <p className="mt-1 text-muted-foreground">Shortcut: <kbd className="font-mono">{props.keys}</kbd></p>}
             </TooltipContent>

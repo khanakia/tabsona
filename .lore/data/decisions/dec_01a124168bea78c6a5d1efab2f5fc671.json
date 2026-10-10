@@ -1,0 +1,20 @@
+{
+  "_table": "decisions",
+  "_v": 1,
+  "archived_at": null,
+  "body": "Chosen: for hosts listed as identity providers (preset accounts.google.com, *.google.com, accounts.youtube.com, *.gstatic.com; user-editable) the persona tab neither strips nor sets cookies, so the provider runs in the browser's real jar and the app's own session cookie stays per persona. WHY: Google sets its flow cookie (__Host-GAPS) on a 302 and expects it back on the redirect follow-up; under MV3 only a blocking interception could carry a redirect-set cookie onto that follow-up, and the DNR rule install (measured 1-23 ms) lands after the follow-up has left, 0/10 in the probe. Device Bound Session Credentials refreshes run browser-side, so no per-tab rule can rewrite them. Rejected: (1) cookie swapping, it leaks persona cookies into plain tabs and the browser's login into the persona tab, leaves cookies behind because chrome.cookies.getAll returns [], and forbids two active persona tabs of one site; (2) debugger as a barrier (DNR plus chrome.debugger holding the follow-up until the rule is in), dead because Chrome fixes the DNR header changes before the DevTools Fetch pause, 0/10. Trade-off to surface in the UI: the Google login is shared with the browser. Revisit when per-persona Google accounts become a real need (see the strict sign-in suggestion). Research: docsi/research/google-signin.md",
+  "confidence": null,
+  "created_at": "2026-10-10T04:33:39.818574000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "dec_01a124168bea78c6a5d1efab2f5fc671",
+  "last_validated_at": null,
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "source_kind": "manual",
+  "source_ref": null,
+  "status": "accepted",
+  "superseded_by_id": null,
+  "title": "Google sign-in in a persona: pass-through identity-provider hosts",
+  "trust_score": 0.5,
+  "updated_at": "2026-10-10T04:33:39.818574000Z"
+}

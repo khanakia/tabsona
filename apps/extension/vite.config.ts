@@ -41,6 +41,7 @@ export default defineConfig({
       input: {
         popup: resolve(import.meta.dirname, 'src/surfaces/popup/index.html'),
         options: resolve(import.meta.dirname, 'src/surfaces/options/index.html'),
+        gate: resolve(import.meta.dirname, 'src/surfaces/gate/index.html'),
         background: resolve(import.meta.dirname, 'src/engine/index.ts'),
       },
       output: {

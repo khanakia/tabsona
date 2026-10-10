@@ -76,6 +76,13 @@ function html(body, { mirrorStorage = true } = {}) {
 ${mirrorStorage ? MIRROR_SCRIPT : ''}</body></html>`;
 }
 
+/** A 200 html page that mirrors nothing into storage: these pages stand in for hosts the
+ *  suite is not supposed to be signed in on. */
+function html200(res, body) {
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
+    .end(html(body, { mirrorStorage: false }));
+}
+
 const MIRROR_SCRIPT = `<script>
 // Mirror the cookie identity into the other storage layers, so a spike can see
 // per-layer leakage in one glance. Written on every load.
@@ -132,8 +139,199 @@ function echoCookies(req, res) {
   }).end(JSON.stringify({ cookies: Object.keys(parseCookies(req.headers.cookie)) }));
 }
 
+/**
+ * A single-sign-on hop, shaped like AuthKit / OAuth: the app keeps no login form of its
+ * own, `/sso/start` sends the browser to an identity provider on ANOTHER host, and the
+ * provider sends it back with a one-time code once it knows who you are.
+ *
+ * WHY: the provider has its own login cookie on its own host. A real user is usually
+ * already signed in there from a plain tab, so a persona tab whose request to the
+ * provider carries the browser's provider cookie comes straight back signed in as that
+ * user, without ever seeing a login form. That is the leak a suite has to be able to
+ * reproduce, and it needs a second cookie jar, i.e. a second host name.
+ *
+ * The provider is this same server reached as `127.0.0.1` (IDP_HOST): cookies record no
+ * port, so `localhost` and `127.0.0.1` are two jars on one process.
+ *
+ * And it is a CHAIN, like the real one (app → api.workos.com → auth.<custom domain> →
+ * *.authkit.app): `/sso/start` first goes to a RELAY host that holds no login and only
+ * redirects on, the way api.workos.com does, and the login lives one hop further on. A
+ * single-hop fixture hid a real bug: a hop seen on a provider's response was filed under
+ * the provider, so allowing the first host made the warning vanish while the leak went on.
+ * The relay is `relay.localhost`, which Chrome resolves to loopback on its own.
+ */
+const IDP_HOST = process.env.IDP_HOST || '127.0.0.1';
+const RELAY_HOST = process.env.RELAY_HOST || 'relay.localhost';
+/** The OAuth-shaped provider host (accounts.google.com's role): never granted by a suite. */
+const OAUTH_HOST = process.env.OAUTH_HOST || 'other.localhost';
+/** The authorize query as the real provider gets it. `+`, `=`, `%2F`, `%3A`, `%20` and a
+ *  doubled `&` are all deliberate: each is a way a rebuilt url stops being byte-identical. */
+const OAUTH_QUERY = 'client_id=client_01ABC&redirect_uri=https%3A%2F%2Fauth.example.com%2Fcallback%2Fv1'
+  + '&response_type=code&scope=openid%20email%20profile&state=eyJhIjoiYitjPT0ifQ%3D%3D%2B&nonce=a+b%2Fc'
+  + '&access_type=offline&prompt=select_account';
+const IDP_COOKIE = 'idp_sid';
+/** sid -> username, for the provider's own login. */
+const idpSessions = new Map();
+/** one-time code -> username, handed from the provider back to the app. */
+const ssoCodes = new Map();
+
+function idpUserFor(req) {
+  const sid = parseCookies(req.headers.cookie)[IDP_COOKIE];
+  return sid ? idpSessions.get(sid) : undefined;
+}
+
+function idpLoginPage(returnTo) {
+  const buttons = USERS.map((u) => `<form method="POST" action="/idp/login?return=${encodeURIComponent(returnTo)}" style="display:inline">
+      <input type="hidden" name="user" value="${u}">
+      <button type="submit">log in as ${u}</button></form>`).join(' ');
+  return html(`<p class="who" id="who">identity provider</p><p>${buttons}</p>`, { mirrorStorage: false });
+}
+
+/** Handle the provider and the app's two SSO endpoints. Returns true when it answered. */
+function handleSso(req, res, url) {
+  if (url.pathname === '/sso/start') {
+    const back = `http://${req.headers.host}/sso/callback`;
+    res.writeHead(302, {
+      Location: `http://${RELAY_HOST}:${PORT}/relay/authorize?return=${encodeURIComponent(back)}`,
+      'Cache-Control': 'no-store',
+    }).end();
+    return true;
+  }
+  // --- cookie round-trips, as a provider's "are cookies enabled?" check does them -----
+  // Google writes a test cookie from page JS (document.cookie) and from an XHR response
+  // (Set-Cookie), then makes a request that fails unless BOTH come straight back. These
+  // routes mimic that with no knowledge of any extension.
+  if (url.pathname === '/ck/echo') {
+    // What reached the server: the Cookie header, parsed.
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+      .end(JSON.stringify({ cookies: parseCookies(req.headers.cookie) }));
+    return true;
+  }
+  if (url.pathname === '/ck/set') {
+    // A cookie on a plain 200 (an XHR/fetch response). `?redirect=` makes it a 302.
+    const redirect = url.searchParams.get('redirect');
+    const cookie = `${url.searchParams.get('name') || 'xhrtest'}=1; Path=/${url.searchParams.get('httponly') ? '; HttpOnly' : ''}`;
+    if (redirect) res.writeHead(302, { 'Set-Cookie': cookie, Location: redirect, 'Cache-Control': 'no-store' }).end();
+    else res.writeHead(200, { 'Set-Cookie': cookie, 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' }).end('ok');
+    return true;
+  }
+  if (url.pathname === '/ck/check') {
+    // The verdict page: needs both test cookies, like Google's "Cookies are disabled" screen.
+    const c = parseCookies(req.headers.cookie);
+    const ok = c.jstest === '1' && c.xhrtest === '1';
+    html200(res, `<p id="verdict">${ok ? 'cookies enabled' : 'Cookies are disabled'}</p><pre id="seen">${JSON.stringify(c)}</pre>`);
+    return true;
+  }
+  if (url.pathname === '/ck/page') {
+    // Runs the three ways a cookie reaches the next request and reports which came back.
+    html200(res, `<p id="out">running</p><script>
+      const echo = () => fetch('/ck/echo', { cache: 'no-store' }).then((r) => r.json()).then((j) => Object.keys(j.cookies).sort());
+      (async () => {
+        const out = {};
+        try {
+        document.cookie = 'jstest=1; path=/';
+        out.readBack = document.cookie;                       // the page's own view, synchronously
+        out.afterJs = await echo();                           // fetch right after document.cookie
+        await fetch('/ck/set?name=xhrtest', { cache: 'no-store' });
+        out.afterXhr = await echo();                          // fetch right after a Set-Cookie response
+        await fetch('/ck/set?name=redir&redirect=' + encodeURIComponent('/ck/echo'), { cache: 'no-store' })
+          .then((r) => r.json()).then((j) => { out.afterRedirect = Object.keys(j.cookies).sort(); });
+        } catch (e) { out.error = String(e); }
+        window.__ck = out;
+        document.getElementById('out').textContent = 'done';
+      })();
+    </script>`);
+    return true;
+  }
+  // A page with NO <title>: the browser reports its title as "", which is where the persona
+  // marker used to double up ("💚 💚") because document.title trims what it is given.
+  if (url.pathname === '/untitled') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
+      .end('<!doctype html><meta charset="utf-8"><p>no title here</p>');
+    return true;
+  }
+  // An OAuth-shaped hop (the real one: AuthKit -> accounts.google.com/o/oauth2/v2/auth).
+  // Several params, some holding encoded reserved characters, so a resumed navigation
+  // that re-encodes, splits on `&` or drops a param is caught byte for byte.
+  if (url.pathname === '/oauth/start') {
+    res.writeHead(302, { Location: `http://${OAUTH_HOST}:${PORT}/o/auth?${OAUTH_QUERY}`, 'Cache-Control': 'no-store' }).end();
+    return true;
+  }
+  // The app's page whose button POSTS the same params to the OAuth host (a form hop).
+  if (url.pathname === '/oauth/form') {
+    const fields = [...new URLSearchParams(OAUTH_QUERY)]
+      .map(([k, v]) => `<input type="hidden" name="${k}" value="${v.replace(/"/g, '&quot;')}">`).join('');
+    html200(res, `<form id="oauth" method="POST" action="http://${OAUTH_HOST}:${PORT}/o/auth">${fields}<button>go</button></form>`);
+    return true;
+  }
+  // The provider: says exactly what request reached it, and whether a cookie came along.
+  if (url.pathname === '/o/auth') {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      html200(res, `<pre id="seen">${JSON.stringify({ method: req.method, url: req.url, body, cookie: req.headers.cookie ?? null })
+        .replace(/</g, '\\u003c')}</pre>`);
+    });
+    return true;
+  }
+  if (url.pathname === '/relay/authorize') {
+    // No login here, only the next hop: what api.workos.com does before the custom domain.
+    const returnTo = url.searchParams.get('return') || '/';
+    res.writeHead(302, {
+      Location: `http://${IDP_HOST}:${PORT}/idp/authorize?return=${encodeURIComponent(returnTo)}`,
+      'Cache-Control': 'no-store',
+    }).end();
+    return true;
+  }
+  if (url.pathname === '/sso/callback') {
+    const user = ssoCodes.get(url.searchParams.get('code'));
+    ssoCodes.delete(url.searchParams.get('code'));
+    if (!user) { res.writeHead(400).end('bad code'); return true; }
+    const sid = crypto.randomBytes(16).toString('hex');
+    sessions.set(sid, user);
+    res.writeHead(302, {
+      'Set-Cookie': `${COOKIE_NAME}=${sid}; Path=/; HttpOnly; SameSite=Lax`,
+      Location: '/',
+      'Cache-Control': 'no-store',
+    }).end();
+    return true;
+  }
+  if (url.pathname === '/idp/authorize') {
+    const returnTo = url.searchParams.get('return') || '/';
+    const user = idpUserFor(req);
+    if (user) {
+      const code = crypto.randomBytes(8).toString('hex');
+      ssoCodes.set(code, user);
+      res.writeHead(302, { Location: `${returnTo}?code=${code}`, 'Cache-Control': 'no-store' }).end();
+      return true;
+    }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
+      .end(idpLoginPage(returnTo));
+    return true;
+  }
+  if (req.method === 'POST' && url.pathname === '/idp/login') {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      const user = new URLSearchParams(body).get('user');
+      if (!USERS.includes(user)) { res.writeHead(400).end('unknown user'); return; }
+      const sid = crypto.randomBytes(16).toString('hex');
+      idpSessions.set(sid, user);
+      const returnTo = url.searchParams.get('return') || '/';
+      res.writeHead(302, {
+        'Set-Cookie': `${IDP_COOKIE}=${sid}; Path=/; HttpOnly; SameSite=Lax`,
+        Location: `/idp/authorize?return=${encodeURIComponent(returnTo)}`,
+      }).end();
+    });
+    return true;
+  }
+  return false;
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
+
+  if (handleSso(req, res, url)) return;
 
   if (req.method === 'POST' && url.pathname === '/login') {
     let body = '';

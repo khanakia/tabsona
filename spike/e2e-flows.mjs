@@ -20,20 +20,31 @@ const [userOne, userTwo] = app.users;
 const chrome = await startChrome(9875);
 await requireGrant(chrome, app.origin);
 
+/** The title of the Chrome tab group a tab sits in, or null when it is ungrouped. */
+async function groupTitleOf(tabId) {
+  return chrome.swSession.eval(`chrome.tabs.get(${Number(tabId)}).then(t =>
+    t.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE ? null : chrome.tabGroups.get(t.groupId).then(g => g.title))
+    .catch(e => 'error: ' + e.message)`);
+}
+
 /** Who a FRESH un-isolated tab is — the only honest read of the browser's own jar,
  *  because chrome.cookies.getAll returns [] for everything on Chrome 154. */
 async function plainTabIdentity() {
   const before = await pageIds(chrome);
+  const hostTabIds = () => chrome.json(
+    `chrome.tabs.query({}).then(ts => ts.filter(t => t.url && t.url.includes(${JSON.stringify(app.host)})).map(t => t.id))`);
+  const tabsBefore = new Set(await hostTabIds());
   await chrome.newTab(app.url);
   const t = await claimNewTab(chrome, before, app.host);
   const p = await attach(t);
   await sleep(2200);
   const who = await p.eval(app.whoami);
   p.close();
-  await chrome.swSession.eval(
-    `chrome.tabs.remove(${Number(await chrome.swSession.eval(
-      `chrome.tabs.query({}).then(ts => { const x = ts.filter(t => t.url && t.url.includes(${JSON.stringify(app.host)})).pop(); return x ? x.id : -1; })`))})`,
-  ).catch(() => undefined);
+  // Close THE tab this helper opened, by id. "The last tab on this host" is not it once
+  // tab groups reorder the strip, and closing a neighbour breaks the next phase.
+  for (const id of (await hostTabIds()).filter((id) => !tabsBefore.has(id))) {
+    await chrome.swSession.eval(`chrome.tabs.remove(${Number(id)})`).catch(() => undefined);
+  }
   await sleep(500);
   return who;
 }
@@ -102,6 +113,7 @@ const convertedSignedOut = await waitFor(
   plainB.page, app.formReady, 'converted tab shows a login form', 25000);
 
 // The browser's own login must survive being borrowed like this.
+const convertedGroup = await groupTitleOf(plainB.tabId);
 const browserSurvivedConvert = await plainTabIdentity();
 void plainB;
 
@@ -110,6 +122,7 @@ const personaC = await chrome.op('newPersona("Mover")');
 const plainC = await signInPlain(userOne);
 await chrome.op(`saveCurrentTab(${JSON.stringify(personaC)}, "move")`);
 await sleep(3500);
+const movedGroup = await groupTitleOf(plainC.tabId);
 const afterMove = await plainTabIdentity();
 void plainC;
 
@@ -118,6 +131,7 @@ const personaD = await chrome.op('newPersona("Copier")');
 const plainD = await signInPlain(userOne);
 await chrome.op(`saveCurrentTab(${JSON.stringify(personaD)}, "copy")`);
 await sleep(2500);
+const copiedGroup = await groupTitleOf(plainD.tabId);
 const afterCopy = await plainTabIdentity();
 
 const state = await chrome.op('getState()');
@@ -129,6 +143,7 @@ await chrome.kill();
 console.log(`\nA. add site      : started signed out=${addedStartsSignedOut}, signed in as ${addedWho}; plain tab still ${plainStillSignedIn}`);
 console.log(`B. use this tab  : converted tab signed out=${convertedSignedOut}; browser still ${browserSurvivedConvert}`);
 console.log(`C. move          : a plain tab afterwards is ${afterMove}`);
+console.log(`groups          : use-this-tab=${convertedGroup} move=${movedGroup} copy=${copiedGroup}`);
 console.log(`D. copy          : a plain tab afterwards is ${afterCopy}; persona holds ${copied?.cookieCount} cookies`);
 
 const pass = report(`the four flows — ${app.name}`, [
@@ -140,5 +155,8 @@ const pass = report(`the four flows — ${app.name}`, [
   ['MOVE takes the login out of the browser', afterMove === null, String(afterMove)],
   ['COPY leaves the browser signed in', afterCopy === 'alice', String(afterCopy)],
   ['…and the persona got the credentials too', (copied?.cookieCount ?? 0) > 0, `${copied?.cookieCount}`],
+  ["USE THIS TAB puts the tab in the persona's tab group", convertedGroup === 'Client X', String(convertedGroup)],
+  ["MOVE puts the tab in the persona's tab group", movedGroup === 'Mover', String(movedGroup)],
+  ['COPY leaves the tab plain, so ungrouped', copiedGroup === null, String(copiedGroup)],
 ]);
 process.exit(pass ? 0 : 1);

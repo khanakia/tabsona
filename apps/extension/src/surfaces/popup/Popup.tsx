@@ -8,6 +8,7 @@ import { client } from '@/app/client';
 import { useLibrary } from '@/app/useLibrary';
 import { PersonaRow } from '@/features/personas';
 import { CurrentTabBar } from '@/features/capture';
+import { SignInAlertBanner, SignInSitesSection } from '@/features/signin';
 import { Button } from '@/ui/volt/button';
 import { Input } from '@/ui/volt/input';
 import { IconAction } from '@/ui/IconAction';
@@ -98,6 +99,22 @@ export function Popup() {
 
   if (!state) return <div className="p-4 text-xs text-muted-foreground">Loading…</div>;
 
+  // Straight from the click: Chrome rejects permissions.request without a user gesture,
+  // so the request must not be deferred behind an await. Grants only — no tab opens.
+  const allowOrigins = (origins: readonly string[]) => {
+    void client.grantOrigins(origins).then((ok) => {
+      if (!ok) setFeedback({ tone: 'warn', text: 'Chrome declined access to that site.' });
+      return refresh();
+    });
+  };
+
+  const allowAllSites = () => {
+    void client.grantAllSites().then((ok) => {
+      if (!ok) setFeedback({ tone: 'warn', text: 'Chrome did not allow every website. Nothing changed.' });
+      return refresh();
+    });
+  };
+
   const createPersona = () => {
     if (!newName.trim()) return;
     void run(async () => {
@@ -154,6 +171,11 @@ export function Popup() {
         </IconAction>
       </header>
 
+      {/* Pinned above everything, and not dismissible: it goes away only when the
+          sign-in websites are allowed. A user missed the single row that used to be the
+          only place this was said. */}
+      <SignInAlertBanner alerts={state.signInAlerts} onAllow={allowOrigins} onAllowAllSites={allowAllSites} />
+
       {feedback && (
         <FeedbackBanner
           tone={feedback.tone}
@@ -170,7 +192,11 @@ export function Popup() {
         </section>
       )}
 
-      <ul className="min-h-0 flex-1 overflow-y-auto">
+      <SignInSitesSection alerts={state.signInAlerts} onAllow={allowOrigins} collapsible />
+
+      {/* A floor under the persona list: the banners above are shrink-0, and without it a
+          long warning squeezed the list to nothing ("where all the profiles go"). */}
+      <ul className="min-h-40 flex-1 overflow-y-auto">
         {personas.length === 0
           ? (
             state.personas.length === 0
@@ -222,14 +248,7 @@ export function Popup() {
         personas={state.personas}
         onSaveTo={saveTo}
         onUseTabIn={(personaId) => { void run(() => client.useTabIn(personaId)); window.close(); }}
-        onAllowSite={(origin) => {
-          // Straight from the click: Chrome rejects permissions.request without a user
-          // gesture, so this must not be deferred behind an await.
-          void client.grantOrigin(origin).then((ok) => {
-            if (!ok) setFeedback({ tone: 'warn', text: 'Chrome declined access to that site.' });
-            return refresh();
-          });
-        }}
+        onAllowSite={(origin) => allowOrigins([origin])}
         onAnotherLogin={(site) => { void run(() => client.anotherLogin(site)); window.close(); }}
         onAddToPersona={(personaId, site) => {
           void run(() => client.addSite(personaId, site));
@@ -237,6 +256,9 @@ export function Popup() {
         }}
         onUnbind={(tabId) => void run(() => client.unbindTab(tabId), 'This tab is back on your normal browser login. The persona kept its login.')}
         onSaveNow={(tabId) => void run(() => client.saveNow(tabId), 'Saved.')}
+        onStartOver={(sessionId) => {
+          void run(() => client.startOver(sessionId), 'Signed out. Sign in again in the persona tab; Tabsona asks before any website it is not allowed on.');
+        }}
         onNewPersonaWithTab={() => {
           void (async () => {
             const site = state.tab.site;

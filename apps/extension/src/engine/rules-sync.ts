@@ -2,11 +2,14 @@
 // CONFIRMS a rule exists before anyone navigates.
 
 import {
-  RULE_CONFIRM_POLL_MS, RULE_CONFIRM_TIMEOUT_MS, RULE_RESOURCE_TYPES, STRIP_RULE_PRIORITY,
+  GATE_ALLOW_PRIORITY, GATE_BLOCK_PRIORITY, RULE_CONFIRM_POLL_MS, RULE_CONFIRM_TIMEOUT_MS, RULE_ID_BASE, RULE_RESOURCE_TYPES,
+  STRIP_RULE_PRIORITY,
 } from '@/core/constants';
 import { buildSessionRules, tabRulesMatch } from '@/core/rules';
+import { buildGateRules } from '@/core/gate';
 import { loadBindings, loadLibrary } from './repo';
-import type { HeaderEdit, RuleResourceType, TabId, TabRule } from '@/domain/types';
+import { grantedOriginPatterns } from './permissions';
+import type { GateRule, HeaderEdit, RuleResourceType, TabId, TabRule } from '@/domain/types';
 
 /**
  * Map our string union to chrome's `ResourceType` enum.
@@ -56,6 +59,29 @@ function toChromeRule(rule: TabRule): chrome.declarativeNetRequest.Rule {
   };
 }
 
+/**
+ * A gate rule (core/gate.ts) as Chrome takes it. Top-level navigations only: the gate
+ * stops a persona tab from LEAVING for a host Tabsona may not touch, and never touches a
+ * sub-resource, whose blocking would break pages for reasons nobody could see.
+ */
+function toChromeGateRule(rule: GateRule): chrome.declarativeNetRequest.Rule {
+  const resourceTypes = [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME];
+  if (rule.kind === 'block') {
+    return {
+      id: rule.id,
+      priority: GATE_BLOCK_PRIORITY,
+      action: { type: chrome.declarativeNetRequest.RuleActionType.BLOCK },
+      condition: { tabIds: [rule.tabId], resourceTypes, urlFilter: rule.urlFilter },
+    };
+  }
+  return {
+    id: rule.id,
+    priority: GATE_ALLOW_PRIORITY,
+    action: { type: chrome.declarativeNetRequest.RuleActionType.ALLOW },
+    condition: { tabIds: [...rule.tabIds], resourceTypes, regexFilter: rule.urlRegex },
+  };
+}
+
 function fromChromeHeader(h: chrome.declarativeNetRequest.ModifyHeaderInfo): HeaderEdit {
   return {
     header: h.header,
@@ -70,6 +96,9 @@ function fromChromeHeader(h: chrome.declarativeNetRequest.ModifyHeaderInfo): Hea
  * single tab id), which simply never matches.
  */
 function fromChromeRule(rule: chrome.declarativeNetRequest.Rule): Omit<TabRule, 'id'> | null {
+  // Gate rules are not cookie rules: read back as one, a block rule would look like a
+  // header-less extra rule for its tab and make every confirmation fail.
+  if (rule.action.type !== chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS) return null;
   const tabId = rule.condition.tabIds?.length === 1 ? rule.condition.tabIds[0] : undefined;
   if (tabId === undefined) return null;
   return {
@@ -106,12 +135,30 @@ export function syncRules(): Promise<number> {
 
 async function doSyncRules(): Promise<number> {
   const domainRules = await expectedRules();
+  // The gate goes in the SAME update as the cookie rules, so a tab whose cookie rules are
+  // confirmed (awaitRuleForTab) has its gate too: there is no moment where a bound tab
+  // is separated on its own site but free to leave for one Tabsona cannot guard.
+  const gateRules = buildGateRules({
+    bindings: await loadBindings(),
+    granted: await grantedOriginPatterns(),
+    firstId: RULE_ID_BASE + domainRules.length,
+  });
   const existing = await chrome.declarativeNetRequest.getSessionRules();
   await chrome.declarativeNetRequest.updateSessionRules({
     removeRuleIds: existing.map((r) => r.id),
-    addRules: domainRules.map(toChromeRule),
+    addRules: [...domainRules.map(toChromeRule), ...gateRules.map(toChromeGateRule)],
   });
-  return domainRules.length;
+  return domainRules.length + gateRules.length;
+}
+
+/**
+ * Whether `tabId` has its gate block rule installed right now. Read from Chrome, not from
+ * our state, because the question is what will happen to the tab's next navigation.
+ */
+export async function tabIsGated(tabId: TabId): Promise<boolean> {
+  const installed = await chrome.declarativeNetRequest.getSessionRules().catch(() => []);
+  return installed.some((r) => r.action.type === chrome.declarativeNetRequest.RuleActionType.BLOCK
+    && r.condition.tabIds?.length === 1 && r.condition.tabIds[0] === tabId);
 }
 
 /** The rules our current state calls for. One place, so sync and confirm cannot drift. */
