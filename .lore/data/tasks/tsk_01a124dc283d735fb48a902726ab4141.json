@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "User asked (verbatim):\n  commit and push all\n\n  and publish new version with store listing\n\nContext:\n  Pushed 502a016 (all work incl. sign-in gate, Allow on all sites, pass-through hosts, Settings sidebar, compact popup). Store had 0.3.0 submitted 2026-10-07. Versioning rule rul_01a124a9ee157756843f9646d6340fb1: patch bumps, so 0.3.1. Must-rule rul_01a106d3f0d07799be3d140f90cc5c88: update listing (screenshots in brand/store/, description) in the dashboard first, confirm with the user, then cws:publish.\n\nAcceptance:\n  0.3.1 uploaded with an up-to-date listing (description + screenshots), user confirms, then submitted for review.",
+  "commitment": "accepted",
+  "completed_at": null,
+  "created_at": "2026-10-10T08:09:30.429218000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a124dc283d735fb48a902726ab4141",
+  "mission_id": null,
+  "plan_id": null,
+  "priority": "high",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "started_at": "2026-10-10T08:09:56.589591000Z",
+  "status": "in_progress",
+  "tasklist_id": "tlt_01a105d8b19f72dea60674b35b25018e",
+  "title": "Release 0.3.1 with refreshed Store listing",
+  "updated_at": "2026-10-10T08:09:56.589605000Z"
+}

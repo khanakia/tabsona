@@ -11,7 +11,7 @@ Give each tab its own login session. Save, open and reuse a whole set of signed-
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-488%20unit%20%2B%2028%20script%20%2B%2013%20e2e-success.svg)](#verify-it-yourself)
+[![Tests](https://img.shields.io/badge/tests-498%20unit%20%2B%2028%20script%20%2B%2013%20e2e-success.svg)](#verify-it-yourself)
 
 [How it works](docs/how-it-works.md) · [Limits](docs/limits.md) · [Privacy](https://khanakia.github.io/tabsona/privacy.html) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
@@ -47,9 +47,11 @@ Every image is captured from the real built extension by `task screenshots`, so 
 
 | | |
 |---|---|
-| <img src="docs/shots/2-save-menu.png" alt="The Add to persona panel, asking whether to use the tab signed out, move the current login, or copy it, with what each does to your normal login" /> | <img src="docs/shots/3-library.png" alt="The options page listing every persona and its sessions" /> |
-| **Move or copy — your choice.** File the login you are already using into a persona, or start a fresh one and leave your browser alone. | **The full library.** Every persona, every saved login, and what each one holds. |
-| <img src="docs/shots/4-coverage.png" alt="The coverage report, listing each storage layer as covered, unknown or not applicable for a site" /> | <img src="docs/shots/5-sites.png" alt="The sites tab, listing the origins you have granted and the settings" /> |
+| <img src="docs/shots/2-gate.png" alt="The sign-in gate: a persona tab stopped before it visits a website Tabsona is not allowed on, offering Allow and continue, Open in a normal tab, Allow on all sites and Use my normal login" /> | <img src="docs/shots/6-save-menu.png" alt="The Add to persona panel, asking whether to use the tab signed out, move the current login, or copy it, with what each does to your normal login" /> |
+| **Asks before it leaks.** A persona tab stops before visiting a website Tabsona is not allowed on, and nothing is sent until you choose. | **Move or copy — your choice.** File the login you are already using into a persona, or start a fresh one and leave your browser alone. |
+| <img src="docs/shots/3-library.png" alt="The options page listing every persona and its sessions" /> | <img src="docs/shots/4-settings.png" alt="Settings: a section list on the left and cards for Websites, Use my normal login on, Badge on pages, Page titles and Tabs" /> |
+| **The full library.** Every persona, every saved login, and what each one holds. | **Settings.** Allow on all sites, choose the websites that use your normal login, and tune the badge, page titles and tab groups. |
+| <img src="docs/shots/5-coverage.png" alt="The coverage report, listing each storage layer as covered, unknown or not applicable for a site" /> | <img src="docs/shots/7-sites.png" alt="The sites tab, listing the origins you have granted" /> |
 | **Measured, not assumed.** Which layers are actually isolated on each site, from what the engine observed. | **You grant every site.** Nothing is touched until you allow it through Chrome's own prompt. |
 
 ## Install
@@ -147,7 +149,7 @@ Removing **Allow on all sites** keeps every website you allowed one by one.
 task check
 ```
 
-A full-history secret scan, type-check, 488 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and thirteen end-to-end suites driving the **built extension** in a real Chrome.
+A full-history secret scan, type-check, 498 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and thirteen end-to-end suites driving the **built extension** in a real Chrome.
 
 | Task | Proves |
 |---|---|

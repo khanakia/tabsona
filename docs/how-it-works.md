@@ -406,7 +406,7 @@ The boundary test verifies its own matcher (it asserts that it finds files, that
 
 ## How it is verified
 
-`task check` is the gate: type-check, 488 unit tests, a build, and thirteen end-to-end suites that drive the **built extension** in a real Chrome.
+`task check` is the gate: type-check, 498 unit tests, a build, and thirteen end-to-end suites that drive the **built extension** in a real Chrome.
 
 | Suite | Asserts |
 |---|---|
