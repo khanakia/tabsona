@@ -65,7 +65,7 @@ export function SessionRow(props: SessionRowProps) {
           not jump as the selection travels down the list. */}
       {props.selected && <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-primary" />}
 
-      <div className="flex items-center gap-2 py-(--row-padding-y) pl-7 pr-1.5">
+      <div className="relative flex items-center gap-2 py-(--row-padding-y) pl-7 pr-1.5">
         <button
           type="button"
           aria-label={expanded ? 'Hide details' : 'Show details'}
@@ -119,11 +119,11 @@ export function SessionRow(props: SessionRowProps) {
         >
           <ExternalLink />
         </IconAction>
-        {/* The secondary actions overlay the row's second line while it is hovered or
+        {/* The secondary actions sit beside Open, centred on the row, while it is hovered or
             focused instead of reserving ~50px beside the address all the time. */}
         <div
           className={cn(
-            'absolute bottom-0.5 right-8 flex items-center gap-0.5 rounded-md bg-muted shadow-sm ring-1 ring-border',
+            'absolute right-9.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5 rounded-md bg-muted shadow-sm ring-1 ring-border',
             REVEAL_ON_ROW_HOVER,
           )}
         >

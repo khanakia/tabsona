@@ -155,9 +155,9 @@ export function PersonaRow(props: PersonaRowProps) {
         >
           <Play />
         </IconAction>
-        {/* Secondary actions overlay the second line on hover or focus, not a permanent
+        {/* Secondary actions appear beside Open all, centred on the row, on hover or focus, not a permanent
             strip beside the name. */}
-        <div className={cn('absolute bottom-0.5 right-8 flex items-center gap-0.5 rounded-md bg-muted shadow-sm ring-1 ring-border', REVEAL_ON_ROW_HOVER)}>
+        <div className={cn('absolute right-9.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5 rounded-md bg-muted shadow-sm ring-1 ring-border', REVEAL_ON_ROW_HOVER)}>
           <IconAction label={ACTION_HELP.addSite.label} help={ACTION_HELP.addSite} onClick={beginAddSite}>
             <Plus />
           </IconAction>
