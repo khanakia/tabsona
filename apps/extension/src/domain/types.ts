@@ -114,14 +114,19 @@ export type TabBindings = Readonly<Record<string, SessionId>>;
 
 // --- coverage ---------------------------------------------------------------
 
-export type CoverageStatus = 'covered' | 'leaking' | 'unknown' | 'not-applicable';
+/** `shared` is a layer the USER chose to leave on their normal browser login (a
+ *  pass-through host, core/passthrough.ts): neither isolated nor a leak, and never reported
+ *  as either. */
+export type CoverageStatus = 'covered' | 'leaking' | 'unknown' | 'not-applicable' | 'shared';
 
 export type StateLayer =
   | 'cookies' | 'localStorage' | 'sessionStorage' | 'indexedDB'
   | 'serviceWorker' | 'sharedWorker' | 'crossOriginFrames'
   /** Sign-in through ANOTHER website (an SSO provider) the extension holds no permission
    *  for. Header rules never apply there, so that hop uses the browser's own login. */
-  | 'signInSites';
+  | 'signInSites'
+  /** The host is on the user's "use my normal login" list: nothing is kept separate. */
+  | 'normalLogin';
 
 /** What the badge renders. Coverage is DATA, never prose in a comment: a tool that
  *  looks isolated while leaking turns every later bug into a question about whether
@@ -173,6 +178,27 @@ export interface TabRule {
 export type GateRule =
   | { readonly kind: 'block'; readonly id: number; readonly tabId: TabId; readonly urlFilter: string }
   | { readonly kind: 'allow'; readonly id: number; readonly tabIds: readonly TabId[]; readonly urlRegex: string };
+
+/**
+ * One rule of the pass-through exemption (core/passthrough.ts): a tab-scoped `allow` for
+ * the bound tabs and one pass-through host, at PASS_THROUGH_ALLOW_PRIORITY. It cancels the
+ * cookie strip, the per-host SET rules and the gate block for that host, so a persona tab
+ * reaches it exactly like a plain tab does.
+ */
+export interface PassThroughRule {
+  readonly id: number;
+  readonly tabIds: readonly TabId[];
+  readonly urlRegex: string;
+}
+
+/** What the gate page and the popup offer for a website that could be reached with the
+ *  browser's own login: the whole Google preset (plus the stopped host when it is another
+ *  Google domain), or just the one host. */
+export interface PassThroughOffer {
+  readonly kind: 'google' | 'host';
+  /** List entries to add, none of them already on the list. Never empty. */
+  readonly hosts: readonly string[];
+}
 
 // --- view projections -------------------------------------------------------
 

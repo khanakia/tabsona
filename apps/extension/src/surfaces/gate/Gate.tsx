@@ -50,6 +50,7 @@ export function Gate() {
         .then((ok) => carryOn(ok, 'Chrome did not allow it, so this tab stayed here. Nothing was sent.'))}
       onAllowAllSites={() => void client.grantAllSites()
         .then((ok) => carryOn(ok, 'Chrome did not allow every website, so this tab stayed here. Nothing was sent.'))}
+      onUseNormalLogin={() => void client.gateUsePassThrough(tabId).then((err) => { if (err) { setError(err); void load(); } })}
       onOpenNormally={() => void client.gateOpenNormally(tabId).then((err) => { if (err) setError(err); })}
     />
   );

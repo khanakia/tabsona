@@ -1,0 +1,22 @@
+{
+  "_table": "rules",
+  "_v": 1,
+  "activation": "always",
+  "applies_to_description": null,
+  "archived_at": null,
+  "body": "Version bumps are small and patch-first: each release bumps the PATCH (0.3.0 -> 0.3.1 -> 0.3.2), never jumps the minor per batch of features as 0.1.0 -> 0.2.0 -> 0.3.0 did. A minor or major bump only when the user asks for it. Chrome Web Store versions can never go down, so the next release continues from the last uploaded version (0.3.0 -> 0.3.1); propose the exact version and ask before bumping. User, 2026-10-10: 'why we publish like 0.3.0 this is wrong we should have 0.1.0, 0.1.1 etc'.",
+  "confidence": null,
+  "created_at": "2026-10-10T07:14:38.741295000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "globs": null,
+  "id": "rul_01a124a9ee157756843f9646d6340fb1",
+  "last_validated_at": null,
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "severity": "must",
+  "source_kind": "manual",
+  "source_ref": null,
+  "superseded_by_id": null,
+  "trust_score": 0.5,
+  "updated_at": "2026-10-10T07:14:38.741478000Z"
+}

@@ -31,19 +31,20 @@ describe('SessionRow', () => {
   it('states what is actually stored, which is the v1 complaint it exists to fix', () => {
     render(<SessionRow session={view()} {...noop} />);
     expect(screen.getByText(/4 cookies · 3 keys/)).toBeTruthy();
-    expect(screen.getByText('Signed in')).toBeTruthy();
+    // The state is a dot: its name is the accessible label, not visible text.
+    expect(screen.getByRole('img', { name: 'Signed in' })).toBeTruthy();
   });
 
   it('marks an empty session and tells the user what to do', () => {
     render(<SessionRow session={view({ state: 'empty', cookieCount: 0, storageKeyCount: 0 })} {...noop} />);
-    expect(screen.getByText('Empty')).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Empty' })).toBeTruthy();
     expect(screen.getByText(/sign in once/)).toBeTruthy();
   });
 
   it('marks an expired session differently from an empty one', () => {
     // The remedy differs: empty needs a first login, expired needs a fresh one.
     render(<SessionRow session={view({ state: 'expired' })} {...noop} />);
-    expect(screen.getByText('Expired')).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Expired' })).toBeTruthy();
     expect(screen.getByText(/sign in again/)).toBeTruthy();
   });
 
@@ -52,7 +53,7 @@ describe('SessionRow', () => {
     render(<SessionRow session={view()} {...noop} onOpen={onOpen} />);
     // Queried by accessible name, not by `title`: the icon-only control carries an
     // aria-label and a real tooltip, so a native title would be redundant.
-    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open sync.localhost' }));
     fireEvent.click(screen.getByLabelText(ACTION_HELP.openSessionHere.label));
     expect(onOpen.mock.calls).toEqual([['s_1', 'new-tab'], ['s_1', 'this-tab']]);
   });
@@ -113,7 +114,6 @@ describe('SessionRow', () => {
     // part that got cut off ("localho…") — and it is the part that tells sessions apart.
     render(<SessionRow session={view({ site: 'http://ifpghub.localhost:3000', label: 'Workspace · Super admin' })} {...noop} />);
     const address = screen.getByText('ifpghub.localhost:3000');
-    expect(address.getAttribute('title')).toBe('http://ifpghub.localhost:3000');
     expect(address.parentElement?.textContent).not.toContain('Workspace');
     expect(screen.getByText(/Workspace · Super admin · /)).toBeTruthy();
   });

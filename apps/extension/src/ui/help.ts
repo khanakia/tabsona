@@ -22,6 +22,7 @@ export const LAYER_PLAIN: Readonly<Record<StateLayer, string>> = {
   sharedWorker: 'shared background worker',
   crossOriginFrames: 'content embedded from other websites',
   signInSites: 'sign-in through another website',
+  normalLogin: 'your normal browser login',
 };
 
 /**
@@ -37,7 +38,8 @@ export type ActionId =
   | 'anotherAccountHere' | 'addSiteToPersona' | 'anotherAccountNewPersona'
   | 'saveNow' | 'leavePersona' | 'allowSignInSite' | 'allowAllSignInSites' | 'allowSiteOnly'
   | 'allowAllSites' | 'removeAllSites' | 'chooseSitesMyself'
-  | 'allowAndContinue' | 'openNormally' | 'startOver';
+  | 'allowAndContinue' | 'openNormally' | 'startOver'
+  | 'useNormalGoogleLogin' | 'useNormalLogin' | 'addGoogleSignInSites' | 'removeNormalLogin' | 'addNormalLogin';
 
 /**
  * One action's explanation.
@@ -168,6 +170,34 @@ export const ACTION_HELP: Readonly<Record<ActionId, ActionHelp>> = {
     what: 'Clears this persona’s login and saved page data for the site, then reloads its tabs signed out so you can sign in again — this time Tabsona asks before any website it is not allowed on.',
     touches: 'Your normal browser login and every other persona are untouched.',
   },
+  useNormalGoogleLogin: {
+    label: 'Use my normal Google login here',
+    what: 'Google’s own sign-in pages open the way they do in any other tab: you pick the Google account in Google’s account chooser. Then the tab carries on to exactly where it was going.',
+    touches: 'Only Google’s sign-in websites use your normal browser login. The app’s own login stays separate for this persona. Google itself, though, is shared with your other tabs: an account you add there is added to your browser too.',
+    gotcha: 'Pick the account you want in the chooser. Two personas get different Google accounts only if you pick different ones.',
+  },
+  useNormalLogin: {
+    label: 'Use my normal login here',
+    what: 'This website opens with your normal browser login, as it would in any other tab, instead of the persona’s own. Then the tab carries on to exactly where it was going.',
+    touches: 'Only this website. The persona’s login on its own websites stays separate.',
+    gotcha: 'This website cannot tell the persona from you: whatever it signs in, your other tabs see too. Remove it in Settings at any time.',
+  },
+  addGoogleSignInSites: {
+    label: 'Restore default sites',
+    what: 'Adds back accounts.google.com and accounts.youtube.com, the two websites Google signs you in through, to the list of websites that use your normal login. Only the ones missing are added; your own entries are not touched.',
+    touches: 'A persona tab then signs in to Google the way any tab does and lets you pick the account. The app’s own login stays separate per persona.',
+    gotcha: 'Google’s login is shared with your browser: an account added in a persona tab is added to your other tabs too.',
+  },
+  addNormalLogin: {
+    label: 'Add',
+    what: 'Adds a website to the list that uses your normal login, even from a persona tab. Type its address, such as accounts.google.co.in.',
+    touches: 'Only that website. Everything else in the persona stays separate.',
+  },
+  removeNormalLogin: {
+    label: 'Remove from list',
+    what: 'Takes this website off the list. A persona tab then keeps its own login there again, or stops and asks first.',
+    touches: 'Your normal browser login is not changed.',
+  },
   allowAllSites: {
     label: 'Allow on all sites',
     what: 'Chrome asks once to let Tabsona work on every website. From then on a persona keeps its login separate wherever its tabs go, including the sign-in websites an app sends you through, with no prompt per website.',
@@ -263,7 +293,17 @@ export const HELP_CARD_DELAY_MS = 300;
 export function isolationHelp(status: {
   readonly isEmpty: boolean;
   readonly leakingLayers: readonly StateLayer[];
+  /** The tab is on a website the user chose to reach with their normal login. */
+  readonly usesNormalLogin?: boolean;
 }): ActionHelp {
+  if (status.usesNormalLogin) {
+    return {
+      label: 'Uses your normal login',
+      what: 'This website is on your “use my normal login” list, so this persona tab opens it with your browser’s own login, by your choice. Nothing is kept separate here.',
+      touches: 'The persona’s login on its own websites stays separate. Whatever this website signs in is shared with your other tabs.',
+      gotcha: 'Remove the website in Settings if you want it separate again.',
+    };
+  }
   if (status.isEmpty) {
     return {
       label: 'Not signed in yet',
@@ -354,7 +394,7 @@ export const SIGN_IN_LEAKED: ActionHelp = {
 
 export type ExplainId =
   | 'personas' | 'sites' | 'coverage' | 'data'
-  | 'settingsBadge' | 'settingsTitles' | 'settingsTabs' | 'settingsSites' | 'welcome';
+  | 'settingsBadge' | 'settingsTitles' | 'settingsTabs' | 'settingsSites' | 'settingsNormalLogin' | 'welcome';
 
 /**
  * What each part of the library page is for, in the same three-question shape as
@@ -405,6 +445,12 @@ export const EXPLAIN: Readonly<Record<ExplainId, ActionHelp>> = {
     what: 'Many apps sign you in through another website (WorkOS, Auth0, Google). Tabsona can only keep a persona’s login separate on websites Chrome lets it touch, so allowing every website once means a persona never comes back signed in as you through one of them.',
     touches: 'Tabs outside a persona keep your normal login everywhere. Inside a persona tab, every website starts signed out, so a Google or GitHub link there asks you to sign in again.',
     gotcha: 'Prefer to decide per website? Choose sites yourself: the popup asks when an app’s sign-in needs another website. Either way, Settings can change it later.',
+  },
+  settingsNormalLogin: {
+    label: 'Use my normal login on',
+    what: 'Websites a persona tab reaches with your browser’s own login, even though everything else in the persona is kept separate. Meant for sign-in providers such as Google, which cannot sign in from a separate login: the persona’s own website still gets its own login.',
+    touches: 'On these websites a persona tab is not separate. Google lets you pick the account, and an account added there is added to your browser too. Nothing is on the list until you add it.',
+    gotcha: 'Listed websites are the only ones affected. The badge on them says “uses your normal login”, never “separate”.',
   },
   settingsTabs: {
     label: 'Tabs',

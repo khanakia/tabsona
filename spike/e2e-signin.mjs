@@ -41,6 +41,22 @@
 //      its sign-in asks who you are, no alert appears at any point, the persona signs in
 //      as bob while the plain tab stays alice — with no host ever allowed by name.
 
+//   P. "USE MY NORMAL LOGIN" (pass-through hosts, decision dec_01a124168bea78c6a5d1efab2f5fc671):
+//      the provider hosts are on the user's list, so a persona tab reaches them with the
+//      BROWSER's login while the app's own login stays per persona.
+//      P  (nothing but the app granted): CONTROL first, the gate stops at the relay with the
+//          offer "Use my normal login on ..."; the REAL button is clicked for the relay and
+//          the provider (no Chrome permission involved); the persona lands on the app as
+//          alice, the browser's provider account, by design, while the plain tab's APP login
+//          is bob at the same time; no further gate stop, no leak alert, nothing saved from
+//          the provider, and the provider receives the browser's own cookie.
+//      P2 (relay and provider GRANTED): the pass-through allow outranks the cookie strip, so
+//          the provider's form appears and a sign-in whose cookie is set on a 302 (the hop
+//          the engine cannot carry) now completes with no retry; the persona storage shim
+//          and cookie shim do not run on the provider; the provider login is the browser's
+//          afterwards; removing the hosts brings the separation back.
+//      P3 ("Allow on all sites" plus the list): the exemption outranks the all-sites strip.
+
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -190,6 +206,11 @@ const rawSession = async (chrome, sessionId) => chrome.swSession.eval(
 
 const sessionOf = async (chrome, personaId) =>
   (await chrome.op('getState()')).personas.find((p) => p.id === personaId).sessions[0];
+
+
+/** Whether the extension holds a grant for `origin`, asked of Chrome. */
+const holdsOn = async (c, origin) => await c.swSession.eval(
+  `chrome.permissions.contains({origins:[${JSON.stringify(`${origin}/*`)}]})`) === true;
 
 // --- G. the gate: only the app allowed ------------------------------------------------
 const chromeG = await startChrome(9882, EXT);
@@ -461,6 +482,120 @@ const plainAfterC = await plainSignIn(chromeC, 'nobody');
 await chromeC.kill();
 rmSync(extC, { recursive: true, force: true });
 
+
+// --- P. "use my normal login": the provider hosts are on the list -----------------------
+const PASS_RELAY = new URL(RELAY_ORIGIN).host;
+const PASS_IDP = new URL(IDP_ORIGIN).host;
+const PASS_ENTRIES = [PASS_RELAY, PASS_IDP].sort();
+const ALLOW_PRIORITY = 3_000_000;
+const clickButton = (text) => `(() => {
+  const b = [...document.querySelectorAll('button')].find((x) => x.textContent.includes(${JSON.stringify(text)}));
+  if (!b) return 'no-button'; b.click(); return 'clicked';
+})()`;
+const storedList = (c) => c.swSession.eval(`chrome.storage.local.get('passThroughHosts').then((v) => v.passThroughHosts ?? null)`);
+const allowRules = (c) => c.swSession.eval(`chrome.declarativeNetRequest.getSessionRules().then((r) => r.filter((x) => x.action.type === 'allow' && x.priority === ${ALLOW_PRIORITY}).map((x) => ({ tabIds: x.condition.tabIds, regex: x.condition.regexFilter })))`);
+/** Wait until the worker has a stopped navigation at `origin` for `tabId`, and its page shows `text`. */
+async function waitForStopAt(chrome, page, tabId, origin, text) {
+  for (let i = 0; i < 60; i++) {
+    const info = await chrome.op(`gateInfo(${tabId})`);
+    if (info?.host === origin && await page.eval(`document.body.innerText.includes(${JSON.stringify(text)})`) === true) return info;
+    await sleep(300);
+  }
+  return null;
+}
+const postLogin = (user) => `fetch('/login',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'user=${user}',redirect:'manual'}).then(()=>'sent')`;
+
+const chromeP = await startChrome(9898, EXT);
+await requireGrant(chromeP, APP_ORIGIN);
+const grantedP = { relay: await holdsOn(chromeP, RELAY_ORIGIN), provider: await holdsOn(chromeP, IDP_ORIGIN) };
+const plainP = await plainSignIn(chromeP, 'alice'); // the provider now knows alice IN THE BROWSER
+await plainP.page.eval(postLogin('bob')); // ...but the plain tab's APP login is bob
+await sleep(500);
+const plainAppBobP = await plainP.page.eval(WHO);
+const sP = await chromeP.op('newPersona("s2")');
+// CONTROL: nothing on the list, behaviour unchanged: the gate stops at the relay
+const P1 = await addSiteAndHitGate(chromeP, sP);
+const infoP1 = await chromeP.op(`gateInfo(${P1.tabId})`);
+const listP0 = await storedList(chromeP);
+const textP1 = P1.stopped ? await gateText(P1.page) : '';
+const sessionRawP0 = await rawSession(chromeP, (await sessionOf(chromeP, sP)).id);
+// The real button, for the relay, then for the provider: no Chrome prompt, no permission.
+const clickedRelay = await P1.page.eval(clickButton(`Use my normal login on ${PASS_RELAY}`));
+const infoP2 = await waitForStopAt(chromeP, P1.page, P1.tabId, IDP_ORIGIN, `Use my normal login on ${PASS_IDP}`);
+const clickedIdp = infoP2 ? await P1.page.eval(clickButton(`Use my normal login on ${PASS_IDP}`)) : 'no-stop';
+const landedP = await waitFor(P1.page, ON_APP, 'persona back on the app through the normal-login provider', 25000);
+await sleep(500);
+const personaWhoP = await P1.page.eval(WHO);
+const plainAppWhoP = await plainP.page.eval(WHO);
+const listP1 = await storedList(chromeP);
+const rulesP = await allowRules(chromeP);
+const grantedAfterP = { relay: await holdsOn(chromeP, RELAY_ORIGIN), provider: await holdsOn(chromeP, IDP_ORIGIN) };
+const sessionRawP = await rawSession(chromeP, (await sessionOf(chromeP, sP)).id);
+// A second sign-in in the same tab: no stop at all this time
+await P1.page.eval(`location.href = ${JSON.stringify(`${APP_ORIGIN}/sso/start`)}`);
+await sleep(300);
+const settledP = await settle(P1.page);
+const gateAfterP = await chromeP.op(`gateInfo(${P1.tabId})`);
+const alertsP = (await chromeP.op('getState()')).signInAlerts;
+const statusAppP = await status(chromeP, P1.tabId);
+// On the provider the tab sends the BROWSER's cookie and the badge says so
+await P1.page.eval(`location.href = ${JSON.stringify(`${IDP_ORIGIN}/echo-cookies`)}`);
+await sleep(1200);
+const cookiesAtIdpP = JSON.parse(await P1.page.eval('document.body.innerText')).cookies;
+const statusIdpP = await status(chromeP, P1.tabId);
+// Unbound CONTROL and the browser's own app login are untouched
+const plainAfterP = await plainP.page.eval(WHO);
+await chromeP.kill();
+
+// --- P2. provider hosts granted AND on the list: the allow outranks the strip -------------
+const extP2 = extensionGranting([RELAY_ORIGIN, IDP_ORIGIN]);
+const chromeP2 = await startChrome(9899, extP2);
+await requireGrant(chromeP2, APP_ORIGIN);
+await requireGrant(chromeP2, RELAY_ORIGIN);
+await requireGrant(chromeP2, IDP_ORIGIN);
+await chromeP2.op(`addNormalLogin(${JSON.stringify([PASS_RELAY, PASS_IDP])})`);
+const sP2 = await chromeP2.op('newPersona("s2")');
+const P2tab = await addSiteAndStartSso(chromeP2, sP2);
+const shimAtIdpP2 = P2tab.landed === 'idp-form' ? await P2tab.page.eval(`typeof window.__tabsonaSession`) : 'not-on-idp';
+const gateP2 = await chromeP2.op(`gateInfo(${P2tab.tabId})`);
+const loginP2 = P2tab.landed === 'idp-form' ? await personaProviderSignIn(P2tab.page, 'bob') : { who: null, retries: -1 };
+const shimAtAppP2 = await P2tab.page.eval(`typeof window.__tabsonaSession`);
+const sessionRawP2 = await rawSession(chromeP2, (await sessionOf(chromeP2, sP2)).id);
+const statusP2 = await status(chromeP2, P2tab.tabId);
+const alertsP2 = (await chromeP2.op('getState()')).signInAlerts;
+// the 302-cookie round trip on the provider itself (the Google hop): the browser jar handles it
+await P2tab.page.eval(`location.href = ${JSON.stringify(`${IDP_ORIGIN}/ck/page`)}`);
+await waitFor(P2tab.page, `!!window.__ck`, 'cookie round-trips on the provider', 15000);
+const ckIdpP2 = await P2tab.page.eval('window.__ck');
+const statusAtIdpP2 = await status(chromeP2, P2tab.tabId);
+// the provider login is the browser's from now on, by design: a plain tab arrives as bob
+const plainAfterP2 = await plainSignIn(chromeP2, 'nobody');
+const rulesP2 = await allowRules(chromeP2);
+// removing the hosts brings the separation back: the allow rules go, the shim returns
+await chromeP2.op(`removeNormalLogin(${JSON.stringify(PASS_RELAY)})`);
+await chromeP2.op(`removeNormalLogin(${JSON.stringify(PASS_IDP)})`);
+const rulesP2Removed = await allowRules(chromeP2);
+const listP2Removed = await storedList(chromeP2);
+await P2tab.page.eval(`location.href = ${JSON.stringify(`${IDP_ORIGIN}/echo-cookies`)}`);
+await sleep(1200);
+const cookiesAfterRemoveP2 = JSON.parse(await P2tab.page.eval('document.body.innerText')).cookies;
+await chromeP2.kill();
+rmSync(extP2, { recursive: true, force: true });
+
+// --- P3. "Allow on all sites" plus the list: the allow outranks the all-sites strip --------
+const extP3 = extensionWithHostPermissions([ALL_SITES_PATTERN], { replace: true });
+const chromeP3 = await startChrome(9900, extP3);
+await chromeP3.op(`addNormalLogin(${JSON.stringify([PASS_RELAY, PASS_IDP])})`);
+const sP3 = await chromeP3.op('newPersona("s3")');
+const P3tab = await addSiteAndStartSso(chromeP3, sP3);
+const shimAtIdpP3 = P3tab.landed === 'idp-form' ? await P3tab.page.eval(`typeof window.__tabsonaSession`) : 'not-on-idp';
+const loginP3 = P3tab.landed === 'idp-form' ? await personaProviderSignIn(P3tab.page, 'bob') : { who: null, retries: -1 };
+const alertsP3 = (await chromeP3.op('getState()')).signInAlerts;
+const scriptsP3 = await chromeP3.json('chrome.scripting.getRegisteredContentScripts().then(s => s.map(x => ({ id: x.id, exclude: x.excludeMatches ?? [] })))');
+const plainAfterP3 = await plainSignIn(chromeP3, 'nobody');
+await chromeP3.kill();
+rmSync(extP3, { recursive: true, force: true });
+
 console.log(`\nJ  cookie round-trips in a persona tab (informational): redirect cookie on the follow-up request: ${ckPersona.afterRedirect?.includes('redir')} (a 302's follow-up is issued by the network stack with no extension hop)`);
 console.log(`\napp ${APP_ORIGIN} · relay ${RELAY_ORIGIN} · provider ${IDP_ORIGIN}`);
 console.log(`   G  plain=${plainG.who} stopped=${G.stopped} reason=${gateInfoG?.reason} host=${gateInfoG?.host} declined=${declined} personaWho=${personaWhoG} link=${linkInfo?.reason}/${linkInfo?.host} plain after=${plainAfterG.who}`);
@@ -469,6 +604,9 @@ console.log(`   G3 resumed=${resumed} landed=${landedG3} as ${g3Login.who} · le
 console.log(`   G4 remembered chain asks ${JSON.stringify(infoG4?.hostsToAllow)}`);
 console.log(`   provider form shown again after a sign-in (cookie-rule race): s1 ${s1Login.retries} · s2 ${s2Login.retries} · re-added ${readdedLogin.retries}`);
 console.log(`   C  all sites (${JSON.stringify(grantsC)}): welcome=${chromeC.welcomeTabOpened} scripts=${JSON.stringify(scriptMatchesC)} plain=${plainC.who} s3 landed=${s3Tab.landed} as ${s3Login.who} (retries ${s3Login.retries}) alerts=${JSON.stringify(alertsC)} plain after=${plainAfterC.who}`);
+console.log(`   P  control stop=${P1.stopped} offer=${JSON.stringify(infoP1?.passThroughOffer)} clicked ${clickedRelay}/${clickedIdp} landed=${landedP} persona=${personaWhoP} plain app=${plainAppWhoP} cookies at provider=${JSON.stringify(cookiesAtIdpP)} settled again=${settledP}`);
+console.log(`   P2 landed=${P2tab.landed} shim@provider=${shimAtIdpP2} signed in as ${loginP2.who} (retries ${loginP2.retries}) shim@app=${shimAtAppP2} 302-cookie=${JSON.stringify(ckIdpP2?.afterRedirect)} plain after=${plainAfterP2.who} allow rules ${rulesP2.length} -> ${rulesP2Removed.length}`);
+console.log(`   P3 all sites + list: landed=${P3tab.landed} shim@provider=${shimAtIdpP3} as ${loginP3.who} (retries ${loginP3.retries}) plain after=${plainAfterP3.who} scripts=${JSON.stringify(scriptsP3)}`);
 console.log(`   B  plain=${plainB.who}  s1=${s1Who}  s2=${s2Who}  forgotten tab=${forgottenWho}  re-added s2=${readdedWho}  plain after=${plainAfter.who}`);
 
 const pass = report('sign-in through another website — the re-added persona that came back as admin', [
@@ -548,6 +686,57 @@ const pass = report('sign-in through another website — the re-added persona th
     echoJ.cookies?.hidden === '1' && !readJ.includes('hidden'), `${JSON.stringify(echoJ.cookies)} / ${readJ}`],
   ['J: the persona\'s cookies never touched the browser\'s jar (the plain tab does not see them)',
     !plainReadJ.includes('personaonly') && !plainReadJ.includes('hidden') && plainReadJ.includes('browsercookie=1'), plainReadJ],
+  // --- P ---
+  ['P: only the app is granted (the relay and the provider are not)', !grantedP.relay && !grantedP.provider, JSON.stringify(grantedP)],
+  ['P: the plain tab\'s provider login is alice but its APP login is bob (two different logins, at once)',
+    plainP.who === 'alice' && plainAppBobP === 'bob', `${plainP.who} / ${plainAppBobP}`],
+  ['P: CONTROL — with nothing on the list the gate STOPS the sign-in at the relay, as before',
+    P1.stopped === true && infoP1?.host === RELAY_ORIGIN && listP0 === null, JSON.stringify({ host: infoP1?.host, list: listP0 })],
+  ['P: the gate offers "Use my normal login on" the relay and says the app\'s own login stays separate',
+    infoP1?.passThroughOffer?.kind === 'host' && JSON.stringify(infoP1?.passThroughOffer?.hosts) === JSON.stringify([PASS_RELAY])
+      && textP1.includes(`Use my normal login on ${PASS_RELAY}`) && textP1.includes('own login stays separate'), textP1.slice(0, 260)],
+  ['P: nothing was saved while it was stopped', Array.isArray(sessionRawP0.cookies) && sessionRawP0.cookies.length === 0],
+  ['P: the real button worked for the relay and then for the provider (two stops, two clicks)',
+    clickedRelay === 'clicked' && infoP2 !== null && clickedIdp === 'clicked', `${clickedRelay} / ${infoP2?.host} / ${clickedIdp}`],
+  ['P: the list holds both hosts, normalised', JSON.stringify(listP1) === JSON.stringify(PASS_ENTRIES), JSON.stringify(listP1)],
+  ['P: and no Chrome permission was needed or granted', !grantedAfterP.relay && !grantedAfterP.provider, JSON.stringify(grantedAfterP)],
+  ['P: one tab-scoped allow per host is installed at the top priority', rulesP.length === 2 && rulesP.every((r) => r.tabIds?.includes(P1.tabId)), JSON.stringify(rulesP)],
+  ['P: the persona landed back on the app', landedP === true],
+  ['P: THE POINT — the persona\'s app login is alice (the browser\'s provider account, by design) while the plain tab\'s app login is STILL bob',
+    personaWhoP === 'alice' && plainAppWhoP === 'bob' && plainAfterP === 'bob', `${personaWhoP} / ${plainAppWhoP} / ${plainAfterP}`],
+  ['P: only the app\'s own cookie was saved into the persona — nothing from the provider',
+    Array.isArray(sessionRawP.cookies) && sessionRawP.cookies.length === 1 && sessionRawP.cookies[0].domain === 'localhost'
+      && !sessionRawP.leakedThrough, JSON.stringify(sessionRawP.cookies?.map((c) => `${c.name}@${c.domain}`))],
+  ['P: a second sign-in in the same tab is NOT stopped', settledP === 'app' && gateAfterP === null, `${settledP} / ${JSON.stringify(gateAfterP)}`],
+  ['P: no sign-in alert, no unguarded site on the tab', alertsP.length === 0 && statusAppP.unguardedSignInSites.length === 0,
+    JSON.stringify([alertsP, statusAppP.unguardedSignInSites])],
+  ['P: on the provider the tab sends the BROWSER\'s own cookie (not stripped)', cookiesAtIdpP.includes('idp_sid'), JSON.stringify(cookiesAtIdpP)],
+  ['P: and the badge says "uses your normal login (your choice)", never "isolated"',
+    statusIdpP.usesNormalLogin === true && statusIdpP.summary === 'uses your normal login (your choice)'
+      && statusIdpP.coverage.every((c) => c.status === 'shared') && !statusIdpP.summary.includes('isolated'), JSON.stringify([statusIdpP.summary, statusIdpP.coverage.map((c) => c.status)])],
+  ['P: while on the app the badge is the ordinary one', statusAppP.usesNormalLogin === false],
+  // --- P2 ---
+  ['P2: the provider is granted AND on the list; the persona sees the provider\'s FORM (no browser login there yet)',
+    P2tab.landed === 'idp-form' && gateP2 === null, `${P2tab.landed} / ${JSON.stringify(gateP2)}`],
+  ['P2: the persona storage shim and cookie shim do NOT run on the provider, and do run on the app',
+    shimAtIdpP2 === 'undefined' && shimAtAppP2 === 'object', `${shimAtIdpP2} / ${shimAtAppP2}`],
+  ['P2: a sign-in whose cookie is set on a 302 completes with NO retry (the browser jar handles the redirect)',
+    loginP2.who === 'bob' && loginP2.retries === 0, `${loginP2.who} / retries ${loginP2.retries}`],
+  ['P2: on the provider\'s own cookie round trip the 302-set cookie comes back', ckIdpP2?.afterRedirect?.includes('redir') === true, JSON.stringify(ckIdpP2)],
+  ['P2: only the app\'s cookie is in the persona, the provider\'s is not', Array.isArray(sessionRawP2.cookies)
+    && sessionRawP2.cookies.every((c) => c.domain === 'localhost') && !sessionRawP2.leakedThrough, JSON.stringify(sessionRawP2.cookies?.map((c) => `${c.name}@${c.domain}`))],
+  ['P2: no alert, no leak mark, and the app badge is ordinary', alertsP2.length === 0 && statusP2.leakedSignInSites.length === 0 && statusP2.usesNormalLogin === false],
+  ['P2: on the provider the badge says normal login', statusAtIdpP2.usesNormalLogin === true],
+  ['P2: the provider login is the browser\'s afterwards (by design): a plain tab arrives as bob with no form', plainAfterP2.who === 'bob', String(plainAfterP2.who)],
+  ['P2: two allow rules while listed, none once removed, and the list is empty', rulesP2.length === 2 && rulesP2Removed.length === 0 && Array.isArray(listP2Removed) && listP2Removed.length === 0,
+    `${rulesP2.length} / ${rulesP2Removed.length} / ${JSON.stringify(listP2Removed)}`],
+  ['P2: CONTROL — once removed, the persona tab on the provider sends NO browser cookie (separation is back)', cookiesAfterRemoveP2.length === 0, JSON.stringify(cookiesAfterRemoveP2)],
+  // --- P3 ---
+  ['P3: with every website allowed AND the list, the persona sees the provider\'s form and signs in with no retry',
+    P3tab.landed === 'idp-form' && loginP3.who === 'bob' && loginP3.retries === 0, `${P3tab.landed} / ${loginP3.who} / ${loginP3.retries}`],
+  ['P3: the shim is absent on the provider (excluded), the scripts name the exclusion',
+    shimAtIdpP3 === 'undefined' && scriptsP3.filter((s) => s.exclude.length === 2).length === 2, `${shimAtIdpP3} ${JSON.stringify(scriptsP3)}`],
+  ['P3: no sign-in alert, and the provider login is the browser\'s (a plain tab arrives as bob)', alertsP3.length === 0 && plainAfterP3.who === 'bob', `${JSON.stringify(alertsP3)} / ${plainAfterP3.who}`],
   ['B: s1 saw the provider\'s form and signed in as alice', s1Tab.landed === 'idp-form' && s1Who === 'alice', `${s1Tab.landed} / ${s1Who}`],
   ['B: s2 saw the provider\'s form (not the browser\'s alice) and signed in as bob', s2SawForm && s2Who === 'bob', `${s2Tab.landed} / ${s2Who}`],
   ['B: forgetting the login released its open tab from the persona', forgottenStatus.sessionId === null, String(forgottenStatus.sessionId)],

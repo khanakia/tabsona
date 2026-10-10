@@ -46,6 +46,15 @@ describe('ACTION_HELP', () => {
   });
 });
 
+describe('isolationHelp on a normal-login website', () => {
+  it('says the share is the user\'s choice and never claims separation', () => {
+    const h = isolationHelp({ isEmpty: false, leakingLayers: [], usesNormalLogin: true });
+    expect(h.label).toBe('Uses your normal login');
+    expect(`${h.what} ${h.touches}`).toContain('by your choice');
+    expect(h.label).not.toMatch(/separate/i);
+  });
+});
+
 describe('isolationHelp', () => {
   it('tells an empty tab to sign in, rather than claiming it is protected', () => {
     expect(isolationHelp({ isEmpty: true, leakingLayers: [] }).label).toBe('Not signed in yet');

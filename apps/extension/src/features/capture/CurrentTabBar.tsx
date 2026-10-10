@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  ArrowLeft, ArrowRight, ChevronDown, Copy, Globe, LogIn, Plus, Save, ShieldAlert, ShieldCheck,
+  ArrowLeft, ArrowRight, ChevronDown, Copy, Globe, KeyRound, LogIn, Plus, Save, ShieldAlert, ShieldCheck,
   ShieldQuestion, Unlink, UserPlus, UserRoundPlus,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -11,6 +11,7 @@ import {
 import { ActionMenuItem, WithHelp } from '@/ui/HelpCard';
 import { ACTION_HELP, SIGN_IN_LEAKED, SIGN_IN_NOT_SEPARATED, isolationHelp, type ActionHelp } from '@/ui/help';
 import { shortSite } from '@/ui/format';
+import { FullText } from '@/ui/FullText';
 import type { TabStatus } from '@/domain/messages';
 import type { PersonaId, PersonaView, SessionId } from '@/domain/types';
 
@@ -65,15 +66,31 @@ export function CurrentTabBar(props: CurrentTabBarProps) {
       <Bar>
         <Row>
           <ShieldQuestion className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="min-w-0 flex-1 truncate">
+          {/* The host gets the width; "not allowed here yet" is a hover card, and the button
+              says only "Allow" with the full meaning in its tooltip and aria-label. */}
+          <FullText
+            line={<span className="min-w-0 flex-1 truncate" />}
+            full={(
+              <>
+                <span className="block break-all font-semibold">{t.site}</span>
+                <span className="block text-muted-foreground">Tabsona is not allowed on this website yet.</span>
+              </>
+            )}
+          >
             <span className="font-medium">{shortSite(t.site ?? '')}</span>
-            <span className="text-muted-foreground"> · Tabsona is not allowed here yet</span>
-          </span>
+            <span className="text-muted-foreground"> · not allowed</span>
+          </FullText>
           <WithHelp
             help={ACTION_HELP.allowSite}
-            trigger={<Button size="xs" onClick={() => t.site && props.onAllowSite(t.site)} />}
+            trigger={(
+              <Button
+                size="xs"
+                aria-label={`${ACTION_HELP.allowSite.label}: ${shortSite(t.site ?? '')}`}
+                onClick={() => t.site && props.onAllowSite(t.site)}
+              />
+            )}
           >
-            {ACTION_HELP.allowSite.label}
+            Allow
           </WithHelp>
         </Row>
       </Bar>
@@ -83,9 +100,13 @@ export function CurrentTabBar(props: CurrentTabBarProps) {
   // In a persona: say which one, whether it is really separate, and offer what fits.
   if (t.sessionId) {
     const leakingLayers = t.coverage.filter((c) => c.status === 'leaking').map((c) => c.layer);
-    const status = isolationHelp({ isEmpty: t.isEmpty, leakingLayers });
-    const Shield = leakingLayers.length > 0 ? ShieldAlert : ShieldCheck;
-    const color = t.isEmpty ? 'var(--state-empty)' : leakingLayers.length > 0 ? 'var(--state-expired)' : 'var(--state-signed-in)';
+    const status = isolationHelp({ isEmpty: t.isEmpty, leakingLayers, usesNormalLogin: t.usesNormalLogin });
+    // A chosen share is neither the green "separate" nor a warning: the key and a neutral
+    // colour say "your normal login, by your choice".
+    const Shield = t.usesNormalLogin ? KeyRound : leakingLayers.length > 0 ? ShieldAlert : ShieldCheck;
+    const color = t.usesNormalLogin
+      ? 'var(--muted-foreground)'
+      : t.isEmpty ? 'var(--state-empty)' : leakingLayers.length > 0 ? 'var(--state-expired)' : 'var(--state-signed-in)';
     return (
       <Bar>
         <Row>

@@ -243,6 +243,56 @@ export const GATE_TAB_PARAM = 'tab';
 export const GATE_BLOCK_PRIORITY = 1;
 export const GATE_ALLOW_PRIORITY = 2;
 
+/**
+ * The pass-through ("use my normal login") rule, and where it sits in the WHOLE layering.
+ *
+ * A pass-through host is one the user chose to reach with the browser's own login even from
+ * a persona tab (an identity provider: Google sets its flow cookie on a redirect, which no
+ * per-tab rule can carry, see docs/limits.md). For those hosts a bound tab must send the
+ * browser's original Cookie header and keep the original Set-Cookie: no strip, no per-host
+ * SET, and no gate block. One tab-scoped `allow` does all three, because an `allow`
+ * silently cancels every matching `modifyHeaders` rule, and every `block`, of the same or
+ * LOWER priority.
+ *
+ * So it must sit ABOVE the highest cookie rule. The complete order, lowest to highest:
+ *   1  GATE_BLOCK_PRIORITY        block navigations to hosts Tabsona is not allowed on
+ *   2  GATE_ALLOW_PRIORITY        allow them for a granted host
+ *   3  STRIP_RULE_PRIORITY        Cookie / Set-Cookie strip
+ *   1 x TIER_SPAN ..              parent-domain cookie SET rules (DOMAIN_RULE_TIER)
+ *   2 x TIER_SPAN ..              exact-host cookie SET rules   (HOST_RULE_TIER)
+ *   3 x TIER_SPAN                 PASS_THROUGH_ALLOW_PRIORITY: cancels all of the above
+ * The highest cookie rule is below 3 x TIER_SPAN by construction (the label and path terms
+ * stay under one TIER_SPAN), which core/__tests__/passthrough.test.ts pins.
+ */
+export const PASS_THROUGH_ALLOW_PRIORITY = 3 * PRIORITY_TIER_SPAN;
+
+/** `chrome.storage.local` key of the user's pass-through hosts (core/passthrough.ts). Local,
+ *  not session: it is a choice about the user's identity providers, not about this run.
+ *  Renaming it orphans the list; migrate instead. */
+export const STORAGE_KEY_PASS_THROUGH = 'passThroughHosts';
+
+/** Most hosts kept in the pass-through list. A real list is a handful of identity
+ *  providers; the cap bounds the regex rules installed per sync and stops a bad import. */
+export const MAX_PASS_THROUGH_HOSTS = 32;
+
+/**
+ * Google's sign-in hosts, offered as a preset and ACTIVE ONLY once the user agrees (the
+ * list is empty by default, per the project's "ask before widening" rule).
+ *
+ * The chain, from docsi/research/google-signin.md: `accounts.google.com` (ServiceLogin,
+ * /v3/signin/identifier, CheckCookie, its own SetSID) then `accounts.youtube.com` (SetSID
+ * for youtube.com). Parent-domain cookies (`Domain=.google.com`) are set BY those hosts, so
+ * no other `google.com` host is needed to sign in. Deliberately NOT `*.google.com`: that
+ * would also hand mail.google.com, drive.google.com and every other Google page the
+ * browser's login, which is far more than signing in needs. Google sometimes answers on a
+ * country domain (accounts.google.co.in): the user adds that one by name in Settings.
+ */
+export const GOOGLE_SIGN_IN_HOSTS = ['accounts.google.com', 'accounts.youtube.com'] as const;
+
+/** Domains whose subdomains count as "Google" when the gate offers the one-click preset:
+ *  a stop on consent.google.com or a YouTube login page is a Google sign-in step too. */
+export const GOOGLE_DOMAINS = ['google.com', 'youtube.com'] as const;
+
 /** What `webNavigation.onErrorOccurred` reports for a navigation a declarativeNetRequest
  *  rule blocked. Another extension blocking a request reports the same string, which is
  *  why the gate also checks that the target is a host Tabsona is not allowed on. */

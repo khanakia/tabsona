@@ -84,3 +84,29 @@ describe('SignInSitesSection — the worklist', () => {
     expect(screen.queryByRole('region')).toBeNull();
   });
 });
+
+describe('the "use my normal Google login" choice on the sign-in alert', () => {
+  const googleAlert: SignInAlert[] = [{ site: 'https://staging-app.example.com', hosts: ['https://accounts.google.com'] }];
+
+  it('is offered for a Google host and adds the whole preset in one call', () => {
+    const onUseNormalLogin = vi.fn();
+    render(<SignInAlertBanner alerts={googleAlert} onAllow={vi.fn()} passThroughHosts={[]} onUseNormalLogin={onUseNormalLogin} />);
+    fireEvent.click(screen.getByRole('button', { name: ACTION_HELP.useNormalGoogleLogin.label }));
+    expect(onUseNormalLogin).toHaveBeenCalledWith(['accounts.google.com', 'accounts.youtube.com']);
+  });
+
+  it('is not offered for a non-Google provider (it would not make that sign-in work)', () => {
+    render(<SignInAlertBanner alerts={chain} onAllow={vi.fn()} passThroughHosts={[]} onUseNormalLogin={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: ACTION_HELP.useNormalGoogleLogin.label })).toBeNull();
+  });
+
+  it('is not offered when no action is wired, and the worklist offers it per app', () => {
+    const { unmount } = render(<SignInAlertBanner alerts={googleAlert} onAllow={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: ACTION_HELP.useNormalGoogleLogin.label })).toBeNull();
+    unmount();
+    const onUseNormalLogin = vi.fn();
+    render(<SignInSitesSection alerts={googleAlert} onAllow={vi.fn()} passThroughHosts={[]} onUseNormalLogin={onUseNormalLogin} />);
+    fireEvent.click(screen.getByRole('button', { name: ACTION_HELP.useNormalGoogleLogin.label }));
+    expect(onUseNormalLogin).toHaveBeenCalledTimes(1);
+  });
+});

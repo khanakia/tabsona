@@ -108,6 +108,11 @@ export function Popup() {
     });
   };
 
+  // No Chrome prompt: the list is Tabsona's own, so this is not tied to a click gesture.
+  const useNormalLogin = (hosts: readonly string[]) => {
+    void client.passThroughAdd(hosts).then(refresh);
+  };
+
   const allowAllSites = () => {
     void client.grantAllSites().then((ok) => {
       if (!ok) setFeedback({ tone: 'warn', text: 'Chrome did not allow every website. Nothing changed.' });
@@ -174,7 +179,13 @@ export function Popup() {
       {/* Pinned above everything, and not dismissible: it goes away only when the
           sign-in websites are allowed. A user missed the single row that used to be the
           only place this was said. */}
-      <SignInAlertBanner alerts={state.signInAlerts} onAllow={allowOrigins} onAllowAllSites={allowAllSites} />
+      <SignInAlertBanner
+        alerts={state.signInAlerts}
+        onAllow={allowOrigins}
+        onAllowAllSites={allowAllSites}
+        passThroughHosts={state.passThroughHosts}
+        onUseNormalLogin={useNormalLogin}
+      />
 
       {feedback && (
         <FeedbackBanner
@@ -192,7 +203,13 @@ export function Popup() {
         </section>
       )}
 
-      <SignInSitesSection alerts={state.signInAlerts} onAllow={allowOrigins} collapsible />
+      <SignInSitesSection
+        alerts={state.signInAlerts}
+        onAllow={allowOrigins}
+        passThroughHosts={state.passThroughHosts}
+        onUseNormalLogin={useNormalLogin}
+        collapsible
+      />
 
       {/* A floor under the persona list: the banners above are shrink-0, and without it a
           long warning squeezed the list to nothing ("where all the profiles go"). */}

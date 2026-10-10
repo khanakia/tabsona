@@ -1,4 +1,4 @@
-import { ExternalLink, Globe, ShieldQuestion } from 'lucide-react';
+import { ExternalLink, Globe, KeyRound, ShieldQuestion } from 'lucide-react';
 import { Button } from '@/ui/volt/button';
 import { WithHelp } from '@/ui/HelpCard';
 import { ACTION_HELP } from '@/ui/help';
@@ -25,6 +25,29 @@ export interface GatePanelProps {
   /** Ask Chrome for every website once, then continue. Same click rule. */
   readonly onAllowAllSites: () => void;
   readonly onOpenNormally: () => void;
+  /** Put the offered websites on the "use my normal login" list and continue. Needs no
+   *  Chrome permission, so unlike the allow buttons it is not bound to a click gesture. */
+  readonly onUseNormalLogin: () => void;
+}
+
+/**
+ * The one-line pitch of the "use my normal login" choice, by what is offered. Exported so
+ * the wording is pinned by a test. Google's line says the two things a person deciding
+ * needs: Google lets them pick the account, and the app's login stays separate.
+ */
+export function normalLoginWording(info: GateInfo): { readonly button: string; readonly line: string } | null {
+  const offer = info.passThroughOffer;
+  if (offer === null) return null;
+  if (offer.kind === 'google') {
+    return {
+      button: ACTION_HELP.useNormalGoogleLogin.label,
+      line: `Google lets you pick the account, and ${shortSite(info.site)}’s own login stays separate for “${info.personaName}”.`,
+    };
+  }
+  return {
+    button: `Use my normal login on ${shortSite(info.host)}`,
+    line: `${shortSite(info.host)} then sees your normal browser login, shared with your other tabs. ${shortSite(info.site)}’s own login stays separate for “${info.personaName}”.`,
+  };
 }
 
 /** The headline and the one-sentence explanation, by why the tab was stopped. Exported
@@ -66,6 +89,7 @@ export function GatePanel(props: GatePanelProps) {
   const allowLabel = count > 1
     ? `Allow all ${count} and continue`
     : count === 1 ? ACTION_HELP.allowAndContinue.label : 'Continue';
+  const normal = normalLoginWording(info);
   const goBackLabel = info.viaForm ? (count > 1 ? `Allow all ${count} and go back` : 'Allow and go back') : null;
 
   return (
@@ -91,6 +115,21 @@ export function GatePanel(props: GatePanelProps) {
         <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {props.error}
         </p>
+      )}
+
+      {normal && (
+        <section aria-label={normal.button} className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 px-3 py-3">
+          <p className="text-sm leading-relaxed">{normal.line}</p>
+          <div>
+            <WithHelp
+              help={info.passThroughOffer?.kind === 'google' ? ACTION_HELP.useNormalGoogleLogin : ACTION_HELP.useNormalLogin}
+              trigger={<Button size="lg" variant="secondary" onClick={props.onUseNormalLogin} />}
+            >
+              <KeyRound />
+              {normal.button}
+            </WithHelp>
+          </div>
+        </section>
       )}
 
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">

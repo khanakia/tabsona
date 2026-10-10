@@ -11,7 +11,7 @@ import { PersonaRow } from '@/features/personas';
 import { CoverageTable, SiteList } from '@/features/sites';
 import { SignInSitesSection } from '@/features/signin';
 import { AllSitesWelcome, SettingsPanel } from '@/features/settings';
-import { isOptionsSection, sectionFromHash } from '@/core/settings';
+import { hashFor, isOptionsSection, sectionFromHash, settingsGroupFromHash } from '@/core/settings';
 import { PERSONA_PALETTE } from '@/core/constants';
 import { ConfirmDialog } from '@/ui/ConfirmDialog';
 import { FeedbackBanner } from '@/ui/FeedbackBanner';
@@ -21,7 +21,7 @@ import { AboutLinks } from '@/ui/AboutLinks';
 import { Button } from '@/ui/volt/button';
 import { Input } from '@/ui/volt/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/volt/tabs';
-import type { OptionsSection, OriginCoverage } from '@/domain/messages';
+import type { OptionsSection, OriginCoverage, SettingsGroup } from '@/domain/messages';
 import type { PersonaId } from '@/domain/types';
 
 export function Options() {
@@ -35,14 +35,20 @@ export function Options() {
   // The section follows the URL hash, so the popup's gear can open this page straight on
   // Settings (`#settings`) — including when the page is already open in a tab.
   const [section, setSection] = useState<OptionsSection>(() => sectionFromHash(location.hash));
+  // `#settings/badge` also names a card inside Settings; the panel scrolls to it.
+  const [group, setGroup] = useState<SettingsGroup | null>(() => settingsGroupFromHash(location.hash));
   useEffect(() => {
-    const follow = () => setSection(sectionFromHash(location.hash));
+    const follow = () => {
+      setSection(sectionFromHash(location.hash));
+      setGroup(settingsGroupFromHash(location.hash));
+    };
     window.addEventListener('hashchange', follow);
     return () => window.removeEventListener('hashchange', follow);
   }, []);
   const showSection = (next: OptionsSection) => {
     setSection(next);
-    history.replaceState(null, '', `#${next}`);
+    history.replaceState(null, '', hashFor(next));
+    setGroup(null);
     if (next === 'coverage') void client.coverageReport().then(setReport);
   };
 
@@ -201,6 +207,8 @@ export function Options() {
           <SignInSitesSection
             alerts={state.signInAlerts}
             onAllow={(origins) => void client.grantOrigins(origins).then(refresh)}
+            passThroughHosts={state.passThroughHosts}
+            onUseNormalLogin={(hosts) => void client.passThroughAdd(hosts).then(refresh)}
           />
           <SiteList
             allowedOrigins={state.allowedOrigins}
@@ -209,7 +217,7 @@ export function Options() {
           />
         </TabsContent>
 
-        <TabsContent value="settings" className="mt-4 max-w-2xl">
+        <TabsContent value="settings" className="mt-4">
           <SettingsPanel
             settings={state.settings}
             onChange={(patch) => void run(() => client.updateSettings(patch))}
@@ -218,6 +226,11 @@ export function Options() {
             allSitesAllowed={state.allSitesAllowed}
             onAllowAllSites={allowAllSites}
             onRemoveAllSites={() => void client.revokeAllSites().then(refresh)}
+            passThroughHosts={state.passThroughHosts}
+            onAddPassThrough={(hosts) => void client.passThroughAdd(hosts).then(refresh)}
+            onRemovePassThrough={(host) => void client.passThroughRemove(host).then(refresh)}
+            focusGroup={group}
+            onGroupSelect={(g) => history.replaceState(null, '', hashFor('settings', g))}
           />
         </TabsContent>
 

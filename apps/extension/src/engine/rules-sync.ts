@@ -2,14 +2,15 @@
 // CONFIRMS a rule exists before anyone navigates.
 
 import {
-  GATE_ALLOW_PRIORITY, GATE_BLOCK_PRIORITY, RULE_CONFIRM_POLL_MS, RULE_CONFIRM_TIMEOUT_MS, RULE_ID_BASE, RULE_RESOURCE_TYPES,
+  GATE_ALLOW_PRIORITY, GATE_BLOCK_PRIORITY, PASS_THROUGH_ALLOW_PRIORITY, RULE_CONFIRM_POLL_MS, RULE_CONFIRM_TIMEOUT_MS, RULE_ID_BASE, RULE_RESOURCE_TYPES,
   STRIP_RULE_PRIORITY,
 } from '@/core/constants';
 import { buildSessionRules, tabRulesMatch } from '@/core/rules';
 import { buildGateRules } from '@/core/gate';
-import { loadBindings, loadLibrary } from './repo';
+import { buildPassThroughRules, PASS_THROUGH_RESOURCE_TYPES } from '@/core/passthrough';
+import { loadBindings, loadLibrary, loadPassThroughHosts } from './repo';
 import { grantedOriginPatterns } from './permissions';
-import type { GateRule, HeaderEdit, RuleResourceType, TabId, TabRule } from '@/domain/types';
+import type { GateRule, HeaderEdit, PassThroughRule, RuleResourceType, TabId, TabRule } from '@/domain/types';
 
 /**
  * Map our string union to chrome's `ResourceType` enum.
@@ -82,6 +83,25 @@ function toChromeGateRule(rule: GateRule): chrome.declarativeNetRequest.Rule {
   };
 }
 
+/**
+ * A pass-through exemption (core/passthrough.ts) as Chrome takes it: an `allow` for the
+ * bound tabs at PASS_THROUGH_ALLOW_PRIORITY, above every cookie rule and the gate, so the
+ * tab's requests to that host are left exactly as the browser would send them. Needs no
+ * host permission to take effect: an allow edits nothing, it only cancels lower rules.
+ */
+function toChromePassThroughRule(rule: PassThroughRule): chrome.declarativeNetRequest.Rule {
+  return {
+    id: rule.id,
+    priority: PASS_THROUGH_ALLOW_PRIORITY,
+    action: { type: chrome.declarativeNetRequest.RuleActionType.ALLOW },
+    condition: {
+      tabIds: [...rule.tabIds],
+      resourceTypes: PASS_THROUGH_RESOURCE_TYPES.map((t) => RESOURCE_TYPE[t]),
+      regexFilter: rule.urlRegex,
+    },
+  };
+}
+
 function fromChromeHeader(h: chrome.declarativeNetRequest.ModifyHeaderInfo): HeaderEdit {
   return {
     header: h.header,
@@ -134,21 +154,33 @@ export function syncRules(): Promise<number> {
 }
 
 async function doSyncRules(): Promise<number> {
-  const domainRules = await expectedRules();
+  // Everything the rule sets depend on is read in ONE round (no read waits for another):
+  // the gap between a response and its rule being in force is the engine's known race
+  // (docs/limits.md), and each extra sequential storage read widens it.
+  const [domainRules, bindings, granted, passThroughHosts] = await Promise.all([
+    expectedRules(), loadBindings(), grantedOriginPatterns(), loadPassThroughHosts(),
+  ]);
   // The gate goes in the SAME update as the cookie rules, so a tab whose cookie rules are
   // confirmed (awaitRuleForTab) has its gate too: there is no moment where a bound tab
   // is separated on its own site but free to leave for one Tabsona cannot guard.
-  const gateRules = buildGateRules({
-    bindings: await loadBindings(),
-    granted: await grantedOriginPatterns(),
-    firstId: RULE_ID_BASE + domainRules.length,
+  const gateRules = buildGateRules({ bindings, granted, firstId: RULE_ID_BASE + domainRules.length });
+  // The pass-through exemptions ride the same update for the same reason: a tab whose rules
+  // are confirmed is already free to reach its chosen identity provider.
+  const passThroughRules = buildPassThroughRules({
+    bindings,
+    hosts: passThroughHosts,
+    firstId: RULE_ID_BASE + domainRules.length + gateRules.length,
   });
   const existing = await chrome.declarativeNetRequest.getSessionRules();
   await chrome.declarativeNetRequest.updateSessionRules({
     removeRuleIds: existing.map((r) => r.id),
-    addRules: [...domainRules.map(toChromeRule), ...gateRules.map(toChromeGateRule)],
+    addRules: [
+      ...domainRules.map(toChromeRule),
+      ...gateRules.map(toChromeGateRule),
+      ...passThroughRules.map(toChromePassThroughRule),
+    ],
   });
-  return domainRules.length + gateRules.length;
+  return domainRules.length + gateRules.length + passThroughRules.length;
 }
 
 /**

@@ -9,6 +9,8 @@ export const SEVERITY_RING = {
   unknown: 'rgba(245,158,11,.92)',
   leaking: 'rgba(239,68,68,.95)',
   'not-applicable': 'rgba(82,82,91,.92)',
+  /** Blue: a choice, not a warning and not isolation. */
+  shared: 'rgba(59,130,246,.95)',
 } as const satisfies Record<string, string>;
 
 /** How separate the page is, as the badge colours it. */
@@ -47,7 +49,7 @@ export function badgeLabel(p: {
   readonly summary?: string;
 }): string {
   if (p.isEmpty) return `${p.name} · sign in to save`;
-  return p.severity === 'leaking' ? `${p.name} · ${p.summary ?? ''}` : p.name;
+  return p.severity === 'leaking' || p.severity === 'shared' ? `${p.name} · ${p.summary ?? ''}` : p.name;
 }
 
 /** Characters Chrome's toolbar badge shows legibly; longer text is cut by Chrome itself. */

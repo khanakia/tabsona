@@ -11,7 +11,7 @@ Give each tab its own login session. Save, open and reuse a whole set of signed-
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-435%20unit%20%2B%2028%20script%20%2B%2013%20e2e-success.svg)](#verify-it-yourself)
+[![Tests](https://img.shields.io/badge/tests-488%20unit%20%2B%2028%20script%20%2B%2013%20e2e-success.svg)](#verify-it-yourself)
 
 [How it works](docs/how-it-works.md) · [Limits](docs/limits.md) · [Privacy](https://khanakia.github.io/tabsona/privacy.html) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
@@ -139,13 +139,15 @@ The manifest declares no host permissions; `*://*/*` is only *optional*, so Tabs
 
 Removing **Allow on all sites** keeps every website you allowed one by one.
 
+**Signing in with Google from a persona.** Google cannot sign in from a separate login (it sets a cookie on a redirect that no extension can carry along), so a persona tab can use your *normal* login on the websites you list, and keep its own login everywhere else. When a persona tab stops at `accounts.google.com`, the question page offers **Use my normal Google login here**; the popup's sign-in alert offers the same, and **Settings → Use my normal login on** shows the default sites with an always-available **Restore default sites** button (it re-adds only the ones you removed) and a box for any other website (such as a country domain). The list starts empty, so nothing is on it until you add it, and there is no new permission. Google then lets you pick the account in its own chooser, and the app's own login stays separate per persona. The trade-off is stated where you choose: Google's login is shared with your other tabs, so an account added there is added to your browser too, and the badge on such a website says "uses your normal login (your choice)", never "separate".
+
 ## Verify it yourself
 
 ```bash
 task check
 ```
 
-A full-history secret scan, type-check, 435 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and thirteen end-to-end suites driving the **built extension** in a real Chrome.
+A full-history secret scan, type-check, 488 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and thirteen end-to-end suites driving the **built extension** in a real Chrome.
 
 | Task | Proves |
 |---|---|
@@ -159,7 +161,7 @@ A full-history secret scan, type-check, 435 unit tests, 28 script tests, the Chr
 | `e2e:boot` | concurrent worker boots never duplicate a content script |
 | `e2e:migrate` | upgrading from older data keeps every login and boots clean |
 | `e2e:cookieonly` | a cookie-only app that redirects signed-out users opens signed in · its cookie reaches no other host |
-| `e2e:signin` | with only the app allowed, a sign-in through a chain of providers is stopped by the gate before it leaves (gate page, refused/declined continue, open in a normal tab, link to another host, unbound tab untouched, remembered chain, resume) and a leaked login is never saved · whole chain allowed, each persona signs in as its own user · a forgotten login's open tab is released and re-adding the site opens signed out · with only **Allow on all sites** granted, a persona opens signed out, signs in as its own user, and no alert or host prompt appears |
+| `e2e:signin` | **use my normal login**: the provider hosts on the list are reached with the browser's login while the persona's app login stays separate from the plain tab's (two different users at once), no gate stop, no leak alert, a login whose cookie is set on a redirect completes with no retry, the persona shim does not run on the provider, removing the list restores separation, and it composes with Allow on all sites · with only the app allowed, a sign-in through a chain of providers is stopped by the gate before it leaves (gate page, refused/declined continue, open in a normal tab, link to another host, unbound tab untouched, remembered chain, resume) and a leaked login is never saved · whole chain allowed, each persona signs in as its own user · a forgotten login's open tab is released and re-adding the site opens signed out · with only **Allow on all sites** granted, a persona opens signed out, signs in as its own user, and no alert or host prompt appears |
 | `e2e:storage` | two personas on one origin stay apart on a cookie, a localStorage and an IndexedDB login, each against a plain-tab control |
 | `e2e:badge` | the in-page badge: bottom-left by default, click shrinks, drag moves it per site and survives reload, double-click resets · the title carries the persona colour and follows a recolour · the tab group recolours · a plain tab gets neither |
 
@@ -236,7 +238,7 @@ Not yet. Firefox has a first-class containers API and deserves a different engin
 <details>
 <summary><strong>How do I know it is really isolating?</strong></summary>
 
-Don't take it on trust — the badge on each tab reports which layers it actually achieved on that origin, and the Coverage tab in Options explains each one. The badge sits bottom-right by default: click it to shrink it to a dot, drag it anywhere (remembered per site), double-click to put it back. The popup's ⚙ button opens Settings, where you choose the corner, show it as a name or a dot, hide it after a few seconds, or switch it off. Each tab's title also starts with the persona's colour (`💙 Dashboard`), and every persona's colour can be changed from its Rename & describe panel. Then run `task check`, which proves it end to end against a real Chrome, including control runs that demonstrate collision without the extension.
+Don't take it on trust — the badge on each tab reports which layers it actually achieved on that origin, and the Coverage tab in Options explains each one. The badge sits bottom-right by default: click it to shrink it to a dot, drag it anywhere (remembered per site), double-click to put it back. The popup's ⚙ button opens Settings, a page of cards with a section list on the left (Websites, Use my normal login on, Badge on pages, Page titles, Tabs; chips along the top on a narrow window; `#settings/badge` opens a card directly), where you choose the corner, show it as a name or a dot, hide it after a few seconds, or switch it off. Each tab's title also starts with the persona's colour (`💙 Dashboard`), and every persona's colour can be changed from its Rename & describe panel. Then run `task check`, which proves it end to end against a real Chrome, including control runs that demonstrate collision without the extension.
 
 </details>
 

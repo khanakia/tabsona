@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { clampHideSeconds, isBadgeCorner, normalizeSettings, sectionFromHash } from '../settings';
-import { BADGE_CORNERS, BADGE_HIDE_SECONDS_MAX, BADGE_HIDE_SECONDS_MIN, DEFAULT_SETTINGS } from '@/domain/messages';
+import { clampHideSeconds, hashFor, isBadgeCorner, isSettingsGroup, normalizeSettings, sectionFromHash, settingsGroupFromHash } from '../settings';
+import { BADGE_CORNERS, BADGE_HIDE_SECONDS_MAX, BADGE_HIDE_SECONDS_MIN, DEFAULT_SETTINGS, SETTINGS_GROUPS } from '@/domain/messages';
 
 describe('normalizeSettings', () => {
   it('gives an install with nothing stored the defaults: badge bottom-right, name shown, never hidden', () => {
@@ -72,6 +72,34 @@ describe('sectionFromHash', () => {
   it('falls back to Personas for an empty or unknown hash', () => {
     expect(sectionFromHash('')).toBe('personas');
     expect(sectionFromHash('#admin')).toBe('personas');
+  });
+});
+
+describe('Settings card hashes', () => {
+  it('keeps the old bare #settings link on Settings and names no card', () => {
+    expect(sectionFromHash('#settings')).toBe('settings');
+    expect(settingsGroupFromHash('#settings')).toBeNull();
+  });
+
+  it('reads a card from #settings/<card> without changing the section', () => {
+    expect(sectionFromHash('#settings/badge')).toBe('settings');
+    expect(settingsGroupFromHash('#settings/badge')).toBe('badge');
+    expect(settingsGroupFromHash('#settings/normal-login')).toBe('normal-login');
+  });
+
+  it('ignores an unknown card, and a card on any other section', () => {
+    expect(settingsGroupFromHash('#settings/nope')).toBeNull();
+    expect(settingsGroupFromHash('#sites/badge')).toBeNull();
+    expect(sectionFromHash('#sites/badge')).toBe('sites');
+  });
+
+  it('round-trips every card through hashFor', () => {
+    for (const g of SETTINGS_GROUPS) {
+      expect(isSettingsGroup(g)).toBe(true);
+      expect(settingsGroupFromHash(hashFor('settings', g))).toBe(g);
+    }
+    expect(hashFor('settings')).toBe('#settings');
+    expect(hashFor('sites', 'badge')).toBe('#sites');
   });
 });
 

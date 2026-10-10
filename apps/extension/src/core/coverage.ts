@@ -67,7 +67,11 @@ function hostOf(origin: string): string {
   try { return new URL(origin).host; } catch { return origin; }
 }
 
-const LAYER_ORDER: readonly StateLayer[] = [
+/** The layers an ordinary (separated) origin reports. `normalLogin` is not among them: it
+ *  exists only on a pass-through host (passThroughCoverage). */
+type SeparatedLayer = Exclude<StateLayer, 'normalLogin'>;
+
+const LAYER_ORDER: readonly SeparatedLayer[] = [
   'cookies',
   'localStorage',
   'sessionStorage',
@@ -110,7 +114,7 @@ export function computeCoverage(
   engine: EngineKind,
   obs: OriginObservations,
 ): LayerCoverage[] {
-  const out: Record<StateLayer, LayerCoverage> = {
+  const out: Record<SeparatedLayer, LayerCoverage> = {
     cookies: obs.hasCookies
       ? { layer: 'cookies', status: 'covered', detail: 'Cookies are served per tab from this session.' }
       : { layer: 'cookies', status: 'unknown', detail: 'No cookie seen yet on this origin.' },
@@ -158,16 +162,37 @@ export function computeCoverage(
   return LAYER_ORDER.map((l) => out[l]);
 }
 
-/** The worst thing true of any layer — what the badge colour is driven by. */
+/**
+ * What the badge may claim on a website the user put on the "use my normal login" list.
+ *
+ * One layer, status `shared`: nothing here is kept separate BY CHOICE, which is neither
+ * isolation nor a leak, so it is reported as neither (project rule 2: a tool that looks
+ * isolated while sharing turns every later bug into a question about whether it lied).
+ */
+export function passThroughCoverage(): LayerCoverage[] {
+  return [{
+    layer: 'normalLogin',
+    status: 'shared',
+    detail: 'You chose to use your normal browser login on this website, so it is shared with your other tabs. The app’s own login stays separate.',
+  }];
+}
+
+/** The worst thing true of any layer — what the badge colour is driven by. A shared
+ *  (chosen) layer ranks below any real leak or unknown, above plain "covered". */
 export function worstStatus(coverage: readonly LayerCoverage[]): LayerCoverage['status'] {
   if (coverage.some((c) => c.status === 'leaking')) return 'leaking';
   if (coverage.some((c) => c.status === 'unknown')) return 'unknown';
+  if (coverage.some((c) => c.status === 'shared')) return 'shared';
   return 'covered';
 }
+
+/** What the badge says on a pass-through website. Never "isolated". */
+export const SHARED_SUMMARY = 'uses your normal login (your choice)';
 
 /** One-line summary for the in-page badge. */
 export function coverageSummary(coverage: readonly LayerCoverage[]): string {
   const leaking = coverage.filter((c) => c.status === 'leaking').map((c) => c.layer);
+  if (coverage.some((c) => c.status === 'shared')) return SHARED_SUMMARY;
   if (leaking.length === 0) return 'isolated';
   return `leaking: ${leaking.join(', ')}`;
 }

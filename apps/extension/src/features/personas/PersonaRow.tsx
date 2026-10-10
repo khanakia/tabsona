@@ -7,7 +7,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/ui/volt/dropdown-menu';
 import { IconAction, REVEAL_ON_ROW_HOVER } from '@/ui/IconAction';
-import { ActionMenuItem, WithHelp } from '@/ui/HelpCard';
+import { ActionMenuItem } from '@/ui/HelpCard';
 import { ACTION_HELP } from '@/ui/help';
 import { ColorSwatches } from '@/ui/ColorSwatches';
 import { FullText } from '@/ui/FullText';
@@ -123,7 +123,8 @@ export function PersonaRow(props: PersonaRowProps) {
           >
             {p.name}
           </button>
-          {/* Counts share the second line with the description, so the NAME gets the
+          {/* Counts share the second line with the description, FIRST, so a long
+              description is what gets cut. They share it so the NAME gets the
               whole first line — beside it, the counts squeezed "IFPG super admin" down to
               "IFPG super …". */}
           <FullText
@@ -136,46 +137,49 @@ export function PersonaRow(props: PersonaRowProps) {
               </>
             )}
           >
-            {p.description && `${p.description} · `}
             {counts}
+            {p.description && ` · ${p.description}`}
           </FullText>
         </div>
 
-        <div className="flex shrink-0 items-center gap-0.5">
-          {/* The one action a persona exists for gets the only solid button in the row. */}
-          <WithHelp
-            help={p.sessions.length === 0
-              ? { ...ACTION_HELP.openAll, what: 'This persona has no websites yet. Add one first.' }
-              : ACTION_HELP.openAll}
-            trigger={<Button size="xs" disabled={p.sessions.length === 0} onClick={() => props.onOpenAll(p.id)} />}
-          >
-            <Play />
-            {ACTION_HELP.openAll.label}
-          </WithHelp>
-          <div className={cn('flex items-center gap-0.5', REVEAL_ON_ROW_HOVER)}>
-            <IconAction label={ACTION_HELP.addSite.label} help={ACTION_HELP.addSite} onClick={beginAddSite}>
-              <Plus />
-            </IconAction>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button size="icon-sm" variant="ghost" aria-label="More actions" onClick={() => undefined} />}
-              >
-                <MoreHorizontal />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72">
-                <ActionMenuItem help={ACTION_HELP.renamePersona} icon={<Pencil />} onClick={beginEdit} />
-                <ActionMenuItem help={ACTION_HELP.changeColor} icon={<Palette />} onClick={beginEdit} />
-                <ActionMenuItem help={ACTION_HELP.duplicatePersona} icon={<Copy />} onClick={() => props.onDuplicate(p.id)} />
-                <DropdownMenuSeparator />
-                <ActionMenuItem
-                  destructive
-                  help={ACTION_HELP.deletePersona}
-                  icon={<Trash2 />}
-                  onClick={() => props.onDelete(p.id)}
-                />
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+        {/* The one action a persona exists for gets the only solid button in the row. An
+            icon, named for its persona: the word cost ~70px the description could use. */}
+        <IconAction
+          variant="default"
+          label={`${ACTION_HELP.openAll.label} in ${p.name}`}
+          help={p.sessions.length === 0
+            ? { ...ACTION_HELP.openAll, what: 'This persona has no websites yet. Add one first.' }
+            : ACTION_HELP.openAll}
+          disabled={p.sessions.length === 0}
+          onClick={() => props.onOpenAll(p.id)}
+        >
+          <Play />
+        </IconAction>
+        {/* Secondary actions overlay the second line on hover or focus, not a permanent
+            strip beside the name. */}
+        <div className={cn('absolute bottom-0.5 right-8 flex items-center gap-0.5 rounded-md bg-muted shadow-sm ring-1 ring-border', REVEAL_ON_ROW_HOVER)}>
+          <IconAction label={ACTION_HELP.addSite.label} help={ACTION_HELP.addSite} onClick={beginAddSite}>
+            <Plus />
+          </IconAction>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button size="icon-sm" variant="ghost" aria-label="More actions" onClick={() => undefined} />}
+            >
+              <MoreHorizontal />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <ActionMenuItem help={ACTION_HELP.renamePersona} icon={<Pencil />} onClick={beginEdit} />
+              <ActionMenuItem help={ACTION_HELP.changeColor} icon={<Palette />} onClick={beginEdit} />
+              <ActionMenuItem help={ACTION_HELP.duplicatePersona} icon={<Copy />} onClick={() => props.onDuplicate(p.id)} />
+              <DropdownMenuSeparator />
+              <ActionMenuItem
+                destructive
+                help={ACTION_HELP.deletePersona}
+                icon={<Trash2 />}
+                onClick={() => props.onDelete(p.id)}
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

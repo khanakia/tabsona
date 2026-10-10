@@ -9,9 +9,10 @@ import {
 import {
   SCHEMA_VERSION, STORAGE_KEY_BINDINGS, STORAGE_KEY_PERSONAS,
   STORAGE_KEY_SCHEMA, STORAGE_KEY_SESSIONS, STORAGE_KEY_SETTINGS, STORAGE_KEY_BADGE_PLACEMENTS,
-  STORAGE_KEY_SIGNIN_CHAINS, STORAGE_KEY_FORM_HINTS, STORAGE_KEY_GATE_PENDING, STORAGE_KEY_LAST_PAGES, STORAGE_KEY_LEAK_WINDOWS,
+  STORAGE_KEY_SIGNIN_CHAINS, STORAGE_KEY_PASS_THROUGH, STORAGE_KEY_FORM_HINTS, STORAGE_KEY_GATE_PENDING, STORAGE_KEY_LAST_PAGES, STORAGE_KEY_LEAK_WINDOWS,
 } from '@/core/constants';
 import { withHop, type SignInHops } from '@/core/signin';
+import { normalizePassThroughHosts } from '@/core/passthrough';
 import { hintExplainsStop } from '@/core/gate';
 import type { FormHint, FormHints, GatePending, GatePendings, LeakWindows } from '@/core/gate';
 import { normalizePlacements, type BadgePlacement, type BadgePlacements } from '@/core/placement';
@@ -120,6 +121,24 @@ export async function noteSignInHop(site: Origin, target: Origin): Promise<boole
     if (after === before) return false;
     await chrome.storage.local.set({ [STORAGE_KEY_SIGNIN_CHAINS]: after });
     return true;
+  });
+}
+
+/** The websites the user chose to reach with their normal login, normalised. Empty until
+ *  they agree to the first one (core/passthrough.ts). */
+export async function loadPassThroughHosts(): Promise<string[]> {
+  const got = await chrome.storage.local.get(STORAGE_KEY_PASS_THROUGH);
+  return normalizePassThroughHosts(got[STORAGE_KEY_PASS_THROUGH]);
+}
+
+/** Change the pass-through list under the lock, so two quick edits cannot lose one. The
+ *  result is normalised like a read, so nothing malformed is ever stored. Returns the new
+ *  list. */
+export async function updatePassThroughHosts(fn: (hosts: readonly string[]) => readonly string[]): Promise<string[]> {
+  return withLock(async () => {
+    const next = normalizePassThroughHosts(fn(await loadPassThroughHosts()));
+    await chrome.storage.local.set({ [STORAGE_KEY_PASS_THROUGH]: next });
+    return next;
   });
 }
 
