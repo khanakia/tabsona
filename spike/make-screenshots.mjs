@@ -202,13 +202,34 @@ const POPUP_FRAME = { width: 420, top: 86, zoom: 1.35 };
 await shoot('1-popup', `${base}/src/surfaces/popup/index.html`,
   { frame: POPUP_FRAME, caption: 'Every saved login, and exactly what it holds' });
 
+// The sign-in gate: where a persona tab lands when it was about to visit a website Tabsona
+// is not allowed on. The stop itself is the worker's record in session storage (a tab id is
+// meaningless after a restart), so it is seeded for a real tab; the PAGE shown is the real
+// gate surface reading it through the real worker. 'sign-in' reason needs a recorded hop.
+{
+  const GATE_HOST = 'https://login.example-idp.com';
+  const hostTab = await chrome.swSession.eval(`chrome.tabs.query({}).then(ts => ts.find(t => t.url.startsWith(${JSON.stringify(FIXTURE)}))?.id)`);
+  await chrome.swSession.eval(`(async () => {
+    await chrome.storage.local.set({ signInChains: { [${JSON.stringify(FIXTURE)}]: [${JSON.stringify(GATE_HOST)}] } });
+    await chrome.storage.session.set({ gatePending: { [String(${hostTab})]: {
+      url: ${JSON.stringify(`${GATE_HOST}/authorize?client_id=tabsona-demo`)}, host: ${JSON.stringify(GATE_HOST)},
+      sessionId: ${JSON.stringify(liveSession.id)}, at: Date.now() } } });
+    return true;
+  })()`);
+  await shoot('2-gate', `${base}/src/surfaces/gate/index.html?tab=${hostTab}`, {
+    frame: { width: 760, top: 70, zoom: 1.1, captionTop: true },
+    caption: 'A persona tab asks before it visits a website you have not allowed',
+  });
+  await chrome.swSession.eval(`Promise.all([chrome.storage.session.remove('gatePending'), chrome.storage.local.remove('signInChains')]).then(() => true)`);
+}
+
 // The menu that makes the Move/Copy choice the user's, not ours — the interaction the
 // whole "did it log me out of my normal tab?" confusion turns on.
 // A PLAIN tab on a site — not bound to any persona — is what the save menu is for.
 await chrome.swSession.eval(`chrome.tabs.create({ url: ${JSON.stringify(`${FIXTURE}/`)}, active: true }).then(() => true)`);
 await sleep(2000);
 
-await shoot('2-save-menu', `${base}/src/surfaces/popup/index.html`, {
+await shoot('6-save-menu', `${base}/src/surfaces/popup/index.html`, {
   background: true,
   frame: { ...POPUP_FRAME, top: 16, zoom: 1.05 },
   caption: 'Move the login, or copy it — you choose',
@@ -240,11 +261,29 @@ const OPTIONS_FRAME = { width: 1000, top: 74, zoom: 1.1, captionTop: true };
 await shoot('3-library', OPTIONS, {
   frame: OPTIONS_FRAME, caption: 'One persona, many apps — open the whole set in one click',
 });
-await shoot('4-coverage', OPTIONS, {
+await shoot('5-coverage', OPTIONS, {
   frame: OPTIONS_FRAME, caption: 'What is actually isolated on each site, measured — not assumed',
-  before: openTab('Coverage'),
+  before: async (page) => {
+    await waitFor(page, `!!document.querySelector('button')`, 'options rendered');
+    await page.eval(`[...document.querySelectorAll('button')]
+      .find(b => /choose sites myself/i.test(b.textContent))?.click()`);
+    await sleep(600);
+    await openTab('Coverage')(page);
+  },
 });
-await shoot('5-sites', OPTIONS, {
+// Settings and Sites come last: dismissing the first-run welcome (which the Settings frame
+// would otherwise be pushed down by) is a real choice the user makes once, and it persists.
+await shoot('4-settings', OPTIONS, {
+  frame: OPTIONS_FRAME, caption: 'Settings: websites, normal-login sites, badge, page titles and tabs',
+  before: async (page) => {
+    await waitFor(page, `!!document.querySelector('button')`, 'options rendered');
+    await page.eval(`[...document.querySelectorAll('button')]
+      .find(b => /choose sites myself/i.test(b.textContent))?.click()`);
+    await sleep(600);
+    await openTab('Settings')(page);
+  },
+});
+await shoot('7-sites', OPTIONS, {
   frame: OPTIONS_FRAME, caption: 'You grant each site yourself, through Chrome\'s own prompt',
   before: openTab('Sites'),
 });

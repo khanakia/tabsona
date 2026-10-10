@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-10
+
 ### Fixed
 
 - **Google's "Cookies are disabled" inside a persona.** A script's `document.cookie` now belongs to the persona: a write is stored in the session (not the browser's shared jar) and a read returns the persona's own cookies, so a provider's test-cookie check passes. A `fetch` or XHR sent right after a cookie write, or right after a response that set one, now waits until that cookie is in force instead of leaving without it. Still not covered: a navigation started straight after a cookie is set, and a cookie set on a redirect (see `docs/limits.md`). New relay content script (`relay.js`) carries the page's cookie writes and the form-POST notice from `document_start` in every frame.
