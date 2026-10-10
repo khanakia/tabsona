@@ -1,0 +1,16 @@
+{
+  "_table": "commit_links",
+  "_v": 1,
+  "author": "khanakia <khanakia@gmail.com>",
+  "committed_at": "2026-10-10T13:02:16+05:30",
+  "created_at": "2026-10-10T07:32:23.691423000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "entity_id": "tsk_01a123ff17ea77dfa89f8bbeb7d8cc99",
+  "entity_table": "tasks",
+  "id": "cml_15a7cebfc936779fb3051d1c2db8ce81",
+  "message": "feat: use my normal login on chosen websites, Settings sidebar, compact popup",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_path": null,
+  "sha": "04b6357ee3a12c803c274dfe39512f7ed5d1838f",
+  "updated_at": "2026-10-10T07:32:23.691423000Z"
+}
