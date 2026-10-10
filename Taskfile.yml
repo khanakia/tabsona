@@ -17,6 +17,14 @@ vars:
   COOKIE_ONLY_PORT: '8789'
   COOKIE_ONLY_ORIGIN: 'http://localhost:8789'
   COOKIE_ONLY_OTHER_ORIGIN: 'http://127.0.0.1:8789'
+  # The SSO fixture: the app, and the SAME server reached as 127.0.0.1 acting as its
+  # identity provider (a second cookie jar). Only the app is pre-granted, on purpose: the
+  # suite's control is the leak through a provider the extension may not touch.
+  SSO_PORT: '8790'
+  SSO_ORIGIN: 'http://localhost:8790'
+  SSO_IDP_ORIGIN: 'http://127.0.0.1:8790'
+  # The relay hop between app and provider, holding no login (api.workos.com's role).
+  SSO_RELAY_ORIGIN: 'http://relay.localhost:8790'
   EXT_DIST: apps/extension/dist
 
 tasks:
@@ -126,6 +134,19 @@ tasks:
         vars: {ORIGINS: '{{.COOKIE_ONLY_ORIGIN}} {{.COOKIE_ONLY_OTHER_ORIGIN}}'}
       - node spike/e2e-cookieonly.mjs
 
+  e2e:signin:
+    desc: 'Sign-in through another website: an un-allowed provider leaks and is reported; allowed, each persona signs in as itself; a forgotten login''s tab is released and re-adding opens signed out; with only "Allow on all sites" granted, no alert and no host named'
+    deps: [build, fixture:up-sso]
+    env:
+      SSO_ORIGIN: '{{.SSO_ORIGIN}}'
+      SSO_IDP_ORIGIN: '{{.SSO_IDP_ORIGIN}}'
+      SSO_RELAY_ORIGIN: '{{.SSO_RELAY_ORIGIN}}'
+    cmds:
+      - task: strays
+      - task: grant
+        vars: {ORIGINS: '{{.SSO_ORIGIN}}'}
+      - node spike/e2e-signin.mjs
+
   e2e:storage:
     desc: 'Storage lab: two personas on one origin stay apart on cookie, localStorage and IndexedDB logins, with a plain-tab control per layer'
     deps: [build, fixture:up]
@@ -199,6 +220,7 @@ tasks:
       - task: e2e:move
       - task: e2e:flows
       - task: e2e:cookieonly
+      - task: e2e:signin
       - task: e2e:storage
       - task: e2e:badge
 
@@ -369,6 +391,29 @@ tasks:
             sleep 0.25
           done
           echo "second fixture started on 8788"
+        fi
+
+  fixture:up-sso:
+    desc: Start the fixture for the SSO suite (its /sso and /idp routes), refusing a stale one without them
+    internal: true
+    cmds:
+      - |
+        if curl -sf "http://localhost:{{.SSO_PORT}}/whoami" >/dev/null 2>&1; then
+          # A server already on the port from an older checkout has no /idp routes, and the
+          # suite would then fail for a reason that has nothing to do with the extension.
+          if ! curl -sf "http://localhost:{{.SSO_PORT}}/idp/authorize" >/dev/null 2>&1 \
+            || [ "$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:{{.SSO_PORT}}/relay/authorize")" != "302" ]; then
+            echo "a fixture without the SSO routes (or the relay hop) is on {{.SSO_PORT}} — stop it and rerun" >&2
+            exit 1
+          fi
+          echo "sso fixture already listening on {{.SSO_PORT}}"
+        else
+          PORT={{.SSO_PORT}} node spike/fixture/server.js > /tmp/tabsona-fixture-sso.log 2>&1 &
+          for i in $(seq 1 40); do
+            curl -sf "http://localhost:{{.SSO_PORT}}/whoami" >/dev/null 2>&1 && break
+            sleep 0.25
+          done
+          echo "sso fixture started on {{.SSO_PORT}}"
         fi
 
   fixture:up-cookieonly:

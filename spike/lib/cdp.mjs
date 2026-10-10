@@ -171,9 +171,34 @@ export async function launchChrome({ port, extensionPath = null, ignoreCertError
       api.swSession = await Session.open(sw.webSocketDebuggerUrl);
       await api.swSession.send('Runtime.enable'); // console output == evidence
     }
+    api.welcomeTabOpened = await closeWelcomeTab(api, id);
   }
 
   return api;
+}
+
+/** Where a first install opens the library page (engine/index.ts, onInstalled). */
+const WELCOME_PATH = '/src/surfaces/options/index.html';
+
+/**
+ * Close the library tab a FIRST install opens, and say whether it appeared.
+ *
+ * Every run loads the extension into a fresh profile, so every run is a first install and
+ * opens the welcome page. Left open, it is one more page target, and a suite that claims
+ * "the one tab that appeared" with no host filter could pick it. Closed here, once, so no
+ * suite has to know about it; the result is kept so a suite can assert the page opened.
+ */
+async function closeWelcomeTab(api, extensionId) {
+  const prefix = `chrome-extension://${extensionId}${WELCOME_PATH}`;
+  for (let i = 0; i < 20; i++) {
+    const welcome = (await api.targets()).find((t) => t.type === 'page' && t.url.startsWith(prefix));
+    if (welcome) {
+      await fetch(`http://127.0.0.1:${api.port}/json/close/${welcome.id}`).catch(() => undefined);
+      return true;
+    }
+    await sleep(150);
+  }
+  return false;
 }
 
 /** Open a page target and enable the domains every spike needs. */

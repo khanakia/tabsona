@@ -61,10 +61,25 @@ export type Request =
   | { readonly op: 'setSetting'; readonly key: SettingKey; readonly value: boolean }
   | { readonly op: 'setBadgePosition'; readonly position: BadgeCorner }
   | { readonly op: 'resetBadgePlacements' }
-  | { readonly op: 'updateSettings'; readonly patch: SettingsPatch };
+  | { readonly op: 'updateSettings'; readonly patch: SettingsPatch }
+  /** What the gate page shows for the tab it replaced. */
+  | { readonly op: 'gateInfo'; readonly tabId: TabId }
+  /** Resume the stopped navigation, after the gate page's own Allow click was granted. */
+  | { readonly op: 'gateContinue'; readonly tabId: TabId }
+  /** Open the stopped url in an ordinary tab and put the persona tab back where it was. */
+  | { readonly op: 'gateOpenNormally'; readonly tabId: TabId }
+  /** Page script wrote `line` with `document.cookie` at `url`. Sent by the badge script on
+   *  the shim's behalf; the reply means the cookie is stored AND its rule is installed. */
+  | { readonly op: 'cookieWrite'; readonly url: string; readonly line: string }
+  /** Reply once everything the worker has seen set a cookie is stored and in force. */
+  | { readonly op: 'cookieSettle' }
+  /** Clear a leaked sign-in: the session's cookies and page data go, its tabs reload. */
+  | { readonly op: 'startOver'; readonly sessionId: SessionId };
 
 /** On/off settings a user can flip. Closed set so a typo cannot create a phantom setting. */
-export type SettingKey = 'useTabGroups' | 'openPersonaInNewWindow' | 'showPageBadge' | 'markPageTitles' | 'autoHideBadge';
+export type SettingKey =
+  | 'useTabGroups' | 'openPersonaInNewWindow' | 'showPageBadge' | 'markPageTitles' | 'autoHideBadge'
+  | 'chooseSitesMyself';
 
 /**
  * How the badge first appears on a page: the persona's name, or just a coloured dot.
@@ -132,6 +147,10 @@ export const DEFAULT_SETTINGS: Settings = {
   // On by default: the tab strip and window title are where people look when they have
   // six tabs on one app open, and a coloured marker there says whose each one is.
   markPageTitles: true,
+  // Off until the user answers the first-run welcome with "I'll choose sites myself".
+  // While off (and every website is not yet allowed) the library page shows that welcome;
+  // once on, it never asks again. Allowing every website hides the welcome on its own.
+  chooseSitesMyself: false,
 };
 
 /**
@@ -162,6 +181,25 @@ export interface BadgeResetNotice {
 export interface ShimReadyNotice extends ShimFacts {
   readonly op: 'shimReady';
   readonly origin: string;
+}
+
+/**
+ * A form on a persona tab's page is being POSTed. One-way, like ShimReadyNotice.
+ *
+ * Why the worker is told at all: a navigation the gate stops is reported with its url and
+ * NOTHING ELSE (`webNavigation.onErrorOccurred` carries no method or body), so a stopped
+ * form POST looks exactly like a stopped link, and resuming it as a GET sends the
+ * provider a request with every parameter missing. Only the page that holds the form can
+ * say it is a POST. Carries the target and method, never the fields (a password may be
+ * among them).
+ */
+export interface FormSubmitNotice {
+  readonly op: 'formSubmit';
+  readonly origin: string;
+  /** The form's resolved target url, as the browser will request it. */
+  readonly action: string;
+  /** Lower-case: what `HTMLFormElement.method` returns. */
+  readonly method: string;
 }
 
 /**
@@ -197,12 +235,70 @@ export interface TabStatus {
   readonly isEmpty: boolean;
   readonly coverage: readonly LayerCoverage[];
   readonly summary: string;
+  /** Websites this site's sign-in sent the tab to that Tabsona is NOT allowed on yet.
+   *  Each one is offered as an "Allow" button: until it is allowed, the browser's own
+   *  login on that website is used and can sign this tab in as the wrong person. */
+  readonly unguardedSignInSites: readonly string[];
+  /** Websites this tab's session signed in through while Tabsona was not allowed on
+   *  them. The login that came back was NOT saved, and "Start over signed out" clears
+   *  what is left. Empty for every session that never leaked. */
+  readonly leakedSignInSites: readonly string[];
+}
+
+/**
+ * One app whose sign-in, in a persona tab that is open right now, passed through websites
+ * Tabsona is not allowed on. Until those are allowed, the browser's own login there is
+ * used, so the persona can come back signed in as the browser's user.
+ */
+export interface SignInAlert {
+  /** The persona's site the sign-in started from, e.g. `https://staging-app.example.com`. */
+  readonly site: Site;
+  /** Every un-allowed host in its sign-in chain seen so far, sorted. Never empty. */
+  readonly hosts: readonly string[];
+}
+
+/**
+ * Why the gate stopped a persona tab, which decides the gate page's wording:
+ * - `sign-in`: the host is in this site's known sign-in chain (a provider);
+ * - `own-site`: the persona's own site, which Tabsona has not been allowed on yet;
+ * - `link`: anywhere else — a link out, a redirect seen for the first time.
+ */
+export type GateReason = 'sign-in' | 'own-site' | 'link';
+
+/** What the gate page needs to ask its question. Built by the worker from its own record
+ *  of the stopped navigation; the page is handed only a tab id. */
+export interface GateInfo {
+  readonly tabId: TabId;
+  /** The exact url the tab was going to. */
+  readonly url: string;
+  /** Its origin: the website Tabsona is not allowed on. */
+  readonly host: string;
+  /** The persona's site the tab belongs to. */
+  readonly site: Site;
+  readonly personaName: string;
+  readonly color: string;
+  readonly reason: GateReason;
+  /** Every origin one "Allow and continue" asks for, stopped host first, already-allowed
+   *  ones removed. For a sign-in this is the whole known chain, so a chain seen once is
+   *  allowed in ONE prompt; otherwise just the stopped host. */
+  readonly hostsToAllow: readonly string[];
+  /** The stopped navigation was a form POST, which cannot be resent: continuing takes the
+   *  tab back to the page holding the form so the user presses its button again, and
+   *  "Open in a normal tab" is not offered (it would send the provider a bare GET). */
+  readonly viaForm: boolean;
 }
 
 export interface AppState {
   readonly personas: readonly PersonaView[];
   readonly tab: TabStatus;
   readonly allowedOrigins: readonly string[];
+  /** Sign-in chains leaking through un-allowed hosts, across every open persona tab — not
+   *  only the active one, because the popup's alert must not depend on which tab is in
+   *  front. Empty when nothing needs allowing. */
+  readonly signInAlerts: readonly SignInAlert[];
+  /** "Allow on all sites" is in force (the all-sites pattern is granted), read live from Chrome. When
+   *  true no website needs allowing one by one, so nothing offers it again. */
+  readonly allSitesAllowed: boolean;
   readonly settings: Settings;
 }
 
@@ -221,6 +317,7 @@ export type Response =
   | { readonly ok: true; readonly report: readonly OriginCoverage[] }
   | { readonly ok: true; readonly json: string }
   | { readonly ok: true; readonly opened: number }
+  | { readonly ok: true; readonly gate: GateInfo | null }
   | { readonly ok: true }
   /** `needsConfirm` is not an error: the caller must ask the user, then retry with
    *  `replace: true`. Modelling it separately stops a destructive overwrite being

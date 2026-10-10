@@ -3,6 +3,7 @@ import { Button } from '@/ui/volt/button';
 import { Input } from '@/ui/volt/input';
 import { Switch } from '@/ui/volt/switch';
 import { BadgePreview } from './BadgePreview';
+import { AllSitesRow } from './AllSites';
 import { SectionIntro } from '@/ui/SectionIntro';
 import { EXPLAIN, type ActionHelp } from '@/ui/help';
 import {
@@ -11,7 +12,8 @@ import {
 } from '@/domain/messages';
 
 /**
- * Every setting, grouped by what it affects: the badge on pages, page titles, tabs.
+ * Every setting, grouped by what it affects: which websites Tabsona may work on, the badge
+ * on pages, page titles, tabs.
  *
  * Its own tab in the library (reached from the popup's gear) because settings used to sit
  * at the bottom of "Sites", where nobody looked for them. Presentational: shows
@@ -24,6 +26,11 @@ export interface SettingsPanelProps {
   readonly onForgetDragged: () => void;
   /** Whose badge the live preview shows — the user's first persona when there is one. */
   readonly sample: { readonly name: string; readonly color: string };
+  /** "Allow on all sites", read live from Chrome by the host. */
+  readonly allSitesAllowed: boolean;
+  /** Ask Chrome for every website. Must run straight from the click (user gesture). */
+  readonly onAllowAllSites: () => void;
+  readonly onRemoveAllSites: () => void;
 }
 
 /** Human names for each corner. */
@@ -44,6 +51,10 @@ export function SettingsPanel(props: SettingsPanelProps) {
   const s = props.settings;
   return (
     <div className="space-y-6">
+      <Section help={EXPLAIN.settingsSites}>
+        <AllSitesRow allowed={props.allSitesAllowed} onAllow={props.onAllowAllSites} onRemove={props.onRemoveAllSites} />
+      </Section>
+
       <Section help={EXPLAIN.settingsBadge}>
         <BadgePreview settings={s} sample={props.sample} />
         <Toggle
@@ -101,8 +112,8 @@ export function SettingsPanel(props: SettingsPanelProps) {
 
       <Section help={EXPLAIN.settingsTabs}>
         <Toggle
-          label="Group a persona's tabs in Chrome"
-          hint="Opened tabs join a native Chrome tab group named after the persona, in the persona's colour."
+          label="Open tabs in a tab group"
+          hint="On: every tab a persona opens (Open all, one site, another login, using this tab) joins one Chrome tab group per persona, named and coloured after it. Off: tabs open individually, ungrouped."
           checked={s.useTabGroups}
           onChange={(v) => props.onChange({ useTabGroups: v })}
         />

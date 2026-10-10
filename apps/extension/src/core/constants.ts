@@ -54,7 +54,7 @@ export const RULE_ID_BASE = 1_000;
  * one, and a longer cookie path beats a shorter one, which is the precedence a browser
  * applies when it picks cookies.
  */
-export const STRIP_RULE_PRIORITY = 1;
+export const STRIP_RULE_PRIORITY = 3;
 /** Parent-domain rules: a `Domain=` cookie reaching a subdomain the session never visited. */
 export const DOMAIN_RULE_TIER = 1;
 /** Exact-host rules: everything the session holds for that host. */
@@ -101,6 +101,35 @@ export const STORAGE_KEY_SCHEMA = 'schemaVersion';
 /** Dragged badge positions by site. Its own key, not part of settings: it grows with
  *  every site a badge is dragged on, and settings stay a small fixed shape. */
 export const STORAGE_KEY_BADGE_PLACEMENTS = 'badgePlacements';
+/**
+ * Sign-in hosts seen per site (core/signin.ts), in `chrome.storage.local`: the chain an
+ * app signs in through is a fact about the app, not about this browser run, and keeping
+ * it is what lets the gate page ask for EVERY host of a known chain in one prompt the
+ * next time any persona opens that site, instead of one prompt per hop. Replaces the
+ * run-scoped `signInHops` key of 0.3, which a browser restart cleared.
+ */
+export const STORAGE_KEY_SIGNIN_CHAINS = 'signInChains';
+/** Navigations the gate stopped, by tab id (core/gate.ts, `GatePending`). In
+ *  `chrome.storage.session`: a tab id means nothing after a restart, but the gate page
+ *  must still find its record after a worker teardown or a reload of the page. */
+export const STORAGE_KEY_GATE_PENDING = 'gatePending';
+/** The last form POST each bound tab submitted, by tab id (core/gate.ts, `FormHint`).
+ *  Session-scoped like the other per-tab records. Holds the form's target url and method
+ *  only, never its fields: those can be a password. */
+export const STORAGE_KEY_FORM_HINTS = 'formHints';
+/** How long after a form POST a blocked navigation to its action still counts as that
+ *  POST. A click-to-block takes milliseconds; the margin covers a worker that has to wake
+ *  up to receive the notice, and stays short enough that a later, unrelated stop on the
+ *  same path is not mistaken for it. */
+export const FORM_HINT_MAX_AGE_MS = 15_000;
+/** The form method the gate cannot replay (`HTMLFormElement.method`, lower-case). */
+export const FORM_METHOD_POST = 'post';
+/** The last http(s) page each bound tab committed, by tab id. Session-scoped like the
+ *  bindings; read by "Open in a normal tab" to put the persona tab back where it was. */
+export const STORAGE_KEY_LAST_PAGES = 'lastPages';
+/** Open leak windows by tab id (core/gate.ts, `LeakWindows`). Session-scoped: a window
+ *  is about one tab's sign-in in progress, and lasts minutes at most. */
+export const STORAGE_KEY_LEAK_WINDOWS = 'leakWindows';
 /** Bumped only when stored data needs converting. `migrateFromV1` reads it to decide
  *  whether it has already run, so it must never be lowered. */
 export const SCHEMA_VERSION = 2;
@@ -169,3 +198,91 @@ export const PROJECT_LINKS = {
   issues: 'https://github.com/khanakia/tabsona/issues',
   store: 'https://chromewebstore.google.com/detail/njpkmpklnjepcbconpnchdhbiljjjeoj',
 } as const;
+
+/**
+ * The one host pattern that covers every website: what "Allow on all sites" asks Chrome
+ * for, in a single prompt. It must stay identical to the manifest's
+ * `optional_host_permissions` entry, because Chrome only grants at runtime what the
+ * manifest lists as optional; asking for anything wider is refused outright.
+ */
+export const ALL_SITES_PATTERN = '*://*/*';
+
+/** Chrome's other spelling of "every website" (it also covers file:// and ftp://). A grant
+ *  of it covers every http(s) site too, so it counts as an all-sites grant wherever one is
+ *  read. Never requested by Tabsona; recognised because a policy or older build can hold it. */
+export const ALL_URLS_PATTERN = '<all_urls>';
+
+/** The library page inside the extension package, as `chrome.runtime.getURL` takes it.
+ *  Named once because the popup's links and the first-run welcome both open it. */
+export const OPTIONS_PAGE_PATH = 'src/surfaces/options/index.html';
+
+/** The gate page inside the extension package: where a persona tab is sent when it was
+ *  about to visit a website Tabsona is not allowed on. Takes the tab id in GATE_TAB_PARAM. */
+export const GATE_PAGE_PATH = 'src/surfaces/gate/index.html';
+/** Query parameter carrying the stopped tab's id to the gate page. The record itself stays
+ *  in the worker's storage, so nothing the page could be handed in a url is trusted. */
+export const GATE_TAB_PARAM = 'tab';
+
+/**
+ * Priorities of the gate's rules, and why they sit BELOW every cookie rule.
+ *
+ * Chrome's DNR: an `allow` rule cancels every matching `modifyHeaders` rule of the same
+ * or LOWER priority, silently. The gate needs an `allow` per granted host (to let the tab
+ * through its own block), so if that allow sat at or above the priority-1 cookie STRIP, a
+ * granted host would stop receiving the strip and the per-host SET rules and the tab would
+ * ride the browser's shared jar: the exact leak the extension exists to prevent.
+ *
+ * So the layering, lowest to highest:
+ *   1 GATE_BLOCK_PRIORITY    block every http(s) main_frame navigation of a bound tab
+ *   2 GATE_ALLOW_PRIORITY    allow it for a granted host (beats the block)
+ *   3 STRIP_RULE_PRIORITY    Cookie / Set-Cookie strip (modifyHeaders), above the allow
+ *   > 1_000_000              per-host / per-domain cookie SET rules (tier x span)
+ * The allow only needs to beat the block; every modifyHeaders rule outranks it, so none
+ * is cancelled. Proven by the isolation / cookieonly / twologins e2e suites.
+ */
+export const GATE_BLOCK_PRIORITY = 1;
+export const GATE_ALLOW_PRIORITY = 2;
+
+/** What `webNavigation.onErrorOccurred` reports for a navigation a declarativeNetRequest
+ *  rule blocked. Another extension blocking a request reports the same string, which is
+ *  why the gate also checks that the target is a host Tabsona is not allowed on. */
+export const BLOCKED_BY_CLIENT_ERROR = 'net::ERR_BLOCKED_BY_CLIENT';
+
+/**
+ * How long after a persona tab passed through a website Tabsona is not allowed on its
+ * captured cookies and page storage are treated as LEAKED rather than saved.
+ *
+ * Long enough to cover a person typing a password on a provider's page (the case where
+ * the tab lands on the unguarded host), short enough that a real sign-in later in the
+ * same tab, after the host has been allowed, is saved normally. Five minutes is how long
+ * a sign-in form is usually left open before the provider's own state expires.
+ */
+export const LEAK_WINDOW_MS = 5 * 60_000;
+
+/** At most this many hosts are remembered per site's sign-in chain. Real chains are 2-4
+ *  hops; the cap only stops an app that redirects everywhere from growing storage forever. */
+export const MAX_SIGNIN_CHAIN_HOSTS = 16;
+
+// --- page cookies (document.cookie) and the request barrier ---------------------------
+
+/** Prefix of the page-side mirror of a session's page-visible cookies, in the REAL
+ *  localStorage of the origin, keyed by session id. Outside the shim's namespace on
+ *  purpose: the storage proxy only sees `<session>::` keys, so the app never enumerates
+ *  it, and the session snapshot (which dumps that namespace) never carries it. It exists
+ *  because `document.cookie` is read SYNCHRONOUSLY at document_start, before any message
+ *  could arrive from the worker. */
+export const COOKIE_MIRROR_KEY_PREFIX = '__tabsona_cookies:';
+/** `window.postMessage` envelope keys between the MAIN-world shim and the ISOLATED badge
+ *  script, which alone has chrome.runtime. */
+export const MSG_COOKIE_WRITE = '__tabsonaCookieWrite';
+export const MSG_COOKIE_SETTLE = '__tabsonaCookieSettle';
+export const MSG_COOKIE_ACK = '__tabsonaCookieAck';
+/** After a response completes in the page, a request sent within this window first waits
+ *  for the worker to finish storing whatever that response set. A cookie reaches the
+ *  next request only once its rule is installed (~15 ms measured), and page script can
+ *  send that request in microseconds. Zero would restore the race; long would delay
+ *  requests that cannot depend on a cookie. */
+export const COOKIE_BARRIER_RECENT_MS = 150;
+/** The longest a request waits for the worker's acknowledgement before it is sent anyway.
+ *  A dead or asleep worker must never be able to stall a page's network. */
+export const COOKIE_BARRIER_TIMEOUT_MS = 1500;

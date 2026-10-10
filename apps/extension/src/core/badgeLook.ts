@@ -49,3 +49,24 @@ export function badgeLabel(p: {
   if (p.isEmpty) return `${p.name} · sign in to save`;
   return p.severity === 'leaking' ? `${p.name} · ${p.summary ?? ''}` : p.name;
 }
+
+/** Characters Chrome's toolbar badge shows legibly; longer text is cut by Chrome itself. */
+const ACTION_BADGE_MAX_CHARS = 3;
+
+/** Leads the toolbar badge when a sign-in host is un-allowed. One character, so the
+ *  persona's initials still fit beside it. */
+export const ACTION_BADGE_ALERT = '!';
+
+/**
+ * The text on the extension's TOOLBAR icon for a tab: the persona's first letters, led by
+ * `!` while the tab's sign-in goes through a website Tabsona is not allowed on.
+ *
+ * Why the toolbar too: the popup's warning is only seen once someone opens the popup, and
+ * a user missed it there ("it is hard to notice"). The toolbar icon is visible on every
+ * page without a click and cannot be covered by the page.
+ */
+export function actionBadgeText(personaName: string | null, signInLeak: boolean): string {
+  if (personaName === null) return '';
+  if (!signInLeak) return personaName.slice(0, ACTION_BADGE_MAX_CHARS);
+  return `${ACTION_BADGE_ALERT}${personaName.slice(0, ACTION_BADGE_MAX_CHARS - ACTION_BADGE_ALERT.length)}`;
+}

@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { CurrentTabBar } from '../CurrentTabBar';
-import { ACTION_HELP } from '@/ui/help';
+import { ACTION_HELP, SIGN_IN_LEAKED } from '@/ui/help';
 import type { TabStatus } from '@/domain/messages';
 import type { PersonaView } from '@/domain/types';
 
@@ -25,7 +25,7 @@ const tab = (over: Partial<TabStatus> = {}): TabStatus => ({
   tabId: 7, url: 'https://sync.localhost/', site: 'https://sync.localhost',
   isWebPage: true, siteAllowed: true, sessionId: null, personaId: null,
   personaName: null, color: null, isEmpty: false, coverage: [], summary: 'not isolated',
-  ...over,
+  unguardedSignInSites: [], leakedSignInSites: [], ...over,
 });
 
 const noop = {
@@ -37,6 +37,7 @@ const noop = {
   onNewPersonaWithTab: () => undefined,
   onAnotherLogin: () => undefined,
   onAddToPersona: () => undefined,
+  onStartOver: () => undefined,
 };
 
 const openJoin = () => fireEvent.click(screen.getByText(ACTION_HELP.addToPersona.label));
@@ -171,6 +172,48 @@ describe('CurrentTabBar — other states', () => {
     );
     expect(screen.getByText('Partly separate')).toBeTruthy();
     expect(screen.queryByText('Separate')).toBeNull();
+  });
+
+  it('names a sign-in website it may not touch and allows exactly that one', () => {
+    // The re-added persona that came back as the browser's admin: its sign-in went
+    // through a provider Tabsona had no permission on. The fix is one click away.
+    const onAllowSite = vi.fn();
+    render(
+      <CurrentTabBar
+        tab={inPersona({ unguardedSignInSites: ['https://api.workos.com'] })}
+        personas={[persona()]}
+        {...noop}
+        onAllowSite={onAllowSite}
+      />,
+    );
+    expect(screen.getByText('api.workos.com')).toBeTruthy();
+    fireEvent.click(screen.getByText(`${ACTION_HELP.allowSignInSite.label} api.workos.com`));
+    expect(onAllowSite).toHaveBeenCalledWith('https://api.workos.com');
+  });
+
+  it('shows no sign-in warning when every sign-in website is allowed', () => {
+    render(<CurrentTabBar tab={inPersona()} personas={[persona()]} {...noop} />);
+    expect(screen.queryByText(/Signs in through/)).toBeNull();
+    expect(screen.queryByText(SIGN_IN_LEAKED.label)).toBeNull();
+    expect(screen.queryByRole('button', { name: ACTION_HELP.startOver.label })).toBeNull();
+  });
+
+  it('says a leaked sign-in was not saved, and Start over names the session', () => {
+    // A persona whose sign-in went through a website Tabsona was not allowed on: the login
+    // that came back was refused, and starting over is the way back.
+    const onStartOver = vi.fn();
+    render(
+      <CurrentTabBar
+        tab={inPersona({ leakedSignInSites: ['https://api.workos.com'] })}
+        personas={[persona()]}
+        {...noop}
+        onStartOver={onStartOver}
+      />,
+    );
+    expect(screen.getByText(SIGN_IN_LEAKED.label)).toBeTruthy();
+    expect(screen.getByText(/api\.workos\.com\) · login not saved/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: ACTION_HELP.startOver.label }));
+    expect(onStartOver).toHaveBeenCalledWith('s_1');
   });
 
   it('labels every footer action with a word, and routes save and leave', () => {

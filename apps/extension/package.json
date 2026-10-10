@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/make-brand.mjs && tsc --noEmit && vite build && CONTENT_ENTRY=shim vite build --config vite.scripts.config.ts && CONTENT_ENTRY=badge vite build --config vite.scripts.config.ts",
+    "build": "node scripts/make-brand.mjs && tsc --noEmit && vite build && CONTENT_ENTRY=shim vite build --config vite.scripts.config.ts && CONTENT_ENTRY=badge vite build --config vite.scripts.config.ts && CONTENT_ENTRY=relay vite build --config vite.scripts.config.ts",
     "dev": "vite build --watch --mode development",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

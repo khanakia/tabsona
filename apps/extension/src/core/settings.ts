@@ -55,6 +55,7 @@ export function normalizeSettings(raw: unknown): Settings {
     showPageBadge: flag('showPageBadge'),
     markPageTitles: flag('markPageTitles'),
     autoHideBadge: flag('autoHideBadge'),
+    chooseSitesMyself: flag('chooseSitesMyself'),
     badgePosition: isBadgeCorner(corner) ? corner : DEFAULT_SETTINGS.badgePosition,
     badgeStyle: isBadgeStyle(style) ? style : DEFAULT_SETTINGS.badgeStyle,
     badgeHideSeconds: clampHideSeconds(read('badgeHideSeconds')) ?? DEFAULT_SETTINGS.badgeHideSeconds,

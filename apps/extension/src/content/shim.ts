@@ -9,7 +9,12 @@
 // particular must be a single file with no imports because it runs before anything
 // else on the page.
 
-import { NAMESPACE_SEPARATOR, SESSION_MARKER } from '@/core/constants';
+import {
+  COOKIE_BARRIER_RECENT_MS, COOKIE_BARRIER_TIMEOUT_MS, COOKIE_MIRROR_KEY_PREFIX, MSG_COOKIE_ACK,
+  MSG_COOKIE_SETTLE, MSG_COOKIE_WRITE, NAMESPACE_SEPARATOR, SESSION_MARKER,
+} from '@/core/constants';
+import { applyCookies, pageCookieString, parseDocumentCookie } from '@/core/cookies';
+import type { CookieRecord } from '@/domain/types';
 import { installIdbNamespace } from '@/core/idb';
 
 /**
@@ -157,6 +162,106 @@ const LENGTH_PROP = 'length';
     Object.defineProperty(window, 'sessionStorage', { configurable: true, get: () => proxy });
   } catch { /* ignore */ }
 
+  // --- document.cookie: the SESSION's cookies, not the browser's ------------------------
+  //
+  // Without this, a write goes to the browser's shared jar (visible to every plain tab,
+  // never sent from this tab because its Cookie header is rebuilt from the session) and a
+  // read returns the shared jar. A provider that writes a test cookie from script and
+  // expects it back ("Cookies are disabled") then fails inside every persona.
+  //
+  // The page keeps its own copy of the session's page-visible cookies, mirrored in the
+  // REAL localStorage under a key outside this session's namespace (so the app never sees
+  // it) because a read is synchronous and the worker cannot answer in time. A write also
+  // goes to the worker, which stores it in the session and installs the rule.
+  const mirrorKey = `${COOKIE_MIRROR_KEY_PREFIX}${sessionId}`;
+  let jar: CookieRecord[] = [];
+  try {
+    const raw = realLocal.getItem(mirrorKey);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(parsed)) jar = parsed as CookieRecord[]; // BOUNDARY: our own JSON, written below
+  } catch { /* unreadable mirror: start empty, the worker repopulates it */ }
+  const saveMirror = (): void => {
+    try { realLocal.setItem(mirrorKey, JSON.stringify(jar)); } catch { /* blocked */ }
+  };
+
+  /** Acknowledgements still awaited, by id. A request waits for all of them. */
+  const waiting = new Map<number, () => void>();
+  let nextId = 1;
+  const askWorker = (kind: string, payload: Record<string, unknown>): Promise<void> => new Promise((resolve) => {
+    const id = nextId++;
+    const done = () => { waiting.delete(id); clearTimeout(timer); resolve(); };
+    const timer = setTimeout(done, COOKIE_BARRIER_TIMEOUT_MS);
+    waiting.set(id, done);
+    try { window.postMessage({ [kind]: { id, ...payload } }, location.origin); } catch { done(); }
+  });
+  window.addEventListener('message', (e) => {
+    if (e.source !== window) return;
+    const ack = (e.data as { [MSG_COOKIE_ACK]?: { id?: unknown } } | null)?.[MSG_COOKIE_ACK];
+    if (typeof ack?.id === 'number') waiting.get(ack.id)?.();
+  });
+
+  const writes = new Set<Promise<void>>();
+  let lastResponseAt = 0;
+  let settling: Promise<void> | null = null;
+  /** What a request must wait for before it leaves, or null to send at once. */
+  const barrier = (): Promise<void> | null => {
+    if (writes.size > 0) return Promise.all([...writes]).then(() => undefined);
+    if (Date.now() - lastResponseAt >= COOKIE_BARRIER_RECENT_MS) return null;
+    settling ??= askWorker(MSG_COOKIE_SETTLE, {}).finally(() => { settling = null; });
+    return settling;
+  };
+
+  try {
+    const desc = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
+    if (desc?.configurable) {
+      Object.defineProperty(Document.prototype, 'cookie', {
+        configurable: true,
+        enumerable: desc.enumerable ?? true,
+        get(this: Document) { return pageCookieString(jar, location.href); },
+        set(this: Document, line: string) {
+          const text = String(line);
+          const record = parseDocumentCookie(text, location.href);
+          if (!record) return;
+          jar = applyCookies(jar, [record]);
+          saveMirror();
+          const pending = askWorker(MSG_COOKIE_WRITE, { url: location.href, line: text });
+          writes.add(pending);
+          void pending.finally(() => writes.delete(pending));
+        },
+      });
+    }
+  } catch { /* locked down: report nothing rather than pretend */ }
+
+  // Hold a request back until the cookie the page just wrote, or the response it just
+  // received set, is in force. Sync XHR cannot wait and goes out as it is; a navigation
+  // cannot be held and is listed in docs/limits.md.
+  try {
+    const realFetch = window.fetch;
+    window.fetch = function fetchAfterCookies(this: unknown, ...args: Parameters<typeof fetch>) {
+      const hold = barrier();
+      const sent = hold ? hold.then(() => realFetch.apply(window, args)) : realFetch.apply(window, args);
+      const noteDone = () => { lastResponseAt = Date.now(); };
+      sent.then(noteDone, noteDone);
+      return sent;
+    };
+  } catch { /* ignore */ }
+  try {
+    const proto = XMLHttpRequest.prototype;
+    const realOpen = proto.open;
+    const realSend = proto.send;
+    const asyncFlag = new WeakMap<XMLHttpRequest, boolean>();
+    proto.open = function open(this: XMLHttpRequest, ...args: unknown[]) {
+      asyncFlag.set(this, args[2] !== false);
+      return (realOpen as (...a: unknown[]) => void).apply(this, args);
+    } as typeof proto.open;
+    proto.send = function send(this: XMLHttpRequest, body?: Document | XMLHttpRequestBodyInit | null) {
+      this.addEventListener('loadend', () => { lastResponseAt = Date.now(); }, { once: true });
+      const hold = asyncFlag.get(this) === false ? null : barrier();
+      if (hold) { void hold.then(() => realSend.call(this, body)); return; }
+      realSend.call(this, body);
+    };
+  } catch { /* ignore */ }
+
   // --- close the cross-tab sync channels -------------------------------------
   // Cookies and storage can both be isolated and an app will still re-sync its
   // login across tabs through any of these.
@@ -269,6 +374,14 @@ const LENGTH_PROP = 'length';
         dumpSession: () => dump(realSession),
         loadLocal: (slice: Record<string, string>) => load(realLocal, slice),
         loadSession: (slice: Record<string, string>) => load(realSession, slice),
+        /** Replace the page-visible cookies with the session's own (the worker's copy
+         *  wins: it is the one the rules are built from). */
+        setCookies: (list: CookieRecord[]) => {
+          if (!Array.isArray(list)) return false;
+          jar = list;
+          saveMirror();
+          return true;
+        },
       }),
     });
   } catch { /* ignore */ }

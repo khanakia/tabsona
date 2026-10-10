@@ -24,6 +24,10 @@ export interface OriginObservations {
   readonly usesWorker: boolean;
   /** At least one cookie has been captured for this session on this origin. */
   readonly hasCookies: boolean;
+  /** Other websites this origin's sign-in redirected a persona tab to that the extension
+   *  is NOT allowed on, so no per-tab rule applied there (core/signin.ts). Already
+   *  filtered against the live permission set: allowing one removes it. */
+  readonly unguardedSignInSites: readonly string[];
 }
 
 /** The starting point for an origin nothing has been observed about yet. Everything is
@@ -37,6 +41,7 @@ export const EMPTY_OBSERVATIONS: OriginObservations = {
   idbNamespaced: false,
   usesWorker: false,
   hasCookies: false,
+  unguardedSignInSites: [],
 };
 
 /**
@@ -57,6 +62,11 @@ export function shimFactsFrom(raw: unknown): ShimFacts {
   };
 }
 
+/** `https://api.workos.com` → `api.workos.com`, for prose. Falls back to the input. */
+function hostOf(origin: string): string {
+  try { return new URL(origin).host; } catch { return origin; }
+}
+
 const LAYER_ORDER: readonly StateLayer[] = [
   'cookies',
   'localStorage',
@@ -65,6 +75,7 @@ const LAYER_ORDER: readonly StateLayer[] = [
   'serviceWorker',
   'sharedWorker',
   'crossOriginFrames',
+  'signInSites',
 ];
 
 /**
@@ -124,6 +135,17 @@ export function computeCoverage(
     crossOriginFrames: obs.hasCrossOriginFrame
       ? { layer: 'crossOriginFrames', status: 'leaking', detail: 'A cross-origin frame is present and cannot learn this session.' }
       : { layer: 'crossOriginFrames', status: 'not-applicable', detail: 'No cross-origin frame seen.' },
+
+    // Leaking, not unknown: the hop was OBSERVED, and with no permission on that host the
+    // browser's own login there is sent — measured, it signs a fresh persona tab in as
+    // whoever the browser is.
+    signInSites: obs.unguardedSignInSites.length > 0
+      ? {
+        layer: 'signInSites',
+        status: 'leaking',
+        detail: `Sign-in goes through ${obs.unguardedSignInSites.map(hostOf).join(', ')}, which Tabsona is not allowed on, so your normal browser login there is used.`,
+      }
+      : { layer: 'signInSites', status: 'not-applicable', detail: 'No sign-in through another website seen.' },
   };
 
   // Token injection makes no claim about page storage at all: it only rewrites a

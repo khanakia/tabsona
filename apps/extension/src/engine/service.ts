@@ -14,11 +14,15 @@ import {
   saveBindings, saveLibrary, withLock,
 } from './repo';
 import { awaitRuleForTab, syncRules } from './rules-sync';
-import { awaitShim, captureTabStorage, restoreTabStorage } from './storage';
+import { pushCookiesToTab } from './pagecookies';
+import {
+  awaitShim, captureTabStorage, clearTabPageData, releaseTab, restoreTabStorage,
+} from './storage';
+import { forgetGateTab } from './gate';
 import { hasCredentials, importLoginFromTab, type ImportedLogin } from './import';
 import { groupTabsForPersona, restyleGroupsForPersona } from './tabgroups';
-import { renderAllBadges, renderBadge, statusForTab } from './badge';
-import { grantedOriginPatterns } from './permissions';
+import { openSignInAlerts, renderAllBadges, renderBadge, statusForTab } from './badge';
+import { allSitesAllowed, grantedOriginPatterns } from './permissions';
 import { observationsFor, observedOrigins } from './observations';
 import type { AppState, OriginCoverage, Response } from '@/domain/messages';
 import type { PersonaId, Session, SessionId, TabId } from '@/domain/types';
@@ -38,14 +42,16 @@ async function activeTab(): Promise<chrome.tabs.Tab | undefined> {
 // --- reading ----------------------------------------------------------------
 
 export async function getState(): Promise<AppState> {
-  const [lib, bindings, settings, origins] = await Promise.all([
-    loadLibrary(), loadBindings(), loadSettings(), grantedOriginPatterns(),
+  const [lib, bindings, settings, origins, allSites] = await Promise.all([
+    loadLibrary(), loadBindings(), loadSettings(), grantedOriginPatterns(), allSitesAllowed(),
   ]);
   const tab = await activeTab();
   return {
     personas: toPersonaViews(lib.personas, lib.sessions, bindings),
     tab: await statusForTab(tab?.id ?? null),
     allowedOrigins: origins,
+    signInAlerts: await openSignInAlerts(),
+    allSitesAllowed: allSites,
     settings,
   };
 }
@@ -110,20 +116,16 @@ export async function updatePersona(personaId: PersonaId, patch: PersonaPatch): 
 /** Deleting a persona takes its sessions and their tab bindings with it, or orphaned
  *  rules would outlive the thing they belong to. */
 export async function deletePersona(personaId: PersonaId): Promise<void> {
-  await withLock(async () => {
+  const released = await withLock(async () => {
     const lib = await loadLibrary();
     const doomed = new Set(lib.sessions.filter((s) => s.personaId === personaId).map((s) => s.id));
     lib.personas = lib.personas.filter((p) => p.id !== personaId);
     lib.sessions = lib.sessions.filter((s) => s.personaId !== personaId);
     await saveLibrary(lib);
-
-    const bindings = { ...(await loadBindings()) };
-    for (const [tabId, sessionId] of Object.entries(bindings)) {
-      if (doomed.has(sessionId)) delete bindings[tabId];
-    }
-    await saveBindings(bindings);
+    return dropBindings((sessionId) => doomed.has(sessionId));
   });
   await syncRules();
+  await releaseForgottenTabs(released);
 }
 
 export async function duplicatePersona(personaId: PersonaId, name?: string): Promise<PersonaId | null> {
@@ -146,16 +148,91 @@ export async function renameSession(sessionId: SessionId, label: string): Promis
   await mutateSession(sessionId, (s) => { s.label = label.trim() || s.label; });
 }
 
+/**
+ * Forget a login. Its open tabs are RELEASED, not left behind: see releaseForgottenTabs.
+ *
+ * The user's report this answers: they forgot a login while its tab was still open
+ * ("Signed in · 1 tab open"), added the site again, and could not tell what the old tab
+ * was any more.
+ */
 export async function deleteSession(sessionId: SessionId): Promise<void> {
-  await withLock(async () => {
+  const released = await withLock(async () => {
     const lib = await loadLibrary();
     lib.sessions = lib.sessions.filter((s) => s.id !== sessionId);
     await saveLibrary(lib);
-    const bindings = { ...(await loadBindings()) };
-    for (const [tabId, id] of Object.entries(bindings)) if (id === sessionId) delete bindings[tabId];
-    await saveBindings(bindings);
+    return dropBindings((id) => id === sessionId);
   });
   await syncRules();
+  await releaseForgottenTabs(released);
+}
+
+/** Remove every binding whose session matches, returning what was removed. Call under
+ *  the lock: it is a read-modify-write of the bindings. */
+async function dropBindings(matches: (sessionId: SessionId) => boolean): Promise<[TabId, SessionId][]> {
+  const bindings = { ...(await loadBindings()) };
+  const dropped: [TabId, SessionId][] = [];
+  for (const [tabId, sessionId] of Object.entries(bindings)) {
+    if (!matches(sessionId)) continue;
+    dropped.push([Number(tabId), sessionId]);
+    delete bindings[tabId];
+  }
+  await saveBindings(bindings);
+  return dropped;
+}
+
+/**
+ * What happens to a tab whose login was just forgotten: it is reloaded as a NORMAL tab,
+ * on the browser's own login, with its page data for the forgotten login removed.
+ *
+ * Chosen over closing it, because a tab the user has open is theirs and may hold work;
+ * and over leaving it as it was, because that tab then sent the browser's cookies while
+ * its page storage still resolved the deleted session — a tab that was neither, showing
+ * one identity and acting as another, with the badge silent. The help text has always
+ * promised that open tabs go back to your normal browser login; this makes it true.
+ */
+async function releaseForgottenTabs(released: readonly [TabId, SessionId][]): Promise<void> {
+  for (const [tabId, sessionId] of released) {
+    await releaseTab(tabId, sessionId, true);
+    await renderBadge(tabId);
+  }
+}
+
+/**
+ * "Start over signed out" for a session whose sign-in went through a website Tabsona was
+ * not allowed on (core/gate.ts, leak windows).
+ *
+ * Clears what that session holds for its site — cookies, saved page storage, and the
+ * namespaced page data in every open tab of it — and sends those tabs back to the site,
+ * where the sign-in starts again, this time through the gate. Its tabs stay in the persona:
+ * starting over is a fresh sign-in, not leaving.
+ *
+ * Returns how many tabs were restarted.
+ */
+export async function startOver(sessionId: SessionId): Promise<number> {
+  const site = await mutateLibrary((lib) => {
+    const session = lib.sessions.find((s) => s.id === sessionId);
+    if (!session) return null;
+    session.cookies = [];
+    session.storage = {};
+    session.domains = [new URL(session.site).hostname];
+    delete session.leakedThrough;
+    session.savedAt = Date.now();
+    return session.site;
+  });
+  if (site === null) throw new Error('no such session');
+  await syncRules();
+
+  const bindings = await loadBindings();
+  const tabIds = Object.entries(bindings).filter(([, id]) => id === sessionId).map(([tabId]) => Number(tabId));
+  for (const tabId of tabIds) {
+    await forgetGateTab(tabId);
+    const entered = await enterSession(tabId, sessionId, site);
+    if (entered === null) continue;
+    await clearTabPageData(tabId, sessionId);
+    await chrome.tabs.reload(tabId).catch(() => undefined);
+    await renderBadge(tabId);
+  }
+  return tabIds.length;
 }
 
 /** Moving a session respects the one-per-site rule in the destination. */
@@ -183,14 +260,20 @@ async function bind(tabId: TabId, sessionId: SessionId): Promise<void> {
   await syncRules();
 }
 
+/** Leave a persona: the persona keeps its login (saved first), and the tab is released
+ *  on the page side too, or it would keep resolving the persona's storage after a reload
+ *  while sending the browser's cookies. */
 export async function unbindTab(tabId: TabId): Promise<void> {
   await captureTabStorage(tabId).catch(() => false);
-  await withLock(async () => {
+  const left = await withLock(async () => {
     const bindings = { ...(await loadBindings()) };
+    const sessionId = bindings[String(tabId)];
     delete bindings[String(tabId)];
     await saveBindings(bindings);
+    return sessionId;
   });
   await syncRules();
+  if (left) await releaseTab(tabId, left, false);
   await renderBadge(tabId);
 }
 
@@ -230,7 +313,10 @@ async function enterSession(tabId: TabId, sessionId: SessionId, url: string): Pr
 
   if (await awaitShim(tabId)) {
     const restored = await restoreTabStorage(tabId, sessionId, target.origin);
-    if (restored) await chrome.tabs.reload(tabId);
+    // The page's own view of the session's cookies (document.cookie) must be in place
+    // before the app boots, so the reload below is also what makes them readable.
+    const cookiesPushed = await pushCookiesToTab(tabId, sessionId);
+    if (restored || cookiesPushed) await chrome.tabs.reload(tabId);
   }
 
   await mutateSession(sessionId, (s) => { s.lastUsedAt = Date.now(); });
@@ -243,6 +329,19 @@ async function waitForTabIdle(tabId: TabId): Promise<void> {
     if (!tab || tab.status === 'complete') return;
     await new Promise((r) => setTimeout(r, 50));
   }
+}
+
+/**
+ * Put tabs that just joined a persona into its Chrome tab group — when, and only when, the
+ * user's `useTabGroups` setting is on. The ONE place that setting is read for grouping, so
+ * every way a tab joins a persona (open all, one session, add a site, another login, use
+ * or move this tab) obeys the same switch. Off means the tabs stay where they are.
+ */
+async function groupIfEnabled(personaId: PersonaId, tabIds: readonly TabId[]): Promise<void> {
+  const [lib, settings] = await Promise.all([loadLibrary(), loadSettings()]);
+  if (!settings.useTabGroups) return;
+  const persona = lib.personas.find((p) => p.id === personaId);
+  if (persona) await groupTabsForPersona(persona, tabIds);
 }
 
 /** VERB: open a session — in a new tab, or in the one the user is looking at. */
@@ -271,6 +370,9 @@ export async function openSession(
     await chrome.tabs.update(tabId, { url: REFUSED_PAGE });
     throw new Error('rule not confirmed; refused to navigate');
   }
+  // Every open path lands here (one session, an added site, another login), so this is
+  // where a single tab joins its persona's group — not only "open all".
+  await groupIfEnabled(session.personaId, [tabId]);
   await mutateLibrary((l) => {
     const p = l.personas.find((x) => x.id === session.personaId);
     if (p) p.lastUsedAt = Date.now();
@@ -309,7 +411,7 @@ export async function openPersona(personaId: PersonaId): Promise<number> {
     opened.push(created.id);
   }
 
-  if (settings.useTabGroups) await groupTabsForPersona(persona, opened);
+  await groupIfEnabled(personaId, opened);
   await mutateLibrary((l) => {
     const p = l.personas.find((x) => x.id === personaId);
     if (p) p.lastUsedAt = Date.now();
@@ -379,7 +481,8 @@ export async function saveCurrentTab(
     // Take it out of the shared jar, then put this tab inside the persona so the user
     // stays signed in — now as the persona rather than as the browser.
     await clearSharedLogin(tabId, login);
-    await enterSession(tabId, result.sessionId, site);
+    const entered = await enterSession(tabId, result.sessionId, site);
+    if (entered !== null) await groupIfEnabled(personaId, [tabId]);
   }
   // `copy` deliberately touches neither: the browser keeps its login and this tab stays
   // plain. The two then share ONE server-side session, so signing out in either kills
@@ -454,6 +557,7 @@ export async function useTabIn(personaId: PersonaId): Promise<TabId> {
   // Keep the exact page the user is on, not just the origin.
   const entered = await enterSession(tab.id, sessionId, tab.url);
   if (entered === null) throw new Error('rule not confirmed; refused to navigate');
+  await groupIfEnabled(personaId, [tab.id]);
   return tab.id;
 }
 

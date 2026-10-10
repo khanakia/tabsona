@@ -184,3 +184,63 @@ export function serializeCookieHeader(
 export function domainsOf(jar: readonly CookieRecord[]): string[] {
   return [...new Set(jar.map((c) => c.domain.toLowerCase()))].sort();
 }
+
+// --- cookies written by PAGE script (document.cookie) --------------------------------
+
+/**
+ * RFC 6265 §5.1.4 default-path: the directory of the request path. A cookie written with
+ * no `Path=` from `/app/page` lives at `/app`, not `/`; getting this wrong makes a cookie
+ * the page wrote invisible to the very next request, or visible to paths it never was.
+ */
+export function defaultCookiePath(pathname: string): string {
+  if (!pathname.startsWith('/')) return '/';
+  const last = pathname.lastIndexOf('/');
+  return last <= 0 ? '/' : pathname.slice(0, last);
+}
+
+/**
+ * What `document.cookie = line` stores, as the browser decides it, or null when the
+ * browser would ignore the write.
+ *
+ * Differences from a `Set-Cookie` header, each one a browser rule:
+ * - page script can never set `HttpOnly`; the attribute is dropped, not honoured;
+ * - a `Domain=` that does not domain-match the page's host is rejected;
+ * - a `Secure` cookie from an insecure page is rejected (localhost counts as secure);
+ * - a missing `Path=` defaults to the page's directory, not `/`.
+ * Unlike the header path, an empty value is a real (empty) cookie, so deletion is by
+ * expiry only: the caller applies it with the same `applyCookies` as any other write.
+ */
+export function parseDocumentCookie(line: string, pageUrl: string, now: number = Date.now()): CookieRecord | null {
+  let page: URL;
+  try { page = new URL(pageUrl); } catch { return null; }
+  const parsed = parseSetCookie(line, page.hostname);
+  if (!parsed) return null;
+
+  const host = page.hostname.toLowerCase();
+  if (!parsed.hostOnly && host !== parsed.domain && !host.endsWith(`.${parsed.domain}`)) return null;
+  const secureContext = page.protocol === SECURE_PROTOCOL || host === LOCALHOST_HOST || host.endsWith(LOCALHOST_SUFFIX);
+  if (parsed.secure && !secureContext) return null;
+
+  const hadPath = /;\s*path\s*=/i.test(line);
+  const record: CookieRecord = {
+    ...parsed,
+    httpOnly: false,
+    path: hadPath ? parsed.path : defaultCookiePath(page.pathname),
+  };
+  // An expiry in the past is a delete: surface it as an empty value so applyCookies drops it.
+  return isExpired(record, now) ? { ...record, value: '' } : record;
+}
+
+/**
+ * The cookies page script may see: `HttpOnly` ones are withheld, exactly as the browser
+ * withholds them from `document.cookie`. The worker applies this before it hands a jar
+ * to a page, so an HttpOnly session cookie never enters page-readable storage at all.
+ */
+export function pageVisibleCookies(jar: readonly CookieRecord[]): CookieRecord[] {
+  return jar.filter((c) => !c.httpOnly);
+}
+
+/** The string `document.cookie` returns for `pageUrl`: `name=value; name2=value2`. */
+export function pageCookieString(jar: readonly CookieRecord[], pageUrl: string, now: number = Date.now()): string {
+  return serializeCookieHeader(pageVisibleCookies(jar), pageUrl, now);
+}

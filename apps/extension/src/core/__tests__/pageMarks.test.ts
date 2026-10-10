@@ -20,7 +20,9 @@ describe('title mark', () => {
   });
 
   it('marks an empty title too, so an untitled tab still says whose it is', () => {
-    expect(withTitleMark('', '💚')).toBe('💚 ');
+    // The mark alone, NOT "💚 ": document.title trims what it is given, so the trailing
+    // separator would read back as "💚" and be marked a second time ("💚 💚").
+    expect(withTitleMark('', '💚')).toBe('💚');
   });
 });
 

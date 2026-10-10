@@ -17,7 +17,7 @@
 //      the database in A leaves B's intact.
 //   4. the badge reports indexedDB `covered` for the origin.
 //
-// See docsi/SPEC_INDEXEDDB.md for the design this proves.
+// The design this proves is described in docs/how-it-works.md.
 
 import { attach, claimNewTab, pageIds, report, requireGrant, sleep, startChrome, waitFor } from './lib/harness.mjs';
 

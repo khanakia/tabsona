@@ -5,9 +5,11 @@
 // `vi.mock` of a module path. A boundary test enforces this; it is not a convention.
 
 import type {
-  AppState, OriginCoverage, Request, Response, BadgeCorner, OptionsSection, SettingKey, SettingsPatch, TabStatus,
+  AppState, GateInfo, OriginCoverage, Request, Response, BadgeCorner, OptionsSection, SettingKey, SettingsPatch,
+  TabStatus,
 } from '@/domain/messages';
 import type { PersonaId, SessionId, TabId } from '@/domain/types';
+import { ALL_SITES_PATTERN, OPTIONS_PAGE_PATH } from '@/core/constants';
 
 async function send(req: Request): Promise<Response> {
   const res = (await chrome.runtime.sendMessage(req)) as Response | undefined;
@@ -58,6 +60,18 @@ export const client = {
     const res = await send({ op: 'coverageReport' });
     return res.ok && 'report' in res ? res.report : [];
   },
+
+  /** The gate page's question for the tab it replaced, or null when nothing waits there. */
+  async gateInfo(tabId: TabId): Promise<GateInfo | null> {
+    const res = await send({ op: 'gateInfo', tabId });
+    return res.ok && 'gate' in res ? res.gate : null;
+  },
+  /** Resume the stopped navigation. Call after the Allow click's grant resolved. */
+  gateContinue: (tabId: TabId) => send({ op: 'gateContinue', tabId }).then(errorOf),
+  /** Open the stopped url in an ordinary tab; the persona tab goes back where it was. */
+  gateOpenNormally: (tabId: TabId) => send({ op: 'gateOpenNormally', tabId }).then(errorOf),
+  /** Clear a leaked sign-in and sign the session's tabs in again, through the gate. */
+  startOver: (sessionId: SessionId) => send({ op: 'startOver', sessionId }).then(errorOf),
 
   createPersona: (name: string) => send({ op: 'createPersona', name }).then(errorOf),
   /** Patch a persona. Omit a field to leave it alone; pass '' to clear a description. */
@@ -111,10 +125,34 @@ export const client = {
    * step that cannot be automated and should not be hidden.
    */
   async grantOrigin(origin: string): Promise<boolean> {
+    return client.grantOrigins([origin]);
+  },
+
+  /**
+   * Ask Chrome for several origins in ONE confirmation dialog — the "Allow all" of a
+   * sign-in chain, which otherwise means a prompt per host. Only grants: it never opens
+   * a tab or adds a site to a persona. Same user-gesture rule as grantOrigin.
+   */
+  async grantOrigins(origins: readonly string[]): Promise<boolean> {
+    if (origins.length === 0) return true;
     try {
-      return await chrome.permissions.request({ origins: [`${origin.replace(/\/$/, '')}/*`] });
+      return await chrome.permissions.request({ origins: origins.map((o) => `${o.replace(/\/$/, '')}/*`) });
     } catch { return false; }
   },
+
+  /**
+   * "Allow on all sites": ONE Chrome prompt for every website, so a persona whose sign-in
+   * passes through other hosts (an SSO chain) is separated end to end without a prompt
+   * per host. Same user-gesture rule as grantOrigin. The engine re-scopes its listener,
+   * content scripts and badges on `permissions.onAdded`; nothing else needs calling.
+   */
+  async grantAllSites(): Promise<boolean> {
+    try { return await chrome.permissions.request({ origins: [ALL_SITES_PATTERN] }); }
+    catch { return false; }
+  },
+
+  /** Withdraw "Allow on all sites". Websites allowed one by one stay allowed. */
+  revokeAllSites: (): Promise<boolean> => client.revokeOrigin(ALL_SITES_PATTERN),
 
   async revokeOrigin(pattern: string): Promise<boolean> {
     try { return await chrome.permissions.remove({ origins: [pattern] }); }
@@ -127,7 +165,7 @@ export const client = {
    * page follows live (Options listens for `hashchange`).
    */
   async openOptions(section: OptionsSection = 'personas'): Promise<void> {
-    const base = chrome.runtime.getURL('src/surfaces/options/index.html');
+    const base = chrome.runtime.getURL(OPTIONS_PAGE_PATH);
     const url = `${base}#${section}`;
     // A pattern Chrome rejects must not stop the library from opening: fall back to a new tab.
     const [existing] = await chrome.tabs.query({ url: `${base}*` }).catch(() => []);

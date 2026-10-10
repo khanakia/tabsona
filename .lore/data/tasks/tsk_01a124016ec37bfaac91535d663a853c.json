@@ -1,0 +1,23 @@
+{
+  "_table": "tasks",
+  "_v": 1,
+  "assigned_to_actor_id": null,
+  "body": "User asked (verbatim):\n  wjy we cannot fix do more research\n\nContext:\n  Real Google sign-in in a persona tab fails ('Something went wrong' after email, then 'Cookies are disabled' at accounts.google.com/v3/signin/rejected). Related: tsk_01a123ff17ea77dfa89f8bbeb7d8cc99. Team-lead brief: research Google mechanics, how SessionBox/MultiLogin/Firefox containers do it, spike chrome.debugger Fetch interception and cookie swapping on a 302-set-cookie fixture, recommend.\n\nAcceptance:\n  Report at docsi/research/google-signin.md with cited evidence, spike measurements, and a recommendation.",
+  "commitment": "accepted",
+  "completed_at": "2026-10-10T04:24:41.314505000Z",
+  "created_at": "2026-10-10T04:10:36.099783000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "deferred_until": null,
+  "due_at": null,
+  "id": "tsk_01a124016ec37bfaac91535d663a853c",
+  "mission_id": null,
+  "plan_id": null,
+  "priority": "high",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "repo_id": null,
+  "started_at": "2026-10-10T04:10:39.673284000Z",
+  "status": "done",
+  "tasklist_id": "tlt_01a0fc850b62740f891c787b629a6ba8",
+  "title": "Research: why Google sign-in fails in a persona tab, spike debugger/cookie-swap",
+  "updated_at": "2026-10-10T04:24:41.314518000Z"
+}

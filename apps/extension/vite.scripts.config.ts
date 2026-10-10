@@ -12,7 +12,7 @@ import { resolve } from 'node:path';
 // document_start, before any app code, so it must be one file with no imports left
 // to resolve at runtime.
 const ENTRY = process.env.CONTENT_ENTRY;
-if (!ENTRY) throw new Error('CONTENT_ENTRY must name a content script entry (shim | badge)');
+if (!ENTRY) throw new Error('CONTENT_ENTRY must name a content script entry (shim | badge | relay)');
 
 export default defineConfig({
   resolve: { alias: { '@': resolve(import.meta.dirname, 'src') } },

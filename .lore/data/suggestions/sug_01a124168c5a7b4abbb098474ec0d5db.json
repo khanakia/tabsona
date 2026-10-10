@@ -1,0 +1,12 @@
+{
+  "_table": "suggestions",
+  "_v": 1,
+  "body": "Not a commitment. A separate companion extension holding the debugger permission, driven by Tabsona over runtime.onMessageExternal, that attaches to a persona tab only on listed strict hosts (after the sign-in gate stops the navigation), rewrites the Cookie header from Fetch at the Request stage, learns Set-Cookie from Network.responseReceivedExtraInfo, keeps DNR stripping Set-Cookie so the shared jar stays clean, and detaches when the tab leaves. Measured 10/10 on the three-hop probe including cross-site iframes via Target.setAutoAttach. Costs: debugger cannot be an optional permission (install warning disables the extension for existing users, slower Store review, hence a separate extension), an infobar while attached (Cancel detaches, must fall back and say so in the badge), we own cookie matching, SameSite, Secure, prefixes and Partitioned for those hosts. Known holes: service worker fetches, DBSC refreshes, FedCM. Needs a headed check on a Mac with DBSC before any claim.",
+  "created_at": "2026-10-10T04:33:39.930732000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "id": "sug_01a124168c5a7b4abbb098474ec0d5db",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "status_str": "active",
+  "title": "Strict sign-in companion extension using chrome.debugger",
+  "updated_at": "2026-10-10T04:33:39.930734000Z"
+}

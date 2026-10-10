@@ -55,8 +55,8 @@ await chrome.kill();
 
 const noDuplicateError = !JSON.stringify([concurrent, parallelRegister]).includes('Duplicate script ID');
 const noWorkerError = errorLogs.length === 0;
-const exactlyOneEach = after.length === 2
-  && after.includes('tabsona-shim') && after.includes('tabsona-badge');
+const exactlyOneEach = after.length === 3
+  && after.includes('tabsona-shim') && after.includes('tabsona-badge') && after.includes('tabsona-relay');
 
 console.log('\n   concurrent boots threw nothing? ', noDuplicateError);
 console.log('   worker logged no boot failure?  ', noWorkerError);
