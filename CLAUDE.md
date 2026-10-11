@@ -7,7 +7,7 @@
 
 A Chrome extension that gives **each tab its own login session**, grouped into **personas** — a named identity across a set of apps. Open a persona and every site in it opens as a tab, already signed in.
 
-Status: **shipped and gated.** `task check` is the real gate — type-check, unit tests, a build, and thirteen end-to-end suites driving the built extension in a real Chrome. Read [`docs/how-it-works.md`](docs/how-it-works.md) before changing anything in `src/engine/` or `src/content/`.
+Status: **shipped and gated.** `task check` is the real gate — type-check, unit tests, a build, and fourteen end-to-end suites driving the built extension in a real Chrome. Read [`docs/how-it-works.md`](docs/how-it-works.md) before changing anything in `src/engine/` or `src/content/`.
 
 ## Who this is for
 
@@ -39,6 +39,7 @@ Do not re-derive these, and do not build a design that ignores one.
 - **A tab's DNR rules must never depend on the URL the tab is on.** A tab is on `about:blank` when it is bound, so a URL-derived rule says "no cookies" for the first real request, and an app that 302s signed-out users bounces before any resync lands. Scope by request URL instead (`regexFilter` per host), under a priority-1 strip rule: a higher-priority rule claims a header and lower ones cannot touch it. A tab-wide `set` also sends one host's cookies to every host the page loads.
 - **Scope `webRequest` listeners to granted hosts, never `<all_urls>`.** With optional host permissions the broad form logs one warning and then never fires — a silent failure.
 - **The MV3 service worker is torn down at will, and several events boot it at once.** Reloading at `chrome://extensions` runs the module body *and* fires `onInstalled`. Every read-then-write chrome API (`registerContentScripts`, `updateSessionRules`) must be serialized, and `registerContentScripts` additionally needs catch-and-retry, because a previous worker generation can write between your read and your write.
+- **`chrome.storage.session` and session DNR rules are wiped when the extension reloads, updates or is re-enabled, while its tabs stay open.** Tab bindings and per-tab rules vanish with them, so bound tabs must be re-adopted on boot from the markers their pages still carry (`engine/adopt.ts`); anything that finds tabs only through bindings (Forget, Leave persona) misses an orphaned tab. A headless run cannot do a real reload: `runtime.reload()` unloads a CDP-loaded extension for good, so `spike/lib/harness.mjs` `reloadExtension` simulates the wipe.
 - **Never use a dynamic `await import()` in the worker.** Vite wraps it in a preload helper that calls `window.dispatchEvent`, and a service worker has no `window`. Keep `build.modulePreload: false`.
 - **The shipped manifest declares no host permissions at all.** Every origin is granted at runtime through Chrome's own prompt. The fixture origin that the end-to-end suites need is injected into the *built* manifest by `task grant`, never into the source — a development origin in a published manifest is both a review finding and a permission the user never agreed to. `task preflight` fails if one reappears.
 - **Chrome 154 silently ignores `--load-extension`.** Load unpacked via the CDP `Extensions.loadUnpacked` command instead; `task probe:load` re-checks this if a future Chrome changes it.

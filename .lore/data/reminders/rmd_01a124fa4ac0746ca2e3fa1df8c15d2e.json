@@ -1,0 +1,15 @@
+{
+  "_table": "reminders",
+  "_v": 1,
+  "created_at": "2026-10-10T08:42:25.344288000Z",
+  "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
+  "done_at": null,
+  "due_at": "2026-10-13T00:00:00.000000000Z",
+  "id": "rmd_01a124fa4ac0746ca2e3fa1df8c15d2e",
+  "message": "Check Chrome Web Store review result for Tabsona 0.3.1 (submitted 2026-10-10)",
+  "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
+  "recurrence": null,
+  "target_id": null,
+  "target_table": null,
+  "updated_at": "2026-10-10T08:42:25.344288000Z"
+}

@@ -1,7 +1,7 @@
 // Reads and writes a session's page-storage slice, THROUGH THE SHIM'S HANDLE.
 
 import {
-  NAMESPACE_SEPARATOR, SESSION_MARKER, SHIM_WAIT_POLL_MS, SHIM_WAIT_TIMEOUT_MS,
+  COOKIE_MIRROR_KEY_PREFIX, NAMESPACE_SEPARATOR, SESSION_MARKER, SHIM_WAIT_POLL_MS, SHIM_WAIT_TIMEOUT_MS,
 } from '@/core/constants';
 import { leakWindowFor } from '@/core/gate';
 import { loadBindings, loadLeakWindows, loadLibrary, mutateSession } from './repo';
@@ -124,7 +124,8 @@ export async function awaitShim(tabId: TabId): Promise<boolean> {
 }
 
 /**
- * Take a tab OUT of its session on the page side, then reload it as a plain tab.
+ * Take a tab OUT of its session on the page side, then reload it as a plain tab (the
+ * "Leave persona" path; a forgotten login's tabs are closed instead, see closeTab).
  *
  * Unbinding alone only drops the cookie rules. The page shim resolves its session from
  * carriers the PAGE holds (`window.name`, a `sessionStorage` marker — see shim.ts), so a
@@ -141,12 +142,36 @@ export async function awaitShim(tabId: TabId): Promise<boolean> {
  * again, and they hold its tokens), wrong when a tab merely leaves a persona that keeps it.
  */
 export async function releaseTab(tabId: TabId, sessionId: SessionId, dropPageData: boolean): Promise<void> {
+  await scrubTabCarriers(tabId, sessionId, dropPageData);
+  await chrome.tabs.reload(tabId).catch(() => undefined);
+}
+
+/**
+ * Close a tab whose login was forgotten, after removing its page data from the origin.
+ *
+ * A forgotten login's tab is CLOSED, not handed back as a plain tab: a tab that was
+ * signed in as a persona and then moves onto the browser's own jar is one tab showing one
+ * identity while acting as another, and it can take over a plain tab's login. The page
+ * data (namespaced storage, the cookie mirror) lives on the ORIGIN, not the tab, so it is
+ * scrubbed first; closing alone would leave the forgotten login's tokens behind.
+ * Binding and rule cleanup follow from the `tabs.onRemoved` listener in engine/index.ts.
+ */
+export async function closeTab(tabId: TabId, sessionId: SessionId): Promise<void> {
+  await scrubTabCarriers(tabId, sessionId, true);
+  await chrome.tabs.remove(tabId).catch(() => undefined); // already gone is fine
+}
+
+async function scrubTabCarriers(tabId: TabId, sessionId: SessionId, dropPageData: boolean): Promise<void> {
   await chrome.scripting.executeScript({
     target: { tabId },
     world: 'ISOLATED',
-    args: [SESSION_MARKER, sessionId, NAMESPACE_SEPARATOR, dropPageData],
-    func: (marker: string, id: string, separator: string, drop: boolean) => {
+    args: [SESSION_MARKER, sessionId, NAMESPACE_SEPARATOR, dropPageData, COOKIE_MIRROR_KEY_PREFIX],
+    func: (marker: string, id: string, separator: string, drop: boolean, mirrorPrefix: string) => {
       try { sessionStorage.removeItem(marker); } catch { /* blocked */ }
+      // The page-cookie mirror sits in the REAL localStorage outside the session's
+      // namespace, so every plain tab on this origin can read it: it must go whether or
+      // not the login does.
+      try { localStorage.removeItem(`${mirrorPrefix}${id}`); } catch { /* blocked */ }
       try {
         const prefix = `${marker}:`;
         const name = String(window.name || '');
@@ -169,7 +194,6 @@ export async function releaseTab(tabId: TabId, sessionId: SessionId, dropPageDat
       }
     },
   }).catch(() => undefined); // a page we may not script holds no shim either
-  await chrome.tabs.reload(tabId).catch(() => undefined);
 }
 
 /**

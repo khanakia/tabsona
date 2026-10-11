@@ -11,7 +11,7 @@ Give each tab its own login session. Save, open and reuse a whole set of signed-
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-498%20unit%20%2B%2028%20script%20%2B%2013%20e2e-success.svg)](#verify-it-yourself)
+[![Tests](https://img.shields.io/badge/tests-511%20unit%20%2B%2028%20script%20%2B%2014%20e2e-success.svg)](#verify-it-yourself)
 
 [How it works](docs/how-it-works.md) · [Limits](docs/limits.md) · [Privacy](https://khanakia.github.io/tabsona/privacy.html) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
@@ -149,7 +149,7 @@ Removing **Allow on all sites** keeps every website you allowed one by one.
 task check
 ```
 
-A full-history secret scan, type-check, 498 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and thirteen end-to-end suites driving the **built extension** in a real Chrome.
+A full-history secret scan, type-check, 511 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and fourteen end-to-end suites driving the **built extension** in a real Chrome.
 
 | Task | Proves |
 |---|---|
@@ -158,6 +158,7 @@ A full-history secret scan, type-check, 498 unit tests, 28 script tests, the Chr
 | `e2e:capture` | copying an ordinary tab's login leaves the browser's own jar alone |
 | `e2e:move` | moving a login empties the browser's jar |
 | `e2e:flows` | all four ways to build a session, and what each does to a plain tab, and to its tab group |
+| `e2e:forget` | forgetting a login or deleting its persona while its tab is open (with the browser signed out and signed in as another user): the tab is closed, and the persona's page data and page-cookie mirror are gone from the site's origin, with no binding or per-tab rule left · leaving the persona keeps the tab, now plain on the browser's login only (never the forgotten persona's), out of the persona's Chrome tab group · and across an extension reload (bindings and rules wiped, simulated): the open persona tab is re-adopted, then Forget closes it, Forget also closes a tab no binding names, and a tab whose login no longer exists is closed on boot |
 | `e2e:twologins` | a second persona takes a fresh session for a site another already holds |
 | `e2e:tabs` | open-in-this-tab moves every layer · a blank new tab never joins a persona |
 | `e2e:boot` | concurrent worker boots never duplicate a content script |

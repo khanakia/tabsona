@@ -111,7 +111,7 @@ export const ACTION_HELP: Readonly<Record<ActionId, ActionHelp>> = {
   deletePersona: {
     label: 'Delete persona',
     what: 'Deletes this persona and every login saved in it.',
-    touches: 'Its open tabs reload on your normal browser login. Websites are not signed out.',
+    touches: 'Its open tabs are closed. Websites are not signed out.',
     gotcha: 'This cannot be undone.',
   },
   openSession: {
@@ -137,7 +137,7 @@ export const ACTION_HELP: Readonly<Record<ActionId, ActionHelp>> = {
   deleteSession: {
     label: 'Forget this login',
     what: 'Removes this saved login from the persona.',
-    touches: 'The website is not signed out. Open tabs using it reload on your normal browser login.',
+    touches: 'The website is not signed out. An open tab using it is closed.',
     gotcha: 'To use it again you will have to sign in again.',
   },
   allowSignInSite: {
@@ -351,6 +351,18 @@ export function confirmDeletePersona(name: string): ConfirmRequest {
   };
 }
 
+/**
+ * The banner after a login is forgotten. Says what happened to the open tab, because the
+ * tab was the persona's identity: it is closed rather than handed to the browser's own
+ * login, where it would show one account and act as another.
+ */
+export const FORGOT_LOGIN_NOTICE = 'Forgot that login. Its open tabs were closed.';
+
+/** The banner after a persona is deleted; same reason as FORGOT_LOGIN_NOTICE. */
+export function deletedPersonaNotice(name: string): string {
+  return `Deleted “${name}”. Its open tabs were closed.`;
+}
+
 /** Forgetting one saved login. */
 export function confirmForgetLogin(): ConfirmRequest {
   return {
@@ -383,6 +395,18 @@ export const SIGN_IN_NOT_SEPARATED: ActionHelp = {
   touches: 'A persona tab stops before it goes there and asks you in the tab. This list is the fallback for what that stop cannot catch: a sign-in that happens inside the page (a frame or a background request) uses your normal login on that website.',
   gotcha: 'Allow these websites (Allow only grants access; it opens no tab). A login that already came back through one is not saved: the persona offers Start over signed out.',
 };
+
+/**
+ * What the popup's current-tab line means for a tab in NO persona, shown in a hover card
+ * because the line is cut off in a 420px popup ("· your normal login, n…") and the reason
+ * it matters was nowhere to be read. Names the two ways out so the card answers "now what".
+ */
+export const PLAIN_TAB_MEANING = {
+  title: 'Your normal login, not in a persona',
+  what: 'This tab uses the login your browser already has for this website, shared with all your other tabs. It is not kept apart from them.',
+  addToPersona: `${ACTION_HELP.addToPersona.label}: put this tab in a persona so it has its own login, signed out, or by moving or copying the one you use now.`,
+  anotherAccount: `${ACTION_HELP.anotherAccountHere.label}: open this website in a new signed-out tab to sign in as someone else. This tab keeps its login.`,
+} as const;
 
 /** The current-tab warning for a session whose sign-in went through an unguarded website:
  *  the login was refused, and the persona is not signed in as itself until it starts over. */

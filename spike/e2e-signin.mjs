@@ -34,8 +34,8 @@
 //   B. whole chain ALLOWED (what "Allow all" grants): a fresh persona tab
 //      sees the provider's login form; a second persona signs in as bob while the plain
 //      browser stays alice; forgetting that login while its tab is open and adding the
-//      site again opens SIGNED OUT; and the forgotten tab is released to the browser's
-//      own login rather than left half in a persona that no longer exists.
+//      site again opens SIGNED OUT; and the forgotten tab is closed rather
+//      than left half in a persona that no longer exists.
 //   C. "Allow on all sites" (`*://*/*`, one prompt) and NOTHING else granted: the listener
 //      and content scripts are scoped to it, a persona added for the app opens signed out,
 //      its sign-in asks who you are, no alert appears at any point, the persona signs in
@@ -440,10 +440,10 @@ const s2State = await chrome.op('getState()');
 const s2SessionId = s2State.personas.find((p) => p.id === s2).sessions[0].id;
 await chrome.op(`deleteSession(${JSON.stringify(s2SessionId)})`);
 await sleep(1200);
-const forgottenStatus = await status(chrome, s2Tab.tabId);
-await waitFor(s2Tab.page, ON_APP, 'forgotten tab reloaded');
-const forgottenShim = await s2Tab.page.eval(`typeof window.__tabsonaSession === 'object'`);
-const forgottenWho = await s2Tab.page.eval(WHO);
+// Forgetting closes the login's open tabs (a tab cannot be both the persona's and the
+// browser's), so the tab must be gone, not reloaded.
+const forgottenTabAlive = await chrome.swSession.eval(
+  `chrome.tabs.get(${Number(s2Tab.tabId)}).then(() => true).catch(() => false)`);
 
 const readded = await addSiteAndStartSso(chrome, s2);
 const readdedSawForm = readded.landed === 'idp-form';
@@ -607,7 +607,7 @@ console.log(`   C  all sites (${JSON.stringify(grantsC)}): welcome=${chromeC.wel
 console.log(`   P  control stop=${P1.stopped} offer=${JSON.stringify(infoP1?.passThroughOffer)} clicked ${clickedRelay}/${clickedIdp} landed=${landedP} persona=${personaWhoP} plain app=${plainAppWhoP} cookies at provider=${JSON.stringify(cookiesAtIdpP)} settled again=${settledP}`);
 console.log(`   P2 landed=${P2tab.landed} shim@provider=${shimAtIdpP2} signed in as ${loginP2.who} (retries ${loginP2.retries}) shim@app=${shimAtAppP2} 302-cookie=${JSON.stringify(ckIdpP2?.afterRedirect)} plain after=${plainAfterP2.who} allow rules ${rulesP2.length} -> ${rulesP2Removed.length}`);
 console.log(`   P3 all sites + list: landed=${P3tab.landed} shim@provider=${shimAtIdpP3} as ${loginP3.who} (retries ${loginP3.retries}) plain after=${plainAfterP3.who} scripts=${JSON.stringify(scriptsP3)}`);
-console.log(`   B  plain=${plainB.who}  s1=${s1Who}  s2=${s2Who}  forgotten tab=${forgottenWho}  re-added s2=${readdedWho}  plain after=${plainAfter.who}`);
+console.log(`   B  plain=${plainB.who}  s1=${s1Who}  s2=${s2Who}  forgotten tab open=${forgottenTabAlive}  re-added s2=${readdedWho}  plain after=${plainAfter.who}`);
 
 const pass = report('sign-in through another website — the re-added persona that came back as admin', [
   ['G: only the app is allowed (the user\'s setup)', !grantedG.relay && !grantedG.provider],
@@ -739,9 +739,7 @@ const pass = report('sign-in through another website — the re-added persona th
   ['P3: no sign-in alert, and the provider login is the browser\'s (a plain tab arrives as bob)', alertsP3.length === 0 && plainAfterP3.who === 'bob', `${JSON.stringify(alertsP3)} / ${plainAfterP3.who}`],
   ['B: s1 saw the provider\'s form and signed in as alice', s1Tab.landed === 'idp-form' && s1Who === 'alice', `${s1Tab.landed} / ${s1Who}`],
   ['B: s2 saw the provider\'s form (not the browser\'s alice) and signed in as bob', s2SawForm && s2Who === 'bob', `${s2Tab.landed} / ${s2Who}`],
-  ['B: forgetting the login released its open tab from the persona', forgottenStatus.sessionId === null, String(forgottenStatus.sessionId)],
-  ['B: the released tab no longer runs the persona\'s storage shim', forgottenShim === false],
-  ['B: the released tab is honestly on the browser\'s own login', forgottenWho === 'alice', String(forgottenWho)],
+  ['B: forgetting the login closed its open tab', forgottenTabAlive === false, String(forgottenTabAlive)],
   ['B: the site added to s2 AGAIN opens signed out', readded.signedOutAtFirst],
   ['B: and its sign-in asks who you are instead of reusing anyone',
     readdedSawForm && readdedWho === 'bob', `${readded.landed} / ${readdedWho}`],

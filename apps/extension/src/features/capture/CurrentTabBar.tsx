@@ -9,7 +9,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/ui/volt/dropdown-menu';
 import { ActionMenuItem, WithHelp } from '@/ui/HelpCard';
-import { ACTION_HELP, SIGN_IN_LEAKED, SIGN_IN_NOT_SEPARATED, isolationHelp, type ActionHelp } from '@/ui/help';
+import { ACTION_HELP, PLAIN_TAB_MEANING, SIGN_IN_LEAKED, SIGN_IN_NOT_SEPARATED, isolationHelp, type ActionHelp } from '@/ui/help';
 import { shortSite } from '@/ui/format';
 import { FullText } from '@/ui/FullText';
 import type { TabStatus } from '@/domain/messages';
@@ -111,11 +111,20 @@ export function CurrentTabBar(props: CurrentTabBarProps) {
       <Bar>
         <Row>
           <span className="size-2.5 shrink-0 rounded-[3px]" style={{ background: t.color ?? 'var(--muted-foreground)' }} />
-          <span className="min-w-0 flex-1 truncate">
+          <FullText
+            line={<span className="min-w-0 flex-1 truncate" />}
+            full={(
+              <>
+                <span className="block font-semibold">{t.personaName}</span>
+                <span className="block break-all text-muted-foreground">{t.site}</span>
+                <span className="block">{status.label}</span>
+              </>
+            )}
+          >
             <span className="text-muted-foreground">This tab: </span>
             <span className="font-medium">{t.personaName}</span>
             <span className="text-muted-foreground"> · {shortSite(t.site ?? '')}</span>
-          </span>
+          </FullText>
           <WithHelp
             help={status}
             titled
@@ -213,11 +222,22 @@ export function CurrentTabBar(props: CurrentTabBarProps) {
     <Bar>
       <Row>
         <Globe className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate">
+        <FullText
+          line={<span className="min-w-0 flex-1 truncate" />}
+          full={(
+            <>
+              <span className="block break-all font-semibold">{t.site}</span>
+              <span className="block font-medium">{PLAIN_TAB_MEANING.title}</span>
+              <span className="mt-1 block text-muted-foreground">{PLAIN_TAB_MEANING.what}</span>
+              <span className="mt-1 block text-muted-foreground">{PLAIN_TAB_MEANING.addToPersona}</span>
+              <span className="mt-1 block text-muted-foreground">{PLAIN_TAB_MEANING.anotherAccount}</span>
+            </>
+          )}
+        >
           <span className="text-muted-foreground">This tab: </span>
           <span className="font-medium">{shortSite(t.site ?? '')}</span>
           <span className="text-muted-foreground"> · your normal login, not in a persona</span>
-        </span>
+        </FullText>
       </Row>
       {joining
         ? (
@@ -340,7 +360,7 @@ function JoinPersonaPanel(props: {
               className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <PersonaDot color={p.color} />
-              <span className="min-w-0 flex-1 truncate font-medium">{p.name}</span>
+              <FullText line={<span className="min-w-0 flex-1 truncate font-medium" />} full={p.name}>{p.name}</FullText>
               <span className="shrink-0 text-[11px] text-muted-foreground">
                 {p.sessions.length} website{p.sessions.length === 1 ? '' : 's'}
               </span>

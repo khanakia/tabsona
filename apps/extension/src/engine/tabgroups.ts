@@ -11,7 +11,7 @@
 // is logged with the persona's name and Chrome's message.
 
 import { tabGroupColorFor } from '@/core/personas';
-import { planPersonaGroups, type TabPlacement } from '@/core/tabgroups';
+import { planPersonaGroups, type NamedGroup, type TabPlacement } from '@/core/tabgroups';
 import type { Persona, TabId } from '@/domain/types';
 import { loadBindings, loadLibrary } from './repo';
 
@@ -49,8 +49,16 @@ export async function groupTabsForPersona(persona: Persona, tabIds: readonly Tab
       .map(([tabId]) => Number(tabId));
     const placements = async (ids: readonly TabId[]) =>
       (await Promise.all(ids.map(placementOf))).filter((p): p is TabPlacement => p !== null);
+    const openedPlacements = await placements(tabIds);
+    // Groups already titled with the persona's name, per window involved: the fallback
+    // when no bound sibling is grouped, so the user's own "s2" group is reused.
+    const windowIds = [...new Set(openedPlacements.map((p) => p.windowId))];
+    const namedGroups: NamedGroup[] = (await Promise.all(windowIds.map(async (windowId) => {
+      const found = await chrome.tabGroups.query({ windowId, title: persona.name }).catch(() => []);
+      return found.map((g) => ({ windowId, groupId: g.id }));
+    }))).flat();
     const plans = planPersonaGroups(
-      await placements(tabIds), await placements(siblingIds), chrome.tabGroups.TAB_GROUP_ID_NONE);
+      openedPlacements, await placements(siblingIds), chrome.tabGroups.TAB_GROUP_ID_NONE, namedGroups);
 
     for (const plan of plans) {
       const [first, ...rest] = plan.tabIds;
@@ -90,4 +98,22 @@ export async function restyleGroupsForPersona(persona: Persona, tabIds: readonly
     await chrome.tabGroups.update(groupId, { title: persona.name, color: tabGroupColorFor(persona.color) })
       .catch(() => undefined); // cosmetic: never fail the edit over a group
   }
+}
+
+/**
+ * Take released tabs out of whatever Chrome tab group they sit in.
+ *
+ * A tab that leaves a persona (its login forgotten, the persona deleted, "leave persona")
+ * is a normal tab again, and a tab left inside the persona's group still reads as that
+ * persona in Chrome's own tab strip: the user sees "Acme admin" and cannot tell it was
+ * released. Ungrouping is not gated on `useTabGroups`: that switch governs whether Tabsona
+ * MAKES groups, and a group it made earlier is still its to take the tab out of. Cosmetic,
+ * so it never fails the caller.
+ */
+export async function ungroupTabs(tabIds: readonly TabId[]): Promise<void> {
+  const [first, ...rest] = tabIds;
+  if (first === undefined || !tabGroupsAvailable()) return;
+  await chrome.tabs.ungroup([first, ...rest]).catch((err: unknown) => {
+    console.warn('[tabsona] could not take released tabs out of their group', err);
+  });
 }

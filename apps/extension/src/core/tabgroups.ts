@@ -25,6 +25,12 @@ export interface GroupPlan {
   readonly joinGroupId: number | null;
 }
 
+/** An existing Chrome group titled with the persona's name, found by the caller. */
+export interface NamedGroup {
+  readonly windowId: number;
+  readonly groupId: number;
+}
+
 /**
  * Plan the grouping of a persona's freshly opened tabs.
  *
@@ -34,6 +40,11 @@ export interface GroupPlan {
  * a window with no grouped sibling gets a new group. `noGroup` is Chrome's
  * `TAB_GROUP_ID_NONE`, passed in so this module never names the chrome API.
  *
+ * `namedGroups` are groups already titled with the persona's name. They are the fallback
+ * when a window has no grouped sibling (bindings wiped, the sibling closed, or the group
+ * now holds only tabs the user dragged in), so a same-named group is reused rather than
+ * duplicated. A grouped sibling always wins over a name match.
+ *
  * The first grouped sibling wins when siblings sit in different groups of one window
  * (the user split them by hand); the plan never moves an existing tab.
  */
@@ -41,6 +52,7 @@ export function planPersonaGroups(
   opened: readonly TabPlacement[],
   siblings: readonly TabPlacement[],
   noGroup: number,
+  namedGroups: readonly NamedGroup[] = [],
 ): GroupPlan[] {
   const byWindow = new Map<number, TabId[]>();
   for (const tab of opened) {
@@ -52,6 +64,7 @@ export function planPersonaGroups(
   return [...byWindow].map(([windowId, tabIds]) => {
     const existing = siblings.find((s) =>
       s.windowId === windowId && s.groupId !== noGroup && !openedIds.has(s.tabId));
-    return { windowId, tabIds, joinGroupId: existing?.groupId ?? null };
+    const named = namedGroups.find((g) => g.windowId === windowId);
+    return { windowId, tabIds, joinGroupId: existing?.groupId ?? named?.groupId ?? null };
   });
 }

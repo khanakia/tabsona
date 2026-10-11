@@ -16,11 +16,12 @@ import {
 import { awaitRuleForTab, syncRules } from './rules-sync';
 import { pushCookiesToTab } from './pagecookies';
 import {
-  awaitShim, captureTabStorage, clearTabPageData, releaseTab, restoreTabStorage,
+  awaitShim, captureTabStorage, clearTabPageData, closeTab, releaseTab, restoreTabStorage,
 } from './storage';
 import { forgetGateTab } from './gate';
+import { closeStrandedTabs } from './adopt';
 import { hasCredentials, importLoginFromTab, type ImportedLogin } from './import';
-import { groupTabsForPersona, restyleGroupsForPersona } from './tabgroups';
+import { groupTabsForPersona, restyleGroupsForPersona, ungroupTabs } from './tabgroups';
 import { openSignInAlerts, renderAllBadges, renderBadge, statusForTab } from './badge';
 import { allSitesAllowed, grantedOriginPatterns } from './permissions';
 import { observationsFor, observedOrigins } from './observations';
@@ -117,16 +118,16 @@ export async function updatePersona(personaId: PersonaId, patch: PersonaPatch): 
 /** Deleting a persona takes its sessions and their tab bindings with it, or orphaned
  *  rules would outlive the thing they belong to. */
 export async function deletePersona(personaId: PersonaId): Promise<void> {
-  const released = await withLock(async () => {
+  const { released, doomed } = await withLock(async () => {
     const lib = await loadLibrary();
     const doomed = new Set(lib.sessions.filter((s) => s.personaId === personaId).map((s) => s.id));
     lib.personas = lib.personas.filter((p) => p.id !== personaId);
     lib.sessions = lib.sessions.filter((s) => s.personaId !== personaId);
     await saveLibrary(lib);
-    return dropBindings((sessionId) => doomed.has(sessionId));
+    return { released: await dropBindings((sessionId) => doomed.has(sessionId)), doomed };
   });
   await syncRules();
-  await releaseForgottenTabs(released);
+  await closeForgottenTabs(released, doomed);
 }
 
 export async function duplicatePersona(personaId: PersonaId, name?: string): Promise<PersonaId | null> {
@@ -150,7 +151,7 @@ export async function renameSession(sessionId: SessionId, label: string): Promis
 }
 
 /**
- * Forget a login. Its open tabs are RELEASED, not left behind: see releaseForgottenTabs.
+ * Forget a login. Its open tabs are CLOSED: see closeForgottenTabs.
  *
  * The user's report this answers: they forgot a login while its tab was still open
  * ("Signed in · 1 tab open"), added the site again, and could not tell what the old tab
@@ -164,7 +165,7 @@ export async function deleteSession(sessionId: SessionId): Promise<void> {
     return dropBindings((id) => id === sessionId);
   });
   await syncRules();
-  await releaseForgottenTabs(released);
+  await closeForgottenTabs(released, new Set([sessionId]));
 }
 
 /** Remove every binding whose session matches, returning what was removed. Call under
@@ -182,20 +183,23 @@ async function dropBindings(matches: (sessionId: SessionId) => boolean): Promise
 }
 
 /**
- * What happens to a tab whose login was just forgotten: it is reloaded as a NORMAL tab,
- * on the browser's own login, with its page data for the forgotten login removed.
+ * What happens to a tab whose login was just forgotten: it is CLOSED, with its page data
+ * for the forgotten login removed first.
  *
- * Chosen over closing it, because a tab the user has open is theirs and may hold work;
- * and over leaving it as it was, because that tab then sent the browser's cookies while
- * its page storage still resolved the deleted session — a tab that was neither, showing
- * one identity and acting as another, with the badge silent. The help text has always
- * promised that open tabs go back to your normal browser login; this makes it true.
+ * Releasing it as a plain tab (the earlier behaviour) put a tab that had been signed in as
+ * the persona onto the browser's own jar, where it showed one identity and acted as
+ * another, and, regrouped beside plain tabs, could be mistaken for one. Closing is the
+ * only outcome that cannot mix identities. "Leave persona" is the deliberate exception: it
+ * keeps the login and hands the tab back (unbindTab).
  */
-async function releaseForgottenTabs(released: readonly [TabId, SessionId][]): Promise<void> {
-  for (const [tabId, sessionId] of released) {
-    await releaseTab(tabId, sessionId, true);
-    await renderBadge(tabId);
-  }
+async function closeForgottenTabs(
+  closed: readonly [TabId, SessionId][],
+  forgotten: ReadonlySet<SessionId>,
+): Promise<void> {
+  for (const [tabId, sessionId] of closed) await closeTab(tabId, sessionId);
+  // Bindings are not the only thing that names a tab: after an extension reload they are
+  // gone while the page still carries the login. Reach those tabs by their marker too.
+  await closeStrandedTabs(forgotten, new Set(closed.map(([tabId]) => tabId)));
 }
 
 /**
@@ -274,7 +278,10 @@ export async function unbindTab(tabId: TabId): Promise<void> {
     return sessionId;
   });
   await syncRules();
-  if (left) await releaseTab(tabId, left, false);
+  if (left) {
+    await ungroupTabs([tabId]);
+    await releaseTab(tabId, left, false);
+  }
   await renderBadge(tabId);
 }
 

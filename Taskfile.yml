@@ -102,6 +102,16 @@ tasks:
         vars: {ORIGINS: '{{.FIXTURE_ORIGIN}}'}
       - node spike/e2e-flows.mjs
 
+  e2e:forget:
+    desc: 'Forgetting a login (or deleting a persona, or leaving it) while its tab is open: the tab is released - browser login only, out of the tab group, title marker gone, no binding or rule left'
+    deps: [build, fixture:up]
+    env: {APP: fixture}
+    cmds:
+      - task: strays
+      - task: grant
+        vars: {ORIGINS: '{{.FIXTURE_ORIGIN}}'}
+      - node spike/e2e-forget.mjs
+
   e2e:move:
     desc: 'Saving a login MOVES it out of the shared browser jar, so signing out in a normal tab cannot kill the persona'
     deps: [build, fixture:up]
@@ -219,6 +229,7 @@ tasks:
       - task: e2e:twologins
       - task: e2e:move
       - task: e2e:flows
+      - task: e2e:forget
       - task: e2e:cookieonly
       - task: e2e:signin
       - task: e2e:storage

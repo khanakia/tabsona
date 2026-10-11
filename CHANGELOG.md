@@ -4,7 +4,20 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.2] - 2026-10-11
+
+### Changed
+
+- **Forgetting a login, or deleting its persona, now closes its open tabs instead of moving them out of the persona's tab group.** A tab that was signed in as a persona and then dropped onto the browser's own login was one tab showing one identity while acting as another, and next to plain tabs it could be mistaken for one. The tab's page data for that login (namespaced storage and the page-cookie copy) is removed first, then the tab is closed; its binding and cookie rules go with it. A tab found on startup whose login no longer exists, and any tab carrying a forgotten login's marker with no binding, is closed the same way. **Leave persona** is unchanged: it keeps the login and hands the tab back as a plain tab. The popup and Settings banners and the help for **Forget this login** and **Delete persona** now say the open tabs are closed. `e2e:forget` asserts the tab is gone after Forget, Delete persona and the stranded cases.
+
+### Fixed
+
+- **Opening a persona tab no longer makes a second tab group when one with the persona's name already exists in that window.** With no grouped tab of the persona to join (its tab was forgotten, the session state was reset, or the group only holds tabs you dragged in), the new tab now joins the existing group titled with the persona's name in the same window; a group in another window is never used.
+- **"Leave persona" now takes the open tab out of the persona's Chrome tab group.** The tab was reloaded on the browser's login but stayed in the group named after the persona, so it still looked like that persona's tab. It now leaves the group, and the page-cookie copy kept in the site's own `localStorage` (readable by every plain tab on that site) is removed too.
+
+- **A persona tab now survives the extension being reloaded or updated, and Forget this login can still reach it.** Chrome wipes the tab bindings (`chrome.storage.session`) and every per-tab cookie rule whenever the extension reloads, updates or is re-enabled, while the tabs stay open. Such a tab kept its place in the persona's Chrome tab group and its signed-in page, but Tabsona no longer knew it was the persona's, so **Forget this login** found no tab to release: the login vanished from the popup while the tab stayed grouped and signed in. On every start the worker now reads the session marker each open tab still carries and binds the tab again (and reloads it once, so its cookie writes and badge work again); a tab whose login no longer exists is closed. Forgetting a login (or deleting a persona) also closes any open tab that carries the login's marker, even when no binding names it. Unit tests pin the decision (`core/adopt`); `e2e:forget` now covers reload then re-adoption, reload then Forget, and Forget with the binding already gone, and its check that no binding is left now reads the right storage area (it used to read the wrong one and always pass). Tabs that were already orphaned by an earlier reload are picked up the same way the first time the fixed build starts.
+
+- **The popup's cut-off "This tab" line now opens a card with the whole text.** "This tab: site · your normal login, n…" was truncated with nothing to read the rest. Hovering or focusing it now shows the full website, what "your normal login, not in a persona" means, and what **Add to persona** and **Another account** do; the persona version of the line shows the persona, website and isolation status, and persona names in the join panel get the same card when cut off.
 
 ## [0.3.1] - 2026-10-10
 

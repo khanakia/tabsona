@@ -15,7 +15,9 @@ import { hashFor, isOptionsSection, sectionFromHash, settingsGroupFromHash } fro
 import { PERSONA_PALETTE } from '@/core/constants';
 import { ConfirmDialog } from '@/ui/ConfirmDialog';
 import { FeedbackBanner } from '@/ui/FeedbackBanner';
-import { EXPLAIN, confirmDeletePersona, confirmForgetLogin } from '@/ui/help';
+import {
+  EXPLAIN, FORGOT_LOGIN_NOTICE, confirmDeletePersona, confirmForgetLogin, deletedPersonaNotice,
+} from '@/ui/help';
 import { SectionIntro } from '@/ui/SectionIntro';
 import { AboutLinks } from '@/ui/AboutLinks';
 import { Button } from '@/ui/volt/button';
@@ -185,14 +187,14 @@ export function Options() {
                   onDuplicate={(id) => void run(() => client.duplicatePersona(id), `Duplicated “${p.name}”, logins included.`)}
                   onDelete={(id) => void (async () => {
                     if (!(await confirm(confirmDeletePersona(p.name)))) return;
-                    await run(() => client.deletePersona(id), `Deleted “${p.name}”.`);
+                    await run(() => client.deletePersona(id), deletedPersonaNotice(p.name));
                   })()}
                   onAddSite={(id, url) => void run(() => client.addSite(id, url))}
                   onOpenSession={(id, where) => void run(() => client.openSession(id, where))}
                   onRenameSession={(id, label) => void run(() => client.renameSession(id, label))}
                   onDeleteSession={(id) => void (async () => {
                     if (!(await confirm(confirmForgetLogin()))) return;
-                    await run(() => client.deleteSession(id), 'Forgot that login.');
+                    await run(() => client.deleteSession(id), FORGOT_LOGIN_NOTICE);
                   })()}
               onAnotherLogin={(site) => {
                 void run(() => client.anotherLogin(site));
