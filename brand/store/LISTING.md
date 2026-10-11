@@ -139,6 +139,8 @@ Isolate and manage multiple logins per tab for the sites the user chooses.
 task package          # build, preflight, then dist/tabsona-<version>.zip
 ```
 
+The Store API credentials (the git-ignored `.env`: `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN`, `CWS_EXTENSION_ID`) are kept in gopass at `tabsona/cws-env`, base64-encoded; restore with `gopass show -o tabsona/cws-env | base64 -d > .env`. When `task cws:*` reports `invalid_grant`, run `task cws:auth` and save the new `.env` back to that entry.
+
 `task preflight` runs inside `task package` and refuses to produce a zip on any of: a development host permission in the manifest (the exact regression that shipped `http://localhost:8787/*` for weeks), an over-length name, summary or short name, a bad version string, a `key` or `update_url` field, a manifest reference to a file the build did not emit, an icon whose real PNG dimensions disagree with the size it is declared as, remotely hosted code in any built HTML or JS, or an over-size package. The checklist that used to live in this file is that script, because a checklist nobody fails is not a check.
 
 ## Before submitting
@@ -146,9 +148,9 @@ task package          # build, preflight, then dist/tabsona-<version>.zip
 - [x] Repo is public, so the "Open source" link in the description resolves.
 - [x] Privacy policy hosted, at the URL above.
 - [x] `task package` green, zip at `dist/tabsona-<version>.zip` with `manifest.json` at the archive root.
-- [x] `task check` green — typecheck, unit tests, build and thirteen end-to-end suites against the built extension.
-- [x] Screenshots regenerated for 0.3.1 (`task screenshots`).
-- [x] `manifest.version` bumped to 0.3.1 — the Store rejects a re-upload of a version it already has.
+- [x] `task check` green — typecheck, unit tests, build and fourteen end-to-end suites against the built extension.
+- [x] Screenshots from 0.3.1 kept for 0.3.2: its changes (Forget closes tabs, tab-group reuse, the "This tab" hover card) do not change any listed frame.
+- [x] `manifest.version` bumped to 0.3.2 — the Store rejects a re-upload of a version it already has.
 
 ## What review will most likely question
 

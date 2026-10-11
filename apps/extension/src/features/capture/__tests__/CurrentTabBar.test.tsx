@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { CurrentTabBar } from '../CurrentTabBar';
-import { ACTION_HELP, SIGN_IN_LEAKED } from '@/ui/help';
+import { ACTION_HELP, HELP_CARD_DELAY_MS, PLAIN_TAB_MEANING, SIGN_IN_LEAKED } from '@/ui/help';
 import type { TabStatus } from '@/domain/messages';
 import type { PersonaView } from '@/domain/types';
 
@@ -232,5 +232,38 @@ describe('CurrentTabBar — other states', () => {
     expect(screen.getByText(ACTION_HELP.anotherAccountHere.label)).toBeTruthy();
     expect(onSaveNow).toHaveBeenCalledWith(7);
     expect(onUnbind).toHaveBeenCalledWith(7);
+  });
+});
+
+describe('CurrentTabBar — the cut-off status line', () => {
+  /** jsdom does no layout; the two widths FullText compares are set on the prototype. */
+  const clip = () => {
+    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', { configurable: true, get: () => 400 });
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => 200 });
+  };
+  const unclip = () => {
+    Reflect.deleteProperty(HTMLElement.prototype, 'scrollWidth');
+    Reflect.deleteProperty(HTMLElement.prototype, 'clientWidth');
+  };
+
+  it('explains a plain tab in a card, naming both ways out, when the line is cut off', async () => {
+    vi.useFakeTimers();
+    clip();
+    try {
+      render(<CurrentTabBar tab={tab()} personas={[]} {...noop} />);
+      const line = screen.getByText(/your normal login, not in a persona/).parentElement as HTMLElement;
+      await act(async () => { line.focus(); vi.advanceTimersByTime(HELP_CARD_DELAY_MS + 50); });
+      expect(screen.getByText(PLAIN_TAB_MEANING.what)).toBeTruthy();
+      expect(screen.getByText(PLAIN_TAB_MEANING.addToPersona)).toBeTruthy();
+      expect(screen.getByText(PLAIN_TAB_MEANING.anotherAccount)).toBeTruthy();
+    } finally {
+      unclip();
+      vi.useRealTimers();
+    }
+  });
+
+  it('opens no card when the line fits', () => {
+    render(<CurrentTabBar tab={tab()} personas={[]} {...noop} />);
+    expect(screen.queryByText(PLAIN_TAB_MEANING.what)).toBeNull();
   });
 });

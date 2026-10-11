@@ -15,7 +15,9 @@ import { IconAction } from '@/ui/IconAction';
 import { FeedbackBanner } from '@/ui/FeedbackBanner';
 import { HowItWorks } from '@/ui/HowItWorks';
 import { ConfirmDialog } from '@/ui/ConfirmDialog';
-import { ACTION_HELP, confirmDeletePersona, confirmForgetLogin, confirmReplaceLogin } from '@/ui/help';
+import {
+  ACTION_HELP, FORGOT_LOGIN_NOTICE, confirmDeletePersona, confirmForgetLogin, confirmReplaceLogin, deletedPersonaNotice,
+} from '@/ui/help';
 import type { PersonaId } from '@/domain/types';
 
 export function Popup() {
@@ -236,7 +238,7 @@ export function Popup() {
               onDuplicate={(id) => void run(() => client.duplicatePersona(id), `Duplicated “${p.name}”, logins included.`)}
               onDelete={(id) => void (async () => {
                 if (!(await confirm(confirmDeletePersona(p.name)))) return;
-                await run(() => client.deletePersona(id), `Deleted “${p.name}”.`);
+                await run(() => client.deletePersona(id), deletedPersonaNotice(p.name));
               })()}
               currentSite={state.tab.site}
               onAddSite={(id, url) => {
@@ -250,7 +252,7 @@ export function Popup() {
               onRenameSession={(id, label) => void run(() => client.renameSession(id, label))}
               onDeleteSession={(id) => void (async () => {
                 if (!(await confirm(confirmForgetLogin()))) return;
-                await run(() => client.deleteSession(id), 'Forgot that login.');
+                await run(() => client.deleteSession(id), FORGOT_LOGIN_NOTICE);
               })()}
               onAnotherLogin={(site) => {
                 void run(() => client.anotherLogin(site));

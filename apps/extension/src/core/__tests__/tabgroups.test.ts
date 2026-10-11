@@ -43,4 +43,26 @@ describe('planPersonaGroups', () => {
   it('plans nothing for nothing opened', () => {
     expect(planPersonaGroups([], [tab(1, 10, 77)], NONE)).toEqual([]);
   });
+
+  describe('same-named existing groups', () => {
+    it('reuses a named group in the window when no sibling is grouped', () => {
+      expect(planPersonaGroups([tab(2, 10)], [], NONE, [{ windowId: 10, groupId: 33 }]))
+        .toEqual([{ windowId: 10, tabIds: [2], joinGroupId: 33 }]);
+    });
+
+    it('prefers the sibling group over a named group', () => {
+      expect(planPersonaGroups([tab(2, 10)], [tab(1, 10, 77)], NONE, [{ windowId: 10, groupId: 33 }]))
+        .toEqual([{ windowId: 10, tabIds: [2], joinGroupId: 77 }]);
+    });
+
+    it('makes a new group when neither a sibling nor a named group exists', () => {
+      expect(planPersonaGroups([tab(2, 10)], [tab(1, 10, NONE)], NONE, []))
+        .toEqual([{ windowId: 10, tabIds: [2], joinGroupId: null }]);
+    });
+
+    it('ignores a named group in another window', () => {
+      expect(planPersonaGroups([tab(2, 20)], [], NONE, [{ windowId: 10, groupId: 33 }]))
+        .toEqual([{ windowId: 20, tabIds: [2], joinGroupId: null }]);
+    });
+  });
 });

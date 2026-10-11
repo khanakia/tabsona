@@ -8,6 +8,7 @@ import { forgetGateTab, gateContinue, gateInfo, gateListStoppedHost, gateOpenNor
 import { addPassThroughHosts, removePassThroughHost } from './passthrough';
 import { accessPatterns } from './permissions';
 import { syncRules } from './rules-sync';
+import { adoptOpenTabs } from './adopt';
 import { renderAllBadges, renderBadge, statusForTab } from './badge';
 import { captureTabStorage } from './storage';
 import { shimFactsFrom } from '@/core/coverage';
@@ -144,6 +145,9 @@ function boot(): Promise<void> {
       await migrateFromV1();
       await registerCapture();
       await registerContentScripts();
+      // After the scripts (an adopted tab is reloaded and must get them), before the
+      // final sync: bindings and per-tab rules do not survive an extension reload.
+      await adoptOpenTabs();
       await syncRules();
     } catch (e) {
       // Log rather than throw: an unhandled rejection here leaves the worker

@@ -124,6 +124,29 @@ export async function claimNewTab(chrome, beforeIds, host) {
   throw new Error(`no new tab appeared on ${host}`);
 }
 
+/**
+ * Put the browser in the state an extension reload or update leaves it in, tabs open:
+ * chrome.storage.session (the tab bindings) and every session DNR rule are gone, and the
+ * worker boots again. Chrome documents both wipes (storage.session is cleared when the
+ * extension is reloaded, updated or disabled; session rules do not survive an update).
+ *
+ * SIMULATED rather than a real chrome.runtime.reload(): an extension loaded over CDP
+ * (Extensions.loadUnpacked, the only way Chrome 154 loads one headless) is unloaded by
+ * runtime.reload() and its worker never comes back, so there is nothing to observe. The
+ * one thing this does not reproduce is the old content scripts becoming orphaned.
+ */
+export async function reloadExtension(chrome) {
+  const r = await chrome.swSession.eval(`(async () => {
+    await chrome.storage.session.clear();
+    const rules = await chrome.declarativeNetRequest.getSessionRules();
+    await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: rules.map((x) => x.id) });
+    await globalThis.__tabsona.boot();
+    return 'booted';
+  })()`);
+  if (r !== 'booted') throw new Error(`simulated reload failed: ${JSON.stringify(r)}`);
+  await sleep(1500); // adopted tabs reload
+}
+
 export async function pageIds(chrome) {
   return new Set((await chrome.targets()).filter((t) => t.type === 'page').map((t) => t.id));
 }

@@ -2,7 +2,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import {
-  ACTION_HELP, HELP_CARD_DELAY_MS, LAYER_PLAIN, confirmDeletePersona, confirmForgetLogin, confirmReplaceLogin, isolationHelp,
+  ACTION_HELP, FORGOT_LOGIN_NOTICE, HELP_CARD_DELAY_MS, LAYER_PLAIN, confirmDeletePersona, confirmForgetLogin, confirmReplaceLogin,
+  deletedPersonaNotice, isolationHelp,
 } from '../help';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { HelpCardBody, WithHelp } from '../HelpCard';
@@ -128,6 +129,17 @@ describe('confirmation wording', () => {
     expect(r.title).toContain('ifpg-sa');
     expect(r.confirmLabel).toBe(ACTION_HELP.deletePersona.label);
     expect(r.destructive).toBe(true);
+  });
+
+  it('tells the user a forgotten login or deleted persona closes its open tabs', () => {
+    // Closing, not releasing: a released tab would show the browser's own account.
+    expect(FORGOT_LOGIN_NOTICE).toContain('closed');
+    expect(deletedPersonaNotice('Acme admin')).toContain('Acme admin');
+    expect(deletedPersonaNotice('Acme admin')).toContain('closed');
+    for (const text of [ACTION_HELP.deleteSession.touches, ACTION_HELP.deletePersona.touches]) {
+      expect(text).toContain('closed');
+      expect(text).not.toContain('normal browser login');
+    }
   });
 
   it('says forgetting a login does not sign the website out', () => {
