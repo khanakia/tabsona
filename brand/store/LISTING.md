@@ -149,8 +149,8 @@ The Store API credentials (the git-ignored `.env`: `CWS_CLIENT_ID`, `CWS_CLIENT_
 - [x] Privacy policy hosted, at the URL above.
 - [x] `task package` green, zip at `dist/tabsona-<version>.zip` with `manifest.json` at the archive root.
 - [x] `task check` green — typecheck, unit tests, build and fourteen end-to-end suites against the built extension.
-- [x] Screenshots from 0.3.1 kept for 0.3.2: its changes (Forget closes tabs, tab-group reuse, the "This tab" hover card) do not change any listed frame.
-- [x] `manifest.version` bumped to 0.3.2 — the Store rejects a re-upload of a version it already has.
+- [x] Screenshots from 0.3.1 kept for 0.3.2 and 0.3.3: their changes (Forget closes tabs, tab-group reuse, the "This tab" hover card, the title-marker fix) do not change any listed frame.
+- [x] `manifest.version` bumped to 0.3.3 — the Store rejects a re-upload of a version it already has.
 
 ## What review will most likely question
 
