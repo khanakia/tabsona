@@ -11,7 +11,7 @@ Give each tab its own login session. Save, open and reuse a whole set of signed-
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-511%20unit%20%2B%2028%20script%20%2B%2014%20e2e-success.svg)](#verify-it-yourself)
+[![Tests](https://img.shields.io/badge/tests-514%20unit%20%2B%2028%20script%20%2B%2014%20e2e-success.svg)](#verify-it-yourself)
 
 [How it works](docs/how-it-works.md) · [Limits](docs/limits.md) · [Privacy](https://khanakia.github.io/tabsona/privacy.html) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
@@ -149,7 +149,7 @@ Removing **Allow on all sites** keeps every website you allowed one by one.
 task check
 ```
 
-A full-history secret scan, type-check, 511 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and fourteen end-to-end suites driving the **built extension** in a real Chrome.
+A full-history secret scan, type-check, 514 unit tests, 28 script tests, the Chrome Web Store preflight, a build, and fourteen end-to-end suites driving the **built extension** in a real Chrome.
 
 | Task | Proves |
 |---|---|
