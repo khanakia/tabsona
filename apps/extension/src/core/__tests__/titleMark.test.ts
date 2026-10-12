@@ -57,4 +57,19 @@ describe('title mark edge cases', () => {
     // "💚Green" has no separator, so it is the app\'s own text.
     expect(withTitleMark('💚Green', '💚')).toBe('💚 💚Green');
   });
+
+  it('leaves the mark alone when another extension put its own prefix in front', () => {
+    // The user-visible bug: a tab suspender wrote "💤 💚 404" and the tab became "💚 💤 💚 404".
+    expect(withTitleMark('💤 💚 404', '💚')).toBe('💤 💚 404');
+    expect(settle('💤 💚 404', '💚')).toBe('💤 💚 404');
+  });
+
+  it('heals a title that already carries the mark twice, keeping the first', () => {
+    expect(withTitleMark('💚 💤 💚 404', '💚')).toBe('💚 💤 404');
+  });
+
+  it('removes the mark from behind another prefix too', () => {
+    expect(withoutTitleMark('💤 💚 404', '💚')).toBe('💤 404');
+    expect(withoutTitleMark('💚 💤 💚 404', '💚')).toBe('💤 404');
+  });
 });

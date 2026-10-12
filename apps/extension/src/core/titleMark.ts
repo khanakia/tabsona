@@ -9,28 +9,35 @@
 export const TITLE_MARK_SEPARATOR = ' ';
 
 /**
- * Whether `title` already carries `mark` at the front.
+ * The title split into separator-delimited words, which is how a marker is found.
  *
- * Two shapes count: `mark + separator + rest`, and the bare `mark` on its own. The second
- * is what the browser hands back for a page with NO title of its own: we write
- * `"💚 "` (marker, separator, empty title), but `document.title` normalises its value by
- * trimming whitespace, so reading it back gives `"💚"`. A check for the prefix alone
- * missed that, marked it again, and the tab showed `"💚 💚"` until the app set a real
- * title.
+ * A marker is a whole word, never a glyph inside one: "💚Green" is the app's own text.
  */
-function isMarked(title: string, mark: string): boolean {
-  return title === mark || title.startsWith(`${mark}${TITLE_MARK_SEPARATOR}`);
+function words(title: string): string[] {
+  return title.split(TITLE_MARK_SEPARATOR);
 }
 
-/** The title with `mark` in front, exactly once. An empty title becomes just the mark. */
+/**
+ * The title with `mark` in front, exactly once. An empty title becomes just the mark.
+ *
+ * Already marked means the mark is a WORD ANYWHERE in the title, not only the first one.
+ * Another extension may put its own prefix in front of ours: a tab suspender turned
+ * `"💚 404"` into `"💤 💚 404"`, a front-only check marked it again, and the tab read
+ * `"💚 💤 💚 404"`. Leaving such a title alone also keeps the two extensions from taking
+ * turns at the front. A title already carrying the mark more than once keeps the first
+ * and loses the rest, so a doubled title heals on the next write.
+ *
+ * The bare mark alone is also marked: we write `"💚 "` for a page with no title of its
+ * own, and `document.title` trims it back to `"💚"`.
+ */
 export function withTitleMark(title: string, mark: string): string {
-  if (isMarked(title, mark)) return title;
-  return title.trim() === '' ? mark : `${mark}${TITLE_MARK_SEPARATOR}${title}`;
+  const parts = words(title);
+  const first = parts.indexOf(mark);
+  if (first === -1) return title.trim() === '' ? mark : `${mark}${TITLE_MARK_SEPARATOR}${title}`;
+  return parts.filter((word, i) => word !== mark || i === first).join(TITLE_MARK_SEPARATOR);
 }
 
-/** The title with `mark` removed from the front, if it is there. */
+/** The title with every `mark` word removed, wherever another extension left it. */
 export function withoutTitleMark(title: string, mark: string): string {
-  if (title === mark) return '';
-  const prefix = `${mark}${TITLE_MARK_SEPARATOR}`;
-  return title.startsWith(prefix) ? title.slice(prefix.length) : title;
+  return words(title).filter((word) => word !== mark).join(TITLE_MARK_SEPARATOR);
 }

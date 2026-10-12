@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **No more doubled persona marker in the tab title when another extension prefixes the title.** A tab suspender turned `💚 404` into `💤 💚 404`; Tabsona only looked for its marker at the very front, marked the title again and the tab read `💚 💤 💚 404`. The marker now counts wherever it sits in the title, a title already carrying it twice keeps only the first, and turning title marking off removes it from behind another prefix too.
+
 ## [0.3.2] - 2026-10-11
 
 ### Changed
