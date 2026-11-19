@@ -1,12 +1,14 @@
 {
+  "_hlc": "2026-10-04T12:11:55.472Z/0000/",
   "_table": "rules",
-  "_v": 1,
+  "_v": 2,
   "activation": "always",
   "applies_to_description": null,
   "archived_at": null,
   "body": "Before task cws:publish, bring the Store listing up to date first (screenshots in brand/store/, description) in the dashboard, and confirm with the user. Submitting for review locks the whole listing until review completes, so stale listing assets then need a second review or a cancelled one. Order: task package -> task cws:upload -> update listing in dashboard -> ask -> task cws:publish.",
   "confidence": null,
   "created_at": "2026-10-04T12:11:55.472467000Z",
+  "created_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
   "globs": null,
   "id": "rul_01a106d3f0d07799be3d140f90cc5c88",
@@ -18,5 +20,6 @@
   "source_ref": null,
   "superseded_by_id": null,
   "trust_score": 0.5,
-  "updated_at": "2026-10-04T12:11:55.472496000Z"
+  "updated_at": "2026-10-04T12:11:55.472496000Z",
+  "updated_by": "act_00000000000070008000000000000000"
 }

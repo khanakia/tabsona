@@ -1,10 +1,12 @@
 {
+  "_hlc": "2026-10-10T04:33:40.315Z/0000/",
   "_table": "memories",
-  "_v": 1,
+  "_v": 2,
   "archived_at": null,
   "body": "Fetch.continueRequest cookie semantics: with no Cookie header Chrome attaches the shared jar's cookies; with a Cookie header, even an empty one, that header replaces the jar's cookies completely. So a debugger engine must always send an explicit Cookie header.",
   "confidence": null,
   "created_at": "2026-10-10T04:33:40.315493000Z",
+  "created_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
   "id": "mem_01a124168ddb7799900a33a68ddac604",
   "kind": "retrieved",
@@ -17,6 +19,7 @@
   "trust_score": 0.5,
   "tx_at": "2026-10-10T04:33:40.315527000Z",
   "updated_at": "2026-10-10T04:33:40.315494000Z",
+  "updated_by": "act_00000000000070008000000000000000",
   "valid_at": null,
   "valid_until": null,
   "validated_by_actor_id": null

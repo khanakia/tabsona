@@ -1,11 +1,13 @@
 {
+  "_hlc": "2026-10-09T16:25:21.616Z/0000/",
   "_table": "tasks",
-  "_v": 1,
+  "_v": 2,
   "assigned_to_actor_id": null,
   "body": "User asked (verbatim):\n  ok now we need a flow which works wihtout allow all sites\n\n  lets fix the borken or irititaitng flow\n\nContext:\n  Conversation thread: WorkOS chain (staging-app -> api.workos.com -> auth.example.net -> example-tenant.authkit.app) leaked the browser's admin login into persona s2 until every host was allowed one by one; the user only got through by allowing the last host on Library -> Sites, then forget + re-add ('ok great i tworked but no user will ever know this lol / we need to smooth the whole flow'). Allow on all sites shipped as tsk_01a120f63d887cf4b0b8dd8eca59fe3c. Proposed flow explained to the user: a persona tab about to navigate to an unallowed host is stopped before any cookie is sent; a Tabsona page says which site it signs in through with [Allow and continue] / [Open in a normal tab]; one click resumes; the chain is remembered per site; a leaked login is never saved silently (Start over signed out).\n\nAcceptance:\n  Without all-sites, adding a site whose sign-in goes through other hosts never leaks the browser's login into the persona; the user is asked per host before the hop, one click continues, and they land on the sign-in form; covered by e2e with a multi-host chain.",
   "commitment": "accepted",
   "completed_at": "2026-10-09T16:25:21.616056000Z",
   "created_at": "2026-10-09T15:17:06.837955000Z",
+  "created_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
   "deferred_until": null,
   "due_at": null,
@@ -19,5 +21,6 @@
   "status": "done",
   "tasklist_id": "tlt_01a105d8b19f72dea60674b35b25018e",
   "title": "Smooth sign-in flow without all-sites: stop-and-ask before an unallowed hop",
-  "updated_at": "2026-10-09T16:25:21.616070000Z"
+  "updated_at": "2026-10-09T16:25:21.616070000Z",
+  "updated_by": "act_00000000000070008000000000000000"
 }

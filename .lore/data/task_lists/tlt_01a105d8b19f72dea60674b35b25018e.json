@@ -1,11 +1,14 @@
 {
+  "_hlc": "2026-10-04T07:37:29.759Z/0000/",
   "_table": "task_lists",
-  "_v": 1,
+  "_v": 2,
   "body": "Spec, fixtures, shim, coverage, unit + e2e for IndexedDB namespacing",
   "created_at": "2026-10-04T07:37:29.759175000Z",
+  "created_by": "act_00000000000070008000000000000000",
   "id": "tlt_01a105d8b19f72dea60674b35b25018e",
   "project_id": "prj_01a0fc8477a47841887d2ceb446a0475",
   "status_str": "active",
   "title": "IndexedDB isolation W1",
-  "updated_at": "2026-10-04T07:37:29.759175000Z"
+  "updated_at": "2026-10-04T07:37:29.759175000Z",
+  "updated_by": "act_00000000000070008000000000000000"
 }

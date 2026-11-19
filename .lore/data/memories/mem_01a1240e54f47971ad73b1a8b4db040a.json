@@ -1,10 +1,12 @@
 {
+  "_hlc": "2026-10-10T04:24:41.460Z/0000/",
   "_table": "memories",
-  "_v": 1,
+  "_v": 2,
   "archived_at": null,
   "body": "Chrome 154 chrome.debugger Fetch facts (observed, spike/probe-redirect-cookie.mjs): Fetch responseHeaders never include Set-Cookie (use Network.responseReceivedExtraInfo); fulfillRequest cannot keep a Set-Cookie out of the jar (DNR set-cookie remove can); continueRequest without a Cookie header attaches the shared jar, with one (even empty) replaces it; DNR header mods are applied BEFORE the Fetch pause, so a rule installed during the pause is too late (debugger-as-barrier fails); Target.createBrowserContext is Not allowed; 'debugger' cannot be an optional permission. Google ServiceLogin sets __Host-GAPS on its first 302 and re-mints it if the follow-up lacks it. See docsi/research/google-signin.md.",
   "confidence": null,
   "created_at": "2026-10-10T04:24:41.460614000Z",
+  "created_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
   "id": "mem_01a1240e54f47971ad73b1a8b4db040a",
   "kind": "retrieved",
@@ -17,6 +19,7 @@
   "trust_score": 0.5,
   "tx_at": "2026-10-10T04:24:41.460819000Z",
   "updated_at": "2026-10-10T04:24:41.460615000Z",
+  "updated_by": "act_00000000000070008000000000000000",
   "valid_at": null,
   "valid_until": null,
   "validated_by_actor_id": null

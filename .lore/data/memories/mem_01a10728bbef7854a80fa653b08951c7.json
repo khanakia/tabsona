@@ -1,10 +1,12 @@
 {
+  "_hlc": "2026-10-04T13:44:32.495Z/0000/",
   "_table": "memories",
-  "_v": 1,
+  "_v": 2,
   "archived_at": null,
   "body": "Releasing Tabsona to the Chrome Web Store: 1) bump version in apps/extension/manifest.json and both package.json, move CHANGELOG Unreleased into it; 2) task check; 3) task package then task cws:upload; 4) task screenshots and replace the 5 listing screenshots in the dashboard BEFORE submitting — agent-browser connect 9222 to the user's Chrome (remote debugging on), focus the remove button + Space, then confirm the Remove dialog for each; upload via a tagged Screenshots file input; Save draft; verify with a fresh load; 5) ask the user, then task cws:publish. Submitting locks the listing until review ends.",
   "confidence": null,
   "created_at": "2026-10-04T13:44:32.495542000Z",
+  "created_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
   "id": "mem_01a10728bbef7854a80fa653b08951c7",
   "kind": "retrieved",
@@ -17,6 +19,7 @@
   "trust_score": 0.5,
   "tx_at": "2026-10-04T13:44:32.495984000Z",
   "updated_at": "2026-10-04T13:44:32.495542000Z",
+  "updated_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "valid_at": null,
   "valid_until": null,
   "validated_by_actor_id": null

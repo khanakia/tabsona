@@ -1,11 +1,13 @@
 {
+  "_hlc": "2026-10-02T15:44:53.655Z/0000/",
   "_table": "tasks",
-  "_v": 1,
+  "_v": 2,
   "assigned_to_actor_id": null,
   "body": "Even with the empty chip, banner and badge, the 'new session starts signed out' moment is the product's sharpest edge (see the core memory). A one-line explainer shown only while the user has zero or one sessions might remove the confusion entirely without adding permanent chrome. Low priority — measure whether the three existing signals are enough first.",
   "commitment": "proposed",
   "completed_at": null,
   "created_at": "2026-10-02T15:44:53.655110000Z",
+  "created_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
   "deferred_until": null,
   "due_at": null,
@@ -19,5 +21,6 @@
   "status": "todo",
   "tasklist_id": "tlt_01a0fc850b62740f891c787b629a6ba8",
   "title": "Consider an onboarding line in the popup for the first session",
-  "updated_at": "2026-10-02T15:44:53.655110000Z"
+  "updated_at": "2026-10-02T15:44:53.655110000Z",
+  "updated_by": "act_01a0fc8477a17186a35c805ef090af4f"
 }

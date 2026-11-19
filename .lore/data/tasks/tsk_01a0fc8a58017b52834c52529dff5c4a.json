@@ -1,11 +1,13 @@
 {
+  "_hlc": "2026-10-02T13:51:38.813Z/0000/",
   "_table": "tasks",
-  "_v": 1,
+  "_v": 2,
   "assigned_to_actor_id": null,
   "body": "Prior art discards cookie attributes on capture, so cookies are replayed on paths and subdomains they were never scoped to and never expire; and it ignores CHIPS partitionKey entirely, which presents as random logouts. Define the cookie record type with full identity up front — retrofitting this is a rewrite of the jar.",
   "commitment": "accepted",
   "completed_at": "2026-10-02T13:51:38.813481000Z",
   "created_at": "2026-10-02T12:15:20.065740000Z",
+  "created_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
   "deferred_until": null,
   "due_at": null,
@@ -19,5 +21,6 @@
   "status": "done",
   "tasklist_id": "tlt_01a0fc850b62740f891c787b629a6ba8",
   "title": "Cookie identity must include Path, Domain and partitionKey",
-  "updated_at": "2026-10-02T13:51:38.813483000Z"
+  "updated_at": "2026-10-02T13:51:38.813483000Z",
+  "updated_by": "act_00000000000070008000000000000000"
 }

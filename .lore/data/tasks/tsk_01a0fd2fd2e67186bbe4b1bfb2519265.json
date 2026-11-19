@@ -1,11 +1,13 @@
 {
+  "_hlc": "2026-10-02T15:16:04.966Z/0000/",
   "_table": "tasks",
-  "_v": 1,
+  "_v": 2,
   "assigned_to_actor_id": null,
   "body": "VERIFIED GAP: CookieRecord carries partitionKey and cookieKey() includes it in identity, but background/capture.ts always calls parseSetCookie(line, host) with no third argument, so every captured cookie gets null. Under CHIPS all partitions of one cookie therefore collapse into a single record, which presents to the user as random logouts. The model is already right; only the capture site needs to learn the partition. See docsi/LIMITS.md.",
   "commitment": "accepted",
   "completed_at": null,
   "created_at": "2026-10-02T15:16:04.966098000Z",
+  "created_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
   "deferred_until": null,
   "due_at": null,
@@ -19,5 +21,6 @@
   "status": "todo",
   "tasklist_id": "tlt_01a0fc850b62740f891c787b629a6ba8",
   "title": "CHIPS: capture the cookie partition key",
-  "updated_at": "2026-10-02T15:16:04.966098000Z"
+  "updated_at": "2026-10-02T15:16:04.966098000Z",
+  "updated_by": "act_01a0fc8477a17186a35c805ef090af4f"
 }

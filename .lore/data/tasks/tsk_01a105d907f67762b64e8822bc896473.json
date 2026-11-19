@@ -1,11 +1,13 @@
 {
+  "_hlc": "2026-10-04T07:48:30.298Z/0000/",
   "_table": "tasks",
-  "_v": 1,
+  "_v": 2,
   "assigned_to_actor_id": null,
   "body": "how-it-works, limits.md, README coverage table, CLAUDE.md fact.",
   "commitment": "accepted",
   "completed_at": "2026-10-04T07:48:30.298674000Z",
   "created_at": "2026-10-04T07:37:51.862483000Z",
+  "created_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
   "deferred_until": null,
   "due_at": null,
@@ -19,5 +21,6 @@
   "status": "done",
   "tasklist_id": "tlt_01a105d8b19f72dea60674b35b25018e",
   "title": "Update docs and limits for IndexedDB isolation",
-  "updated_at": "2026-10-04T07:48:30.298676000Z"
+  "updated_at": "2026-10-04T07:48:30.298676000Z",
+  "updated_by": "act_00000000000070008000000000000000"
 }

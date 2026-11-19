@@ -1,11 +1,13 @@
 {
+  "_hlc": "2026-10-04T12:24:33.406Z/0000/",
   "_table": "tasks",
-  "_v": 1,
+  "_v": 2,
   "assigned_to_actor_id": null,
   "body": "The listing is locked while 0.2.0 is pending review. Afterwards upload brand/store/screenshot-*.png (1280x800) through the dashboard (Store API cannot set listing images); check with task cws:status first.",
   "commitment": "accepted",
   "completed_at": "2026-10-04T12:24:33.406315000Z",
   "created_at": "2026-10-04T12:09:52.145784000Z",
+  "created_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
   "deferred_until": null,
   "due_at": null,
@@ -19,5 +21,6 @@
   "status": "done",
   "tasklist_id": "tlt_01a105d8b19f72dea60674b35b25018e",
   "title": "Replace Store listing screenshots once 0.2.0 review completes",
-  "updated_at": "2026-10-04T12:24:33.406331000Z"
+  "updated_at": "2026-10-04T12:24:33.406331000Z",
+  "updated_by": "act_00000000000070008000000000000000"
 }

@@ -1,7 +1,9 @@
 {
+  "_hlc": "2026-10-12T04:50:01.042Z/0000/",
   "_table": "reminders",
-  "_v": 1,
+  "_v": 2,
   "created_at": "2026-10-12T04:50:01.042827000Z",
+  "created_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
   "done_at": null,
   "due_at": "2026-10-15T00:00:00.000000000Z",
@@ -11,5 +13,6 @@
   "recurrence": null,
   "target_id": null,
   "target_table": null,
-  "updated_at": "2026-10-12T04:50:01.042828000Z"
+  "updated_at": "2026-10-12T04:50:01.042828000Z",
+  "updated_by": "act_00000000000070008000000000000000"
 }

@@ -1,10 +1,12 @@
 {
+  "_hlc": "2026-10-10T04:33:40.548Z/0000/",
   "_table": "memories",
-  "_v": 1,
+  "_v": 2,
   "archived_at": null,
   "body": "Cookie swapping (writing persona cookies into the real jar) cannot be made safe: it leaks both ways and leaves cookies behind because chrome.cookies.getAll returns [] on Chrome 154, so swap-out only removes names it already knows.",
   "confidence": null,
   "created_at": "2026-10-10T04:33:40.548642000Z",
+  "created_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
   "id": "mem_01a124168ec479cfb9a153b33e70d8e6",
   "kind": "retrieved",
@@ -17,6 +19,7 @@
   "trust_score": 0.5,
   "tx_at": "2026-10-10T04:33:40.548662000Z",
   "updated_at": "2026-10-10T04:33:40.548642000Z",
+  "updated_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "valid_at": null,
   "valid_until": null,
   "validated_by_actor_id": null
