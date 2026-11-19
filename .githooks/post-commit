@@ -1,0 +1,4 @@
+#!/bin/sh
+# >>> lore-sync:live >>>
+( command -v lore >/dev/null 2>&1 && lore land --help >/dev/null 2>&1 && lore sync hook post-commit ) || true
+# <<< lore-sync:live <<<
