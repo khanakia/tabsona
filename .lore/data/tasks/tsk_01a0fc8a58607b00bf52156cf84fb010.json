@@ -1,11 +1,13 @@
 {
+  "_hlc": "2026-10-02T13:51:38.884Z/0000/",
   "_table": "tasks",
-  "_v": 1,
+  "_v": 2,
   "assigned_to_actor_id": null,
   "body": "A service worker's own fetches carry no tab id, so they match no per-tab DNR rule and hit the shared jar. This is unfixable inside the extension model. Detect it per origin and report it on the badge. A tool that looks isolated while leaking is worse than no tool — this is the direct lesson from SessionHub at 3.7 of 5 and from the extensions Aman tried.",
   "commitment": "accepted",
   "completed_at": "2026-10-02T13:51:38.884198000Z",
   "created_at": "2026-10-02T12:15:20.160720000Z",
+  "created_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
   "deferred_until": null,
   "due_at": null,
@@ -19,5 +21,6 @@
   "status": "done",
   "tasklist_id": "tlt_01a0fc850b62740f891c787b629a6ba8",
   "title": "Surface the service-worker bypass instead of hiding it",
-  "updated_at": "2026-10-02T13:51:38.884202000Z"
+  "updated_at": "2026-10-02T13:51:38.884202000Z",
+  "updated_by": "act_00000000000070008000000000000000"
 }

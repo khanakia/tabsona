@@ -1,11 +1,13 @@
 {
+  "_hlc": "2026-10-09T11:59:59.571Z/0000/",
   "_table": "tasks",
-  "_v": 1,
+  "_v": 2,
   "assigned_to_actor_id": null,
   "body": "Found while fixing tsk_01a12074f9e37474b762abe67088e6f6 (no user request yet). Capture -> rule sync is async, so a cookie set on a redirect is not on the request that follows it; on the local fixture every sign-in needs one retry (e2e-signin counts it). Written up in docs/limits.md, not fixed.",
   "commitment": "proposed",
   "completed_at": null,
   "created_at": "2026-10-09T11:59:59.571604000Z",
+  "created_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
   "deferred_until": null,
   "due_at": null,
@@ -19,5 +21,6 @@
   "status": "todo",
   "tasklist_id": "tlt_01a105d8b19f72dea60674b35b25018e",
   "title": "Set-Cookie on a 302 in a persona tab misses the immediate follow-up request",
-  "updated_at": "2026-10-09T11:59:59.571604000Z"
+  "updated_at": "2026-10-09T11:59:59.571604000Z",
+  "updated_by": "act_01a0fc8477a17186a35c805ef090af4f"
 }

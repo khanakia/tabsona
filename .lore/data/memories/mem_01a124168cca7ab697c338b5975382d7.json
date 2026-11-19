@@ -1,10 +1,12 @@
 {
+  "_hlc": "2026-10-10T04:33:40.042Z/0000/",
   "_table": "memories",
-  "_v": 1,
+  "_v": 2,
   "archived_at": null,
   "body": "Redirect-set cookies and DNR: observing a Set-Cookie then installing a session rule takes 1-23 ms (measured), but the 302 follow-up leaves immediately, so a cookie set on a redirect never reaches the next request. 0/10 on the three-hop probe; holding the follow-up in a debugger Fetch pause does not help because Chrome applies DNR header changes before the pause. Probe: spike/probe-redirect-cookie.mjs.",
   "confidence": null,
   "created_at": "2026-10-10T04:33:40.042699000Z",
+  "created_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "created_by_actor_id": "act_01a0fc8477a17186a35c805ef090af4f",
   "id": "mem_01a124168cca7ab697c338b5975382d7",
   "kind": "retrieved",
@@ -17,6 +19,7 @@
   "trust_score": 0.5,
   "tx_at": "2026-10-10T04:33:40.043050000Z",
   "updated_at": "2026-10-10T04:33:40.042699000Z",
+  "updated_by": "act_01a0fc8477a17186a35c805ef090af4f",
   "valid_at": null,
   "valid_until": null,
   "validated_by_actor_id": null
