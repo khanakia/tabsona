@@ -317,7 +317,7 @@ tasks:
     cmds: [gitleaks git --redact --no-banner .]
 
   names:scan:
-    desc: 'Fail when a tracked file holds a private name (hashed deny list in .github/denyhash.txt; part of task check)'
+    desc: 'Fail when a tracked file or commit message holds a private name from the local word list (~/.config/names-guard/terms.txt; part of task check)'
     cmds: [scripts/check-names.sh]
 
   secrets:scan:staged:

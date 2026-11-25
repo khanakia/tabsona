@@ -68,7 +68,8 @@ if ! gitleaks git --staged --redact --no-banner .; then
 fi
 
 # ─── Private names (clients, teammates, servers) ─────────────────────────────
-# The deny list is hashed in .github/denyhash.txt, so the names never appear here.
+# The word list lives outside the repo (~/.config/names-guard/terms.txt or
+# $NAMES_GUARD_FILE); without it the check warns and passes.
 if ! scripts/check-names.sh --staged; then
 	echo "✘ pre-commit: a staged file holds a private name; use a generic one." >&2
 	exit 1

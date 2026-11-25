@@ -18,7 +18,7 @@ task hooks:install  # pre-commit guard: gitleaks secret scan, private-name check
 task build          # -> apps/extension/dist
 ```
 
-`task hooks:install` is not optional. The repository is public, and a pushed secret has to be treated as compromised even after a revert, because history and forks keep it. The hook fails closed if gitleaks is missing. `task secrets:scan` audits the full history and runs as part of `task check`. `task names:scan` (also in `task check` and the hook) fails when a tracked file holds a private name from the hashed list in `.github/denyhash.txt`; examples use generic names such as acme, example.com and alice.
+`task hooks:install` is not optional. The repository is public, and a pushed secret has to be treated as compromised even after a revert, because history and forks keep it. The hook fails closed if gitleaks is missing. `task secrets:scan` audits the full history and runs as part of `task check`. `scripts/check-names.sh` (run by the pre-commit and commit-msg hooks and by `task names:scan` in `task check`) fails when a change, tracked file or commit message holds a private name from your local word list (`~/.config/names-guard/terms.txt` or `$NAMES_GUARD_FILE`, never stored in the repo; without it the check warns and passes). Generic words the repo really uses go in `.github/names-allow.txt`. Examples use generic names such as acme, example.com and alice.
 
 Load `apps/extension/dist` at `chrome://extensions` with Developer mode on.
 

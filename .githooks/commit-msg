@@ -3,3 +3,6 @@
 ( m="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"; command -v lore >/dev/null 2>&1 && lore task hook commit-msg "$m" >/dev/null 2>&1 ) || true
 ( m="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"; if command -v lore >/dev/null 2>&1 && lore check leaks --help >/dev/null 2>&1; then lore check leaks --staged --commit-msg "$m"; elif [ "$(git config --get lore.clientrepo)" = true ]; then echo "lore: this is a client repo and no lore on PATH can check this commit for internal notes; install lore, or if the repo is no longer a client repo: git config --unset lore.clientrepo" >&2; exit 1; fi ) || exit $?
 # <<< lore-sync <<<
+
+# Private names in the commit message (word list outside the repo; see scripts/check-names.sh).
+scripts/check-names.sh --msg "$1" || exit 1
