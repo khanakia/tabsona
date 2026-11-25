@@ -216,6 +216,7 @@ tasks:
     desc: The real gate — typecheck, all tests, build, and every end-to-end proof on the fixture
     cmds:
       - task: secrets:scan
+      - task: names:scan
       - task: typecheck
       - task: test
       - task: test:scripts
@@ -314,6 +315,10 @@ tasks:
   secrets:scan:
     desc: 'Scan the FULL git history for secrets (part of task check)'
     cmds: [gitleaks git --redact --no-banner .]
+
+  names:scan:
+    desc: 'Fail when a tracked file holds a private name (hashed deny list in .github/denyhash.txt; part of task check)'
+    cmds: [scripts/check-names.sh]
 
   secrets:scan:staged:
     desc: 'Scan only the staged diff (what the pre-commit hook runs)'

@@ -66,3 +66,10 @@ if ! gitleaks git --staged --redact --no-banner .; then
 	echo "  Known false positive? Add its placeholder shape to .gitleaks.toml." >&2
 	exit 1
 fi
+
+# ─── Private names (clients, teammates, servers) ─────────────────────────────
+# The deny list is hashed in .github/denyhash.txt, so the names never appear here.
+if ! scripts/check-names.sh --staged; then
+	echo "✘ pre-commit: a staged file holds a private name; use a generic one." >&2
+	exit 1
+fi

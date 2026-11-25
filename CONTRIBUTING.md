@@ -14,11 +14,11 @@ Read [`docs/how-it-works.md`](docs/how-it-works.md) before changing anything in 
 
 ```bash
 task install
-task hooks:install  # pre-commit guard: gitleaks secret scan + binary/.env refusal
+task hooks:install  # pre-commit guard: gitleaks secret scan, private-name check, binary/.env refusal
 task build          # -> apps/extension/dist
 ```
 
-`task hooks:install` is not optional. The repository is public, and a pushed secret has to be treated as compromised even after a revert, because history and forks keep it. The hook fails closed if gitleaks is missing. `task secrets:scan` audits the full history and runs as part of `task check`.
+`task hooks:install` is not optional. The repository is public, and a pushed secret has to be treated as compromised even after a revert, because history and forks keep it. The hook fails closed if gitleaks is missing. `task secrets:scan` audits the full history and runs as part of `task check`. `task names:scan` (also in `task check` and the hook) fails when a tracked file holds a private name from the hashed list in `.github/denyhash.txt`; examples use generic names such as acme, example.com and alice.
 
 Load `apps/extension/dist` at `chrome://extensions` with Developer mode on.
 
